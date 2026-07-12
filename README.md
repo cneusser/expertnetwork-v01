@@ -53,6 +53,16 @@ Deckt ab: Registrierung inkl. Consent-Pflicht, Verifizierung, Login/Session-Cook
 - **Tenant-Prinzip:** Jede Tabelle trägt `tenant_id` (Default-Tenant `phalanx`); Zugriff über `forTenant()` in `db/knex.js`.
 - **Provider-Interfaces:** Mail (`providers/mail`, Resend/Stub; Microsoft Graph als dokumentierte Alternative), OAuth (`providers/auth`, vorbereitet für Microsoft/LinkedIn), später Storage und LLM.
 
+## Sicherheit (v1.0.0)
+
+- **Brute-Force-Schutz:** Rate-Limit auf Login/Registrierung/Passwort-Reset (Default 30 Versuche / 15 min je IP, Env `AUTH_RATE_LIMIT`).
+- **Session-Invalidierung:** Passwortänderung/-reset und Einwilligungs-Widerruf machen alle bestehenden Sessions des Kontos sofort ungültig (`token_version`).
+- **CSRF:** SameSite=lax-Cookies plus Origin-Prüfung aller mutierenden Requests.
+- **Header:** Helmet (nosniff, Frame-Schutz u. a.).
+- **Uploads:** PDF-Magic-Bytes-Prüfung zusätzlich zum Mimetype, 10-MB-Limit.
+- **Fehler:** zentraler Handler — keine Stacktraces an Clients.
+- Offen (organisatorisch): juristische Prüfung von Einwilligungstext/AVV, Backup-Strategie für Postgres + Volume, Content-Security-Policy-Feintuning.
+
 ## Roadmap
 
 Sprint 1 Expert Directory → 2 Verfügbarkeit + Erinnerungs-Loop → 3 Tagessätze → 4 Audit-Trail-UI → 5 Suche → 6 Projekte/Matching → 7 Kommunikation → 8 Vendor-Portal/Multi-Tenant → 9 KI (CV-Extraktion, Matching-Begründung). Details: `Rechercheberichte/Expertnetwork-Fable5-Bauprompt-2026-07-11.md`.

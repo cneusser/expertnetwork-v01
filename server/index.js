@@ -1,6 +1,8 @@
 require('dotenv').config();
 const path = require('path');
 const express = require('express');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 const cookieParser = require('cookie-parser');
 const cors = require('cors');
 const { registerJob } = require('./scheduler');
@@ -27,6 +29,35 @@ process.on('uncaughtException', (e) => console.error('UNCAUGHT EXCEPTION:', e?.m
 
 const app = express();
 app.set('trust proxy', 1); // Railway-Proxy → korrekte req.ip
+
+// Sicherheits-Header (CSP folgt separat, SPA-kompatibel konfiguriert)
+app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false }));
+
+// CSRF-Schutz (Defense in Depth zu SameSite=lax-Cookies): Bei mutierenden
+// Requests MIT Origin-Header muss der Origin zum eigenen Host passen.
+app.use((req, res, next) => {
+  if (!['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method)) return next();
+  const origin = req.headers.origin;
+  if (!origin) return next(); // Nicht-Browser-Clients/ältere Browser
+  try {
+    const host = new URL(origin).host;
+    const ownHosts = [req.headers.host, process.env.APP_URL ? new URL(process.env.APP_URL).host : null,
+      process.env.RAILWAY_PUBLIC_DOMAIN || null, 'localhost:5173'].filter(Boolean);
+    if (!ownHosts.includes(host)) return res.status(403).json({ error: 'Ungültiger Origin' });
+  } catch { return res.status(403).json({ error: 'Ungültiger Origin' }); }
+  next();
+});
+
+// Brute-Force-Schutz auf Auth-Routen (Limit per Env AUTH_RATE_LIMIT anpassbar)
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: Number(process.env.AUTH_RATE_LIMIT) || 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Zu viele Versuche — bitte in 15 Minuten erneut versuchen.' },
+});
+app.use(['/api/auth/login', '/api/auth/register', '/api/auth/forgot-password',
+  '/api/auth/reset-password', '/api/auth/accept-invite'], authLimiter);
 
 app.use(express.json({ limit: '1mb' }));
 app.use(cookieParser());
@@ -56,6 +87,13 @@ app.use(express.static(clientDist));
 app.get('*', (req, res, next) => {
   if (req.path.startsWith('/api/')) return next();
   res.sendFile(path.join(clientDist, 'index.html'), (err) => err && next());
+});
+
+// Zentraler Fehler-Handler: nie Stacktraces an Clients, Multer/Upload-Fehler als 400.
+app.use((err, _req, res, _next) => {
+  const clientError = err?.message === 'Nur PDF erlaubt' || err?.name === 'MulterError';
+  if (!clientError) console.error('UNBEHANDELTER FEHLER:', err);
+  res.status(clientError ? 400 : 500).json({ error: clientError ? err.message : 'Interner Fehler' });
 });
 
 const PORT = process.env.PORT || 3001;

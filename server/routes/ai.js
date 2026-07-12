@@ -15,6 +15,7 @@ const { getLlmProvider, EXTRACT_PROMPT, EXPLAIN_PROMPT } = require('../providers
 const { computeMatch } = require('../utils/matching');
 const { freshness } = require('../utils/freshness');
 const storage = require('../providers/storage');
+const { isPdfBuffer } = require('../utils/isPdf');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -61,6 +62,7 @@ router.post('/extract', upload.single('file'), async (req, res) => {
 
   let cvText = String(req.body.cv_text || '');
   if (req.file) {
+    if (!isPdfBuffer(req.file.buffer)) return res.status(400).json({ error: 'Datei ist kein gültiges PDF' });
     const pdfParse = require('pdf-parse');
     try {
       cvText = (await pdfParse(req.file.buffer)).text;

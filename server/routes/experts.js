@@ -4,6 +4,7 @@ const { z } = require('zod');
 const { db } = require('../db/knex');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const storage = require('../providers/storage');
+const { isPdfBuffer } = require('../utils/isPdf');
 const { signPurposeToken } = require('../utils/tokens');
 const { getMailProvider } = require('../providers/mail');
 const { inviteMail } = require('../providers/mail/templates');
@@ -180,6 +181,7 @@ router.post('/:id(\\d+)/documents', requireRole('admin'), upload.single('file'),
   const expert = await db('experts').where({ id: Number(req.params.id), tenant_id: req.user.tenantId }).first();
   if (!expert) return res.status(404).json({ error: 'Experte nicht gefunden' });
   if (!req.file) return res.status(400).json({ error: 'Datei fehlt' });
+  if (!isPdfBuffer(req.file.buffer)) return res.status(400).json({ error: 'Datei ist kein gültiges PDF' });
   const kategorie = String(req.body.kategorie || 'referenz');
   const last = await db('documents').where({ expert_id: expert.id, kategorie }).max('version as v').first();
   const version = (last?.v || 0) + 1;

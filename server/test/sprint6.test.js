@@ -111,6 +111,7 @@ test('Konto: Passwort ändern (alle Rollen) + eigene Historie', async () => {
   assert.strictEqual(wrong.status, 401);
   const ok = await post('/api/auth/change-password', { current: 'sprint6-test-pw', next: 'neues-passwort-123' }, { cookie: expertCookie });
   assert.strictEqual(ok.status, 200);
+  expertCookie = ok.headers.get('set-cookie'); // v1.0.0: alte Session invalidiert, frisches Cookie nutzen
   const relogin = await post('/api/auth/login', { email: adrian.email, password: 'neues-passwort-123' });
   assert.strictEqual(relogin.status, 200);
   const hist = await fetch(`${baseUrl}/api/auth/my-audit`, { headers: { cookie: expertCookie } }).then((r) => r.json());

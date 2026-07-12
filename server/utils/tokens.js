@@ -5,7 +5,7 @@ const SECRET = process.env.JWT_SECRET || 'dev-secret-change-me';
 /** Session-Token (Login) — httpOnly-Cookie, 7 Tage. extra: z. B. { impersonatedBy } für Birdview. */
 function signSession(user, extra = {}) {
   return jwt.sign(
-    { sub: user.id, role: user.role, tenantId: user.tenant_id, ...extra },
+    { sub: user.id, role: user.role, tenantId: user.tenant_id, tv: user.token_version || 0, ...extra },
     SECRET,
     { expiresIn: '7d' }
   );

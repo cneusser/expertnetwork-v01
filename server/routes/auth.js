@@ -185,7 +185,13 @@ router.post('/change-password', requireAuth, async (req, res) => {
   if (!user || !(await bcrypt.compare(String(current || ''), user.password_hash))) {
     return res.status(401).json({ error: 'Aktuelles Passwort ist falsch' });
   }
-  await db('users').where({ id: user.id }).update({ password_hash: await bcrypt.hash(String(next), 10) });
+  const newTv = (user.token_version || 0) + 1;
+  await db('users').where({ id: user.id }).update({
+    password_hash: await bcrypt.hash(String(next), 10),
+    token_version: newTv, // alle anderen Sessions invalidieren …
+  });
+  // … die eigene Sitzung bleibt aktiv (frisches Cookie mit neuer Version)
+  res.cookie('session', signSession({ ...user, token_version: newTv }), cookieOpts);
   await db('audit_log').insert({
     tenant_id: user.tenant_id,
     actor_id: user.id,
@@ -268,7 +274,10 @@ router.post('/reset-password', async (req, res) => {
     const payload = verifyToken(token, 'reset-password');
     const user = await db('users').where({ id: payload.sub }).first();
     if (!user) return res.status(404).json({ error: 'Benutzer nicht gefunden' });
-    await db('users').where({ id: user.id }).update({ password_hash: await bcrypt.hash(password, 10) });
+    await db('users').where({ id: user.id }).update({
+      password_hash: await bcrypt.hash(password, 10),
+      token_version: (user.token_version || 0) + 1, // alle Sessions invalidieren
+    });
     await db('audit_log').insert({
       tenant_id: user.tenant_id,
       actor_id: user.id,
@@ -329,6 +338,7 @@ router.post('/accept-invite', async (req, res) => {
 router.post('/revoke-consent', requireAuth, async (req, res) => {
   await db('consents').where({ user_id: req.user.id }).whereNull('revoked_at').update({ revoked_at: db.fn.now() });
   await db('experts').where({ user_id: req.user.id }).update({ status: 'inaktiv' });
+  await db('users').where({ id: req.user.id }).increment('token_version', 1); // Sessions beenden
   await db('audit_log').insert({
     tenant_id: req.user.tenantId,
     actor_id: req.user.id,
