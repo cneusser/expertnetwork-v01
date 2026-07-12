@@ -103,7 +103,12 @@ router.post('/:id(\\d+)/invite', requireRole('admin'), async (req, res) => {
   if (!expert) return res.status(404).json({ error: 'Experte nicht gefunden' });
   if (!expert.user_id || !expert.email) return res.status(400).json({ error: 'Kein Benutzerkonto/E-Mail hinterlegt' });
   const token = signPurposeToken(expert.user_id, 'expert-invite', '14d');
-  await getMailProvider().send({ to: expert.email, ...inviteMail(token, expert.vorname) });
+  try {
+    await getMailProvider().send({ to: expert.email, ...inviteMail(token, expert.vorname) });
+  } catch (e) {
+    console.error('Mail-Versand fehlgeschlagen (Einladung):', e.message);
+    return res.status(502).json({ error: `E-Mail-Versand fehlgeschlagen: ${e.message}` });
+  }
   await req.audit({ action: 'expert.invite_sent', resource: 'experts', resourceId: expert.id });
   res.json({ ok: true, message: `Einladung an ${expert.email} versendet.` });
 });

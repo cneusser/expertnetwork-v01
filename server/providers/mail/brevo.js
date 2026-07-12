@@ -10,6 +10,11 @@ function parseFrom() {
 }
 
 async function send({ to, subject, html, text }) {
+  if (!process.env.MAIL_FROM) {
+    throw new Error(
+      'MAIL_FROM ist nicht gesetzt. Format: "Phalanx Expert Network <adresse@verifizierte-domain>" — die Adresse muss in Brevo als Absender verifiziert sein.'
+    );
+  }
   const res = await fetch('https://api.brevo.com/v3/smtp/email', {
     method: 'POST',
     headers: {

@@ -73,7 +73,15 @@ router.post('/register', async (req, res) => {
   });
 
   const token = signPurposeToken(user.id, 'verify-email', '7d');
-  await getMailProvider().send({ to: user.email, ...verificationMail(token) });
+  try {
+    await getMailProvider().send({ to: user.email, ...verificationMail(token) });
+  } catch (e) {
+    console.error('Mail-Versand fehlgeschlagen (Verifizierung):', e.message);
+    return res.status(201).json({
+      ok: true,
+      message: 'Registrierung erfolgreich, aber die Bestätigungs-E-Mail konnte nicht versendet werden. Bitte kontaktieren Sie die Phalanx GmbH.',
+    });
+  }
 
   res.status(201).json({ ok: true, message: 'Registrierung erfolgreich. Bitte E-Mail bestätigen.' });
 });
@@ -143,8 +151,12 @@ router.post('/forgot-password', async (req, res) => {
   const email = String(req.body?.email || '').toLowerCase();
   const user = email ? await db('users').where({ email }).first() : null;
   if (user) {
-    const token = signPurposeToken(user.id, 'reset-password', '1h');
-    await getMailProvider().send({ to: user.email, ...passwordResetMail(token) });
+    try {
+      const token = signPurposeToken(user.id, 'reset-password', '1h');
+      await getMailProvider().send({ to: user.email, ...passwordResetMail(token) });
+    } catch (e) {
+      console.error('Mail-Versand fehlgeschlagen (Passwort-Reset):', e.message);
+    }
   }
   res.json({ ok: true, message: 'Falls die Adresse existiert, wurde eine E-Mail versendet.' });
 });

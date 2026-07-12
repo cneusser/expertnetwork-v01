@@ -14,6 +14,10 @@ const availabilityRoutes = require('./routes/availability');
 const { runAvailabilityReminders, runConsentJobs } = require('./jobs');
 const { startScheduler } = require('./scheduler');
 
+// Ein fehlgeschlagener Mail-Versand o. ä. darf den Server nie mitreißen.
+process.on('unhandledRejection', (e) => console.error('UNHANDLED REJECTION:', e?.message || e));
+process.on('uncaughtException', (e) => console.error('UNCAUGHT EXCEPTION:', e?.message || e));
+
 const app = express();
 app.set('trust proxy', 1); // Railway-Proxy → korrekte req.ip
 
