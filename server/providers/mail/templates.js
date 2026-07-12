@@ -1,5 +1,10 @@
-/** Deutsche Mail-Templates für Sprint 0. */
-const APP_URL = () => process.env.APP_URL || 'http://localhost:5173';
+/** Deutsche Mail-Templates. */
+// Basis-URL für Links in Mails: APP_URL, sonst Railway-Domain (automatisch
+// injiziert), sonst lokale Dev-URL. Ohne korrekte URL zeigen Verifizierungs-,
+// Reset- und Bestätigungslinks ins Leere.
+const APP_URL = () =>
+  process.env.APP_URL ||
+  (process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : 'http://localhost:5173');
 
 const layout = (inner) => `
   <div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto;color:#1a2332;">

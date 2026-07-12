@@ -121,6 +121,11 @@ a:hover { text-decoration: underline; }
   justify-content: space-between;
 }
 .topbar .user { display: flex; align-items: center; gap: 16px; font-size: 13.5px; color: rgba(255,255,255,0.85); }
+.topbar-left { display: flex; align-items: center; gap: 28px; }
+.topnav { display: flex; gap: 4px; }
+.topnav a { color: rgba(255,255,255,0.75); font-size: 13.5px; padding: 7px 12px; border-radius: 6px; text-decoration: none; }
+.topnav a:hover { background: rgba(255,255,255,0.08); text-decoration: none; }
+.topnav a.active { background: rgba(255,255,255,0.14); color: var(--white); font-weight: 600; }
 .topbar button {
   background: transparent;
   border: 1px solid rgba(255,255,255,0.35);
