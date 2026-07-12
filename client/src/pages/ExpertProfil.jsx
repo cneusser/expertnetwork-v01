@@ -4,6 +4,7 @@ import { Pencil } from 'lucide-react';
 import Layout from '../components/Layout';
 import ProfileForm from '../components/ProfileForm';
 import RateForm from '../components/RateForm';
+import KiCvAssistent from '../components/KiCvAssistent';
 import { api } from '../api/client';
 
 const fmtDate = (d) => (d ? new Date(d).toLocaleDateString('de-DE') : '—');
@@ -68,6 +69,8 @@ export default function ExpertProfil() {
           </div>
         </>
       )}
+
+      <KiCvAssistent onApplied={load} />
 
       <h2 style={{ fontSize: 18, color: 'var(--navy)', margin: '28px 0 12px' }}>Meine Tagessätze</h2>
       <table className="table">

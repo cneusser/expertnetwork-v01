@@ -13,6 +13,7 @@ export default function AdminProjectDetail() {
   const { id } = useParams();
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
+  const [ki, setKi] = useState({}); // expertId -> Text
 
   const load = () => api.get(`/api/projects/${id}`).then(setData).catch((e) => setError(e.message));
   useEffect(() => { load(); }, [id]);
@@ -93,7 +94,20 @@ export default function AdminProjectDetail() {
                 <td style={{ fontSize: 12.5 }}>
                   Skills {m.breakdown.skills} · Verfügbarkeit {m.breakdown.verfuegbarkeit} · Satz {m.breakdown.satz} · Frische {m.breakdown.frische}
                 </td>
-                <td style={{ fontSize: 12.5, maxWidth: 320 }}>{m.begruendung}</td>
+                <td style={{ fontSize: 12.5, maxWidth: 320 }}>
+                  {m.begruendung}
+                  {ki[m.expert.id] ? (
+                    <div style={{ marginTop: 6, padding: 8, background: '#eaf0f6', borderRadius: 6 }}>🤖 {ki[m.expert.id]}</div>
+                  ) : (
+                    <div><button type="button" className="tab" style={{ padding: '4px 0', color: 'var(--accent)' }}
+                      onClick={async () => {
+                        try {
+                          const d = await api.post(`/api/ai/explain/${id}/${m.expert.id}`);
+                          setKi((k) => ({ ...k, [m.expert.id]: d.text }));
+                        } catch (e) { setError(e.message); }
+                      }}>KI-Begründung</button></div>
+                  )}
+                </td>
                 <td><button className="btn" style={{ width: 'auto', padding: '7px 14px', fontSize: 13 }}
                   onClick={async () => { await api.post(`/api/projects/${id}/applications`, { expert_id: m.expert.id }); load(); }}>
                   In Pipeline aufnehmen</button></td>

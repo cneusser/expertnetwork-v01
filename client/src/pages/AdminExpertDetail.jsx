@@ -5,6 +5,7 @@ import Layout from '../components/Layout';
 import ProfileForm from '../components/ProfileForm';
 import RateForm from '../components/RateForm';
 import AuditTable from '../components/AuditTable';
+import KiCvAssistent from '../components/KiCvAssistent';
 import { api } from '../api/client';
 
 const KAT_LABEL = {
@@ -228,6 +229,7 @@ export default function AdminExpertDetail() {
             </p>
             <p className="muted">Jeder Upload erzeugt eine neue Version — nichts wird überschrieben (Audit-Prinzip).</p>
           </div>
+          <KiCvAssistent expertId={id} onApplied={load} />
         </>
       )}
 
