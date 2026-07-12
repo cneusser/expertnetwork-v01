@@ -1,6 +1,7 @@
 import { Link, NavLink } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import Logo from './Logo';
+import { APP_VERSION } from '../version';
 
 export default function Layout({ children }) {
   const { user, logout } = useAuth();
@@ -23,6 +24,9 @@ export default function Layout({ children }) {
         </div>
       </header>
       <main className="main">{children}</main>
+      <footer style={{ padding: '14px 28px', fontSize: 12, color: 'var(--grey-400)', textAlign: 'right' }}>
+        Phalanx Expert Network · {APP_VERSION}
+      </footer>
     </div>
   );
 }
