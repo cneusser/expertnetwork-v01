@@ -17,6 +17,7 @@ import AdminProjects from './pages/AdminProjects';
 import AdminProjectDetail from './pages/AdminProjectDetail';
 import ExpertProjekte from './pages/ExpertProjekte';
 import Konto from './pages/Konto';
+import AdminKommunikation from './pages/AdminKommunikation';
 import ExpertDashboard from './pages/ExpertDashboard';
 import ExpertProfil from './pages/ExpertProfil';
 
@@ -47,6 +48,7 @@ export default function App() {
           <Route path="/admin/suche" element={<ProtectedRoute roles={['admin']}><AdminSearch /></ProtectedRoute>} />
           <Route path="/admin/projekte" element={<ProtectedRoute roles={['admin']}><AdminProjects /></ProtectedRoute>} />
           <Route path="/admin/projekte/:id" element={<ProtectedRoute roles={['admin']}><AdminProjectDetail /></ProtectedRoute>} />
+          <Route path="/admin/kommunikation" element={<ProtectedRoute roles={['admin']}><AdminKommunikation /></ProtectedRoute>} />
           <Route path="/projekte" element={<ProtectedRoute roles={['expert']}><ExpertProjekte /></ProtectedRoute>} />
           <Route path="/konto" element={<ProtectedRoute><Konto /></ProtectedRoute>} />
           <Route path="/dashboard" element={<ProtectedRoute roles={['expert']}><ExpertDashboard /></ProtectedRoute>} />

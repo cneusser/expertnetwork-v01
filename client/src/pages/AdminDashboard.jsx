@@ -15,7 +15,7 @@ export default function AdminDashboard() {
     { icon: Euro, title: 'Tagessätze', desc: 'Erfassen im Profil (Tab „Tagessätze") — Historie bleibt lückenlos.', link: '/admin/experten' },
     { icon: Search, title: 'Suche', desc: 'Volltext, Facetten und Boolean-Syntax wie bei LinkedIn.', link: '/admin/suche' },
     { icon: FolderKanban, title: 'Projekte', desc: 'Interne Projekte mit erklärbarem Matching-Score und Pipeline.', link: '/admin/projekte' },
-    { icon: Mail, title: 'Kommunikation', desc: 'Einzel- und Serienmails mit Historie am Profil.', sprint: 'Sprint 7' },
+    { icon: Mail, title: 'Kommunikation', desc: 'Einzel-/Serienmails, Terminanfragen und Historie am Profil.', link: '/admin/kommunikation' },
   ];
 
   return (

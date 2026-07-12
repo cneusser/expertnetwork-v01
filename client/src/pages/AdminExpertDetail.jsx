@@ -27,6 +27,7 @@ export default function AdminExpertDetail() {
   const [editing, setEditing] = useState(false);
   const [newSkill, setNewSkill] = useState({ name: '', kategorie: 'kompetenz' });
   const [auditRows, setAuditRows] = useState(null);
+  const [comms, setComms] = useState(null);
 
   const load = () => api.get(`/api/experts/${id}`).then(setData).catch((e) => setError(e.message));
   useEffect(() => { load(); }, [id]);
@@ -98,10 +99,13 @@ export default function AdminExpertDetail() {
       )}
 
       <div className="tabs">
-        {[['profil', 'Profil'], ['tresor', `Dokumenten-Tresor (${documents.length})`], ['verfuegbarkeit', 'Verfügbarkeit'], ['saetze', 'Tagessätze'], ['verlauf', 'Änderungsverlauf']].map(([k, label]) => (
+        {[['profil', 'Profil'], ['tresor', `Dokumenten-Tresor (${documents.length})`], ['verfuegbarkeit', 'Verfügbarkeit'], ['saetze', 'Tagessätze'], ['kommunikation', 'Kommunikation'], ['verlauf', 'Änderungsverlauf']].map(([k, label]) => (
           <button key={k} className={tab === k ? 'tab active' : 'tab'}
             onClick={() => {
               setTab(k);
+              if (k === 'kommunikation' && !comms) {
+                api.get(`/api/communications?expert_id=${id}`).then((d) => setComms(d.rows)).catch(() => setComms([]));
+              }
               if (k === 'verlauf' && !auditRows) {
                 api.get(`/api/experts/${id}/audit`).then((d) => setAuditRows(d.rows)).catch((e) => setError(e.message));
               }
@@ -261,6 +265,33 @@ export default function AdminExpertDetail() {
           </tbody>
         </table>
         <RateForm onSave={async (payload) => { await api.post(`/api/experts/${id}/rates`, payload); await load(); }} />
+        </>
+      )}
+
+      {tab === 'kommunikation' && (
+        <>
+          <p style={{ marginBottom: 12 }}>
+            <Link to={`/admin/kommunikation?ids=${id}`} className="btn" style={{ width: 'auto', display: 'inline-flex', padding: '8px 16px', textDecoration: 'none' }}>
+              Nachricht senden
+            </Link>
+          </p>
+          {comms ? (
+            comms.length ? (
+              <table className="table">
+                <thead><tr><th>Zeitpunkt</th><th>Typ</th><th>Betreff</th><th>Status</th></tr></thead>
+                <tbody>
+                  {comms.map((c) => (
+                    <tr key={c.id}>
+                      <td style={{ whiteSpace: 'nowrap' }}>{new Date(c.sent_at).toLocaleString('de-DE')}</td>
+                      <td>{c.typ}</td>
+                      <td>{c.betreff}<div className="muted" style={{ whiteSpace: 'pre-line', maxWidth: 480 }}>{(c.body || '').slice(0, 200)}…</div></td>
+                      <td><span className={`status status-${c.status === 'gesendet' ? 'freigegeben' : 'inaktiv'}`}>{c.status}</span></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : <p className="sub">Noch keine Kommunikation.</p>
+          ) : <p className="sub">Laden…</p>}
         </>
       )}
 
