@@ -3,12 +3,15 @@ const path = require('path');
 const express = require('express');
 const cookieParser = require('cookie-parser');
 const cors = require('cors');
+const { registerJob } = require('./scheduler');
 const { db } = require('./db/knex');
 const { seed } = require('./db/seed');
 const { importAll } = require('./db/import-experts');
 const { auditContext, autoAudit } = require('./middleware/audit');
 const authRoutes = require('./routes/auth');
 const expertRoutes = require('./routes/experts');
+const availabilityRoutes = require('./routes/availability');
+const { runAvailabilityReminders, runConsentJobs } = require('./jobs');
 const { startScheduler } = require('./scheduler');
 
 const app = express();
@@ -27,6 +30,7 @@ app.use('/api', autoAudit);
 app.get('/api/health', (_req, res) => res.json({ ok: true, app: 'expertnetwork', sprint: 0 }));
 app.use('/api/auth', authRoutes);
 app.use('/api/experts', expertRoutes);
+app.use('/api/availability', availabilityRoutes);
 
 // Produktion: gebauten Client ausliefern (ein Railway-Service für beides).
 const clientDist = path.join(__dirname, '..', 'client', 'dist');
@@ -67,6 +71,8 @@ async function start() {
   await db.migrate.latest();
   await seed();
   await importAll(); // kuratierte Expertenprofile (idempotent)
+  registerJob('availability-reminders', runAvailabilityReminders);
+  registerJob('consent-jobs', runConsentJobs);
   startScheduler();
   app.listen(PORT, () => console.log(`Phalanx Expert Network Server auf Port ${PORT}`));
 }

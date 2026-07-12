@@ -6,6 +6,8 @@ import Register from './pages/Register';
 import VerifyEmail from './pages/VerifyEmail';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
+import Verfuegbarkeit from './pages/Verfuegbarkeit';
+import Einladung from './pages/Einladung';
 import AdminDashboard from './pages/AdminDashboard';
 import AdminExperts from './pages/AdminExperts';
 import AdminExpertDetail from './pages/AdminExpertDetail';
@@ -29,6 +31,8 @@ export default function App() {
           <Route path="/verify" element={<VerifyEmail />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPassword />} />
+          <Route path="/verfuegbarkeit" element={<Verfuegbarkeit />} />
+          <Route path="/einladung" element={<Einladung />} />
           <Route path="/admin" element={<ProtectedRoute roles={['admin']}><AdminDashboard /></ProtectedRoute>} />
           <Route path="/admin/experten" element={<ProtectedRoute roles={['admin']}><AdminExperts /></ProtectedRoute>} />
           <Route path="/admin/experten/:id" element={<ProtectedRoute roles={['admin']}><AdminExpertDetail /></ProtectedRoute>} />

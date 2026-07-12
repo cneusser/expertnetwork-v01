@@ -3,6 +3,10 @@ const multer = require('multer');
 const { db } = require('../db/knex');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const storage = require('../providers/storage');
+const { signPurposeToken } = require('../utils/tokens');
+const { getMailProvider } = require('../providers/mail');
+const { inviteMail } = require('../providers/mail/templates');
+const { freshness } = require('../utils/freshness');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -33,6 +37,18 @@ async function enrich(expertIds) {
   return { avail, rates: rateMap };
 }
 
+/** Frische-Score je Experte (dynamisch, nie gespeichert). */
+async function freshnessFor(expertId, avails) {
+  const latestAvail = (avails || []).slice().sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0];
+  const latestRate = await db('rates').where({ expert_id: expertId }).orderBy('created_at', 'desc').first();
+  const latestCv = await db('documents').where({ expert_id: expertId, kategorie: 'cv' }).orderBy('uploaded_at', 'desc').first();
+  return freshness({
+    availabilityConfirmedAt: latestAvail?.confirmed_at,
+    rateCreatedAt: latestRate?.created_at,
+    cvUploadedAt: latestCv?.uploaded_at,
+  });
+}
+
 /** Liste (Admin). */
 router.get('/', requireRole('admin'), async (req, res) => {
   const experts = await db('experts').where({ tenant_id: req.user.tenantId }).orderBy('nachname');
@@ -45,13 +61,50 @@ router.get('/', requireRole('admin'), async (req, res) => {
     : [];
   const { avail, rates } = await enrich(ids);
   res.json({
-    experts: experts.map((e) => ({
+    experts: await Promise.all(experts.map(async (e) => ({
       ...e,
       skills: skills.filter((s) => s.expert_id === e.id),
       availabilities: avail[e.id] || [],
       rates: Object.values(rates[e.id] || {}),
-    })),
+      freshness: await freshnessFor(e.id, avail[e.id]),
+    }))),
   });
+});
+
+/** Dashboard-Kennzahlen (Admin). */
+router.get('/stats', requireRole('admin'), async (req, res) => {
+  const experts = await db('experts').where({ tenant_id: req.user.tenantId });
+  const today = new Date().toISOString().slice(0, 10);
+  let verfuegbarJetzt = 0;
+  let nichtBestaetigt = 0;
+  let consentFehlt = 0;
+  for (const e of experts) {
+    const avails = await db('availabilities').where({ expert_id: e.id }).orderBy('created_at', 'desc');
+    const f = await freshnessFor(e.id, avails);
+    if (f.nichtBestaetigt) nichtBestaetigt++;
+    const current = avails.find((a) => !a.ab_datum || new Date(a.ab_datum).toISOString().slice(0, 10) <= today) || avails[0];
+    if (current && ['sofort', 'teilweise'].includes(current.status) && !f.nichtBestaetigt) verfuegbarJetzt++;
+    const consent = e.user_id
+      ? await db('consents').where({ user_id: e.user_id, zweck: 'talentpool' }).whereNull('revoked_at').orderBy('expires_at', 'desc').first()
+      : null;
+    if (!consent || new Date(consent.expires_at) < new Date()) consentFehlt++;
+  }
+  res.json({ gesamt: experts.length, verfuegbarJetzt, nichtBestaetigt, consentFehlt });
+});
+
+/**
+ * Einladung + Art.-14-Information versenden (Admin).
+ * Der Experte erhält transparent die Info, dass sein Profil angelegt wurde,
+ * und kann Einwilligung erteilen + Passwort vergeben (Self-Service).
+ */
+router.post('/:id(\\d+)/invite', requireRole('admin'), async (req, res) => {
+  const expert = await db('experts').where({ id: Number(req.params.id), tenant_id: req.user.tenantId }).first();
+  if (!expert) return res.status(404).json({ error: 'Experte nicht gefunden' });
+  if (!expert.user_id || !expert.email) return res.status(400).json({ error: 'Kein Benutzerkonto/E-Mail hinterlegt' });
+  const token = signPurposeToken(expert.user_id, 'expert-invite', '14d');
+  await getMailProvider().send({ to: expert.email, ...inviteMail(token, expert.vorname) });
+  await req.audit({ action: 'expert.invite_sent', resource: 'experts', resourceId: expert.id });
+  res.json({ ok: true, message: `Einladung an ${expert.email} versendet.` });
 });
 
 /** Eigenes Profil (Experte). */

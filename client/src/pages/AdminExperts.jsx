@@ -35,7 +35,7 @@ export default function AdminExperts() {
       {experts && (
         <table className="table">
           <thead>
-            <tr><th>Name</th><th>Rolle</th><th>Verfügbarkeit</th><th>Tagessatz</th><th>Skills</th><th>Status</th></tr>
+            <tr><th>Name</th><th>Rolle</th><th>Verfügbarkeit</th><th>Frische</th><th>Tagessatz</th><th>Skills</th><th>Status</th></tr>
           </thead>
           <tbody>
             {experts.map((e) => (
@@ -43,7 +43,9 @@ export default function AdminExperts() {
                 <td><Link to={`/admin/experten/${e.id}`}><strong>{e.vorname} {e.nachname}</strong></Link><br />
                   <span className="muted">{e.firma}</span></td>
                 <td>{e.berufsbezeichnung?.split('—')[0]}</td>
-                <td>{currentAvailability(e.availabilities)}</td>
+                <td>{currentAvailability(e.availabilities)}
+                  {e.freshness?.nichtBestaetigt && <><br /><span className="status status-eingeladen">nicht bestätigt</span></>}</td>
+                <td><span className={`ampel ampel-${e.freshness?.ampel || 'rot'}`} />{e.freshness?.score ?? 0}</td>
                 <td>{e.rates?.length
                   ? e.rates.map((r) => `${r.satz_von_eur}${r.satz_bis_eur ? '–' + r.satz_bis_eur : ''} €`).join(', ')
                   : '—'}</td>

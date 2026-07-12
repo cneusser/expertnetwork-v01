@@ -20,6 +20,7 @@ export default function AdminExpertDetail() {
   const [tab, setTab] = useState('profil');
   const [uploadKat, setUploadKat] = useState('referenz');
   const [busy, setBusy] = useState(false);
+  const [info, setInfo] = useState('');
 
   const load = () => api.get(`/api/experts/${id}`).then(setData).catch((e) => setError(e.message));
   useEffect(() => { load(); }, [id]);
@@ -55,9 +56,27 @@ export default function AdminExpertDetail() {
       {!consent && (
         <div className="notice">
           <strong>Einwilligung ausstehend:</strong> Dieses Profil wurde administrativ aus zugesandten
-          Unterlagen angelegt. Der Experte muss gemäß Art. 14 DSGVO transparent informiert werden und
-          seine Einwilligung im Self-Service erteilen (Einladungs-Feature folgt in Sprint 2).
+          Unterlagen angelegt. Informieren Sie den Experten transparent (Art. 14 DSGVO) und laden Sie
+          ihn zum Self-Service ein — mit der Einladung erteilt er seine Einwilligung und vergibt ein Passwort.{' '}
+          <button className="btn" style={{ width: 'auto', padding: '8px 16px', marginTop: 10, display: 'block' }}
+            disabled={busy}
+            onClick={async () => {
+              setBusy(true);
+              try {
+                const d = await api.post(`/api/experts/${id}/invite`);
+                setInfo(d.message);
+              } catch (e) { setError(e.message); } finally { setBusy(false); }
+            }}>
+            Einladung &amp; Art.-14-Information senden
+          </button>
         </div>
+      )}
+      {info && <div className="msg msg-success">{info}</div>}
+      {consent && (
+        <p className="muted" style={{ marginBottom: 18 }}>
+          Einwilligung erteilt am {fmtDate(consent.granted_at)} (Version {consent.text_version}),
+          gültig bis {fmtDate(consent.expires_at)}.
+        </p>
       )}
 
       <div className="tabs">

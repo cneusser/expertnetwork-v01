@@ -173,4 +173,74 @@ router.post('/reset-password', async (req, res) => {
   }
 });
 
+/**
+ * Einladung annehmen (öffentlich, Token aus der Invite-Mail):
+ * Einwilligung erteilen + Passwort vergeben → Konto aktiv, E-Mail verifiziert.
+ */
+router.post('/accept-invite', async (req, res) => {
+  const { token, password, consent } = req.body || {};
+  if (consent !== true) return res.status(400).json({ error: 'Einwilligung erforderlich' });
+  if (!password || String(password).length < 10) {
+    return res.status(400).json({ error: 'Passwort: mindestens 10 Zeichen' });
+  }
+  try {
+    const payload = verifyToken(token, 'expert-invite');
+    const user = await db('users').where({ id: payload.sub }).first();
+    if (!user) return res.status(404).json({ error: 'Benutzer nicht gefunden' });
+    await db('users').where({ id: user.id }).update({
+      password_hash: await bcrypt.hash(password, 10),
+      email_verified_at: db.fn.now(),
+      is_approved: true,
+    });
+    await db('consents').insert({
+      tenant_id: user.tenant_id,
+      user_id: user.id,
+      zweck: CONSENT_ZWECK,
+      text_version: CONSENT_VERSION,
+      expires_at: consentExpiry(),
+    });
+    await db('experts').where({ user_id: user.id, status: 'registriert' }).update({ status: 'freigegeben' });
+    await db('audit_log').insert({
+      tenant_id: user.tenant_id,
+      actor_id: user.id,
+      action: 'user.accept_invite',
+      resource: 'users',
+      resource_id: user.id,
+      new_value_json: JSON.stringify({ consent: CONSENT_VERSION }),
+      ip: req.ip,
+    });
+    res.json({ ok: true, message: 'Zugang aktiviert. Sie können sich jetzt anmelden.' });
+  } catch {
+    res.status(400).json({ error: 'Link ungültig oder abgelaufen' });
+  }
+});
+
+/** Einwilligung erneuern (öffentlich, Token aus der Reconsent-Mail). */
+router.post('/renew-consent', async (req, res) => {
+  try {
+    const payload = verifyToken(req.body.token, 'renew-consent');
+    const user = await db('users').where({ id: payload.sub }).first();
+    if (!user) return res.status(404).json({ error: 'Benutzer nicht gefunden' });
+    await db('consents').insert({
+      tenant_id: user.tenant_id,
+      user_id: user.id,
+      zweck: CONSENT_ZWECK,
+      text_version: CONSENT_VERSION,
+      expires_at: consentExpiry(),
+    });
+    await db('experts').where({ user_id: user.id, status: 'inaktiv' }).update({ status: 'freigegeben' });
+    await db('audit_log').insert({
+      tenant_id: user.tenant_id,
+      actor_id: user.id,
+      action: 'consent.renewed',
+      resource: 'consents',
+      new_value_json: JSON.stringify({ version: CONSENT_VERSION }),
+      ip: req.ip,
+    });
+    res.json({ ok: true, message: 'Einwilligung erneuert — vielen Dank.' });
+  } catch {
+    res.status(400).json({ error: 'Link ungültig oder abgelaufen' });
+  }
+});
+
 module.exports = router;
