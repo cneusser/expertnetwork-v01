@@ -57,6 +57,14 @@ test('Falscher Token-Zweck wird abgelehnt', async () => {
 });
 
 test('Erinnerungs-Job: sendet bei veralteter Bestätigung, drosselt Wiederholung', async () => {
+  // Voraussetzung seit v0.4.2: Erinnerungen nur mit aktiver Einwilligung.
+  await db('consents').insert({
+    tenant_id: adrian.tenant_id,
+    user_id: adrian.user_id,
+    zweck: 'talentpool',
+    text_version: 'test',
+    expires_at: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+  });
   // Bestätigung künstlich altern lassen (23 Tage) — direkt per SQL, da Insert-only.
   await db.raw(`update availabilities set confirmed_at = now() - interval '23 days' where expert_id = ?`, [adrian.id]);
   const r1 = await runAvailabilityReminders();

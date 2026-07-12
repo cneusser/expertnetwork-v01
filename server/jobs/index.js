@@ -21,6 +21,16 @@ async function runAvailabilityReminders() {
     .whereNotNull('email');
   let sent = 0;
   for (const expert of experts) {
+    // DSGVO-Schranke: Erinnerungen nur an Experten mit aktiver Einwilligung.
+    // Administrativ importierte Profile ohne Consent erhalten stattdessen
+    // die Einladung (Art.-14-Information) — manuell per Admin-Button.
+    if (!expert.user_id) continue;
+    const consent = await db('consents')
+      .where({ user_id: expert.user_id, zweck: 'talentpool' })
+      .whereNull('revoked_at')
+      .where('expires_at', '>', db.fn.now())
+      .first();
+    if (!consent) continue;
     const latest = await db('availabilities').where({ expert_id: expert.id }).orderBy('created_at', 'desc').first();
     const confirmedAt = latest?.confirmed_at ? new Date(latest.confirmed_at) : null;
     const due = !confirmedAt || confirmedAt < DAYS(14);

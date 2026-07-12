@@ -269,6 +269,8 @@ router.get('/me/export', async (req, res) => {
 /* ============================== Sprint 3: Pflege ============================== */
 
 const profileSchema = z.object({
+  anrede: z.enum(['herr', 'frau', 'divers']).nullable().optional(),
+  titel: z.string().max(60).nullable().optional(),
   vorname: z.string().min(1).max(100).optional(),
   nachname: z.string().min(1).max(100).optional(),
   firma: z.string().max(150).nullable().optional(),

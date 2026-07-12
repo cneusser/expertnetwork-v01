@@ -56,7 +56,7 @@ export default function AdminExpertDetail() {
   return (
     <Layout>
       <p><Link to="/admin/experten"><ArrowLeft size={14} style={{ verticalAlign: '-2px' }} /> Zurück zur Liste</Link></p>
-      <h1>{expert.vorname} {expert.nachname}</h1>
+      <h1>{{ herr: 'Herr', frau: 'Frau', divers: '' }[expert.anrede] || ''} {expert.titel || ''} {expert.vorname} {expert.nachname}</h1>
       <p className="sub">{expert.berufsbezeichnung} · {expert.firma}</p>
 
       {!consent && (

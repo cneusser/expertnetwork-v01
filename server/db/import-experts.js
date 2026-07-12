@@ -23,6 +23,7 @@ const ADRIAN = {
   email: 'adrian@rethink-interim.ch',
   expert: {
     status: 'freigegeben',
+    anrede: 'herr',
     vorname: 'Adrian',
     nachname: 'Spörri',
     firma: 'Rethink Interim GmbH',
@@ -129,7 +130,7 @@ async function importExpert(def) {
 
   // Verfügbarkeiten + Sätze nur beim Erstimport (Insert-only-Historie nicht duplizieren)
   const hasAvail = await db('availabilities').where({ expert_id: expert.id }).first();
-  if (!hasAvail) {
+  if (!hasAvail && def.availabilities.length) {
     for (const a of def.availabilities) {
       await db('availabilities').insert({ tenant_id: tenant.id, expert_id: expert.id, confirmed_at: db.fn.now(), ...a });
     }
@@ -174,8 +175,65 @@ async function importExpert(def) {
   console.log(`Import ok — ${def.expert.vorname} ${def.expert.nachname} (Experte #${expert.id})`);
 }
 
+/**
+ * Klaus Müller — identifiziert aus dem E-Mail-Archiv ("CV wie vereinbart",
+ * 23.01.2024, klaus.kl.mueller@gmail.com). Profildaten aus dem CV-Text extrahiert.
+ * Original-PDF liegt in der Mail und wird vom Admin über den Tresor-Upload
+ * ergänzt (Anhang war über die Mail-API nur als Text verfügbar).
+ * Status 'registriert' + KEIN Consent → Profil zeigt "Einwilligung ausstehend",
+ * DSGVO-konforme Einladung erfolgt per Admin-Button.
+ */
+const KLAUS = {
+  email: 'klaus.kl.mueller@gmail.com',
+  expert: {
+    status: 'registriert',
+    anrede: 'herr',
+    vorname: 'Klaus',
+    nachname: 'Müller',
+    firma: 'Selbständiger Berater / Senior Manager BearingPoint',
+    berufsbezeichnung: 'Interim Manager & Berater — Transport, Logistik & ÖPNV',
+    kurzprofil:
+      'Transport- und Logistikprofi mit mehr als 20 Jahren Führungserfahrung in General Management, ' +
+      'Produktion, IT und Financial Controlling. Ehemaliger Vorstand Bus der DB Regio AG (Umsatz bis ' +
+      '1,1 Mrd. €, 8.500 Mitarbeitende, 35 Busgesellschaften); zuvor Leiter Regionalnetze DB Netz AG ' +
+      '(13.000 km Infrastruktur) und kaufmännischer Geschäftsführer DB Fuhrparkservice/DB Rent. ' +
+      'Exzellent vernetzt in Bahn und ÖPNV. Referenzerfolge: Overheadkosten −20 %, Kostensenkungs- ' +
+      'programm 175 Mio. €, Einführung agiler Managementmethoden, Lean Target Operating Model. ' +
+      'Seit 2021 selbständiger Berater, seit 2022 Senior Manager bei BearingPoint (Aufbau Transport-Sektor). ' +
+      'Lehraufträge Controlling (HS Koblenz) und Personalwirtschaft (HfWU Nürtingen).',
+    adresse_json: JSON.stringify({ strasse: 'Herrenhahnweg 10a', plz: '56410', ort: 'Montabaur', land: 'Deutschland' }),
+    mobil: '+49 171 555 67 41',
+    email: 'klaus.kl.mueller@gmail.com',
+    linkedin: 'https://www.linkedin.com/in/klaus-m%C3%BCller-9253a58b/',
+    webseite: 'https://www.xing.com/profile/Klaus_Mueller146/cv',
+    ort: 'Montabaur',
+    land: 'Deutschland',
+    reisebereitschaft: 'Deutschland',
+    arbeitsmodell: 'hybrid',
+    sprachen_json: JSON.stringify([
+      { sprache: 'Deutsch', niveau: 'Muttersprache' },
+      { sprache: 'Englisch', niveau: 'verhandlungssicher' },
+    ]),
+  },
+  skills: [
+    ['Interim Manager', 'rolle'], ['Geschäftsführung', 'rolle'], ['Vorstand', 'rolle'],
+    ['Aufsichtsrat/Beirat', 'rolle'], ['Projektleitung', 'rolle'],
+    ['Controlling', 'kompetenz'], ['Turnaround-Management', 'kompetenz'],
+    ['Prozessoptimierung', 'kompetenz'], ['Lean Management', 'kompetenz'],
+    ['Internationales Projektmanagement', 'kompetenz'], ['Personalführung & -entwicklung', 'kompetenz'],
+    ['IT-Management', 'kompetenz'], ['Instandhaltungsmanagement', 'kompetenz'],
+    ['Stakeholder-Management', 'kompetenz'],
+    ['Bahn & Logistik', 'branche'], ['ÖPNV & Mobilität', 'branche'], ['Transport', 'branche'],
+    ['SAP', 'technologie'], ['MS Project', 'technologie'], ['SharePoint', 'technologie'],
+  ],
+  availabilities: [], // unbekannt — wird nach Einladung vom Experten selbst gepflegt
+  rates: [], // unbekannt
+  documents: [], // Original-CV-PDF aus der Mail vom 23.01.2024 per Tresor-Upload ergänzen
+};
+
 async function importAll() {
   await importExpert(ADRIAN);
+  await importExpert(KLAUS);
 }
 
 if (require.main === module) {
