@@ -11,6 +11,7 @@ const { auditContext, autoAudit } = require('./middleware/audit');
 const authRoutes = require('./routes/auth');
 const expertRoutes = require('./routes/experts');
 const availabilityRoutes = require('./routes/availability');
+const auditRoutes = require('./routes/audit');
 const { runAvailabilityReminders, runConsentJobs } = require('./jobs');
 const { startScheduler } = require('./scheduler');
 
@@ -35,6 +36,7 @@ app.get('/api/health', (_req, res) => res.json({ ok: true, app: 'expertnetwork',
 app.use('/api/auth', authRoutes);
 app.use('/api/experts', expertRoutes);
 app.use('/api/availability', availabilityRoutes);
+app.use('/api/audit', auditRoutes);
 
 // Produktion: gebauten Client ausliefern (ein Railway-Service für beides).
 const clientDist = path.join(__dirname, '..', 'client', 'dist');

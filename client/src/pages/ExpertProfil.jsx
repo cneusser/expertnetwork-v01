@@ -84,6 +84,29 @@ export default function ExpertProfil() {
         </tbody>
       </table>
       <RateForm onSave={async (payload) => { await api.post('/api/experts/me/rates', payload); await load(); }} />
+
+      <h2 style={{ fontSize: 18, color: 'var(--navy)', margin: '28px 0 12px' }}>Datenschutz (DSGVO)</h2>
+      <div className="card">
+        <p style={{ marginBottom: 14 }}>
+          Sie können jederzeit eine vollständige Kopie Ihrer gespeicherten Daten herunterladen
+          (Art. 20 DSGVO) oder Ihre Einwilligung widerrufen (Art. 7 Abs. 3 DSGVO). Nach einem
+          Widerruf wird Ihr Profil gesperrt und anschließend gelöscht bzw. anonymisiert.
+        </p>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+          <a href="/api/experts/me/export" className="btn" style={{ width: 'auto', textDecoration: 'none' }}>
+            Meine Daten exportieren (ZIP)
+          </a>
+          <button className="btn" style={{ width: 'auto', background: 'var(--danger)' }}
+            onClick={async () => {
+              if (!window.confirm('Einwilligung wirklich widerrufen? Ihr Profil wird gesperrt und Ihre Daten werden gelöscht bzw. anonymisiert.')) return;
+              const d = await api.post('/api/auth/revoke-consent');
+              window.alert(d.message);
+              window.location.href = '/login';
+            }}>
+            Einwilligung widerrufen
+          </button>
+        </div>
+      </div>
     </Layout>
   );
 }

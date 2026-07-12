@@ -203,6 +203,69 @@ router.post('/:id(\\d+)/documents', requireRole('admin'), upload.single('file'),
   res.status(201).json({ ok: true, document: doc });
 });
 
+/* ============================== Sprint 4: Audit & DSGVO ============================== */
+
+/** Änderungsverlauf eines Experten (Admin) — über alle verknüpften Ressourcen. */
+router.get('/:id(\\d+)/audit', requireRole('admin'), async (req, res) => {
+  const expertId = Number(req.params.id);
+  const expert = await db('experts').where({ id: expertId, tenant_id: req.user.tenantId }).first();
+  if (!expert) return res.status(404).json({ error: 'Experte nicht gefunden' });
+  const rows = await db('audit_log as a')
+    .leftJoin('users as u', 'u.id', 'a.actor_id')
+    .where('a.tenant_id', req.user.tenantId)
+    .whereNot('a.action', 'auth.login')
+    .where(function () {
+      this.where(function () { this.where('a.resource', 'experts').andWhere('a.resource_id', expertId); })
+        .orWhere(function () { this.where('a.resource', 'rates').whereIn('a.resource_id', db('rates').select('id').where('expert_id', expertId)); })
+        .orWhere(function () { this.where('a.resource', 'documents').whereIn('a.resource_id', db('documents').select('id').where('expert_id', expertId)); })
+        .orWhere(function () { this.where('a.resource', 'availabilities').whereIn('a.resource_id', db('availabilities').select('id').where('expert_id', expertId)); });
+      if (expert.user_id) {
+        this.orWhere(function () { this.whereIn('a.resource', ['users', 'consents']).andWhere('a.actor_id', expert.user_id); });
+      }
+    })
+    .select('a.*', 'u.email as actor_email')
+    .orderBy('a.ts', 'desc')
+    .limit(300);
+  res.json({ rows });
+});
+
+/** DSGVO-Datenexport (Art. 20) — ZIP mit Profil-JSON und allen Dokumenten. */
+router.get('/me/export', async (req, res) => {
+  const archiver = require('archiver');
+  const expert = await db('experts').where({ user_id: req.user.id }).first();
+  if (!expert) return res.status(404).json({ error: 'Kein Expertenprofil vorhanden' });
+  const [skills, documents, availabilities, rates, consents] = await Promise.all([
+    db('expert_skills').join('skills', 'skills.id', 'expert_skills.skill_id').where('expert_id', expert.id).select('skills.name', 'skills.kategorie'),
+    db('documents').where({ expert_id: expert.id }),
+    db('availabilities').where({ expert_id: expert.id }),
+    db('rates').where({ expert_id: expert.id }),
+    db('consents').where({ user_id: req.user.id }),
+  ]);
+  await req.audit({ action: 'expert.data_export', resource: 'experts', resourceId: expert.id });
+
+  res.setHeader('Content-Type', 'application/zip');
+  res.setHeader('Content-Disposition', 'attachment; filename="meine-daten-phalanx-expert-network.zip"');
+  const zip = archiver('zip');
+  zip.pipe(res);
+  const { storage_refs, docsMeta } = documents.reduce(
+    (acc, d) => {
+      acc.storage_refs.push(d);
+      const { storage_ref, ...meta } = d;
+      acc.docsMeta.push(meta);
+      return acc;
+    },
+    { storage_refs: [], docsMeta: [] }
+  );
+  zip.append(
+    JSON.stringify({ profil: expert, skills, verfuegbarkeiten: availabilities, tagessaetze: rates, einwilligungen: consents, dokumente: docsMeta }, null, 2),
+    { name: 'meine-daten.json' }
+  );
+  for (const d of storage_refs) {
+    if (storage.exists(d.storage_ref)) zip.append(storage.createReadStream(d.storage_ref), { name: `dokumente/${d.kategorie}-v${d.version}-${d.filename}` });
+  }
+  await zip.finalize();
+});
+
 /* ============================== Sprint 3: Pflege ============================== */
 
 const profileSchema = z.object({

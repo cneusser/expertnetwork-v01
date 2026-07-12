@@ -227,6 +227,23 @@ router.post('/accept-invite', async (req, res) => {
   }
 });
 
+/** Einwilligung widerrufen (angemeldeter Experte) — DSGVO-Self-Service. */
+router.post('/revoke-consent', requireAuth, async (req, res) => {
+  await db('consents').where({ user_id: req.user.id }).whereNull('revoked_at').update({ revoked_at: db.fn.now() });
+  await db('experts').where({ user_id: req.user.id }).update({ status: 'inaktiv' });
+  await db('audit_log').insert({
+    tenant_id: req.user.tenantId,
+    actor_id: req.user.id,
+    action: 'consent.revoked',
+    resource: 'consents',
+    ip: req.ip,
+  });
+  res.json({
+    ok: true,
+    message: 'Einwilligung widerrufen. Ihr Profil ist gesperrt; die Phalanx GmbH wird Ihre Daten löschen bzw. anonymisieren.',
+  });
+});
+
 /** Einwilligung erneuern (öffentlich, Token aus der Reconsent-Mail). */
 router.post('/renew-consent', async (req, res) => {
   try {

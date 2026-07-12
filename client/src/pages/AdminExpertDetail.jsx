@@ -4,6 +4,7 @@ import { ArrowLeft, Download, Lock, Pencil, Upload, X } from 'lucide-react';
 import Layout from '../components/Layout';
 import ProfileForm from '../components/ProfileForm';
 import RateForm from '../components/RateForm';
+import AuditTable from '../components/AuditTable';
 import { api } from '../api/client';
 
 const KAT_LABEL = {
@@ -25,6 +26,7 @@ export default function AdminExpertDetail() {
   const [info, setInfo] = useState('');
   const [editing, setEditing] = useState(false);
   const [newSkill, setNewSkill] = useState({ name: '', kategorie: 'kompetenz' });
+  const [auditRows, setAuditRows] = useState(null);
 
   const load = () => api.get(`/api/experts/${id}`).then(setData).catch((e) => setError(e.message));
   useEffect(() => { load(); }, [id]);
@@ -84,8 +86,14 @@ export default function AdminExpertDetail() {
       )}
 
       <div className="tabs">
-        {[['profil', 'Profil'], ['tresor', `Dokumenten-Tresor (${documents.length})`], ['verfuegbarkeit', 'Verfügbarkeit'], ['saetze', 'Tagessätze']].map(([k, label]) => (
-          <button key={k} className={tab === k ? 'tab active' : 'tab'} onClick={() => setTab(k)}>{label}</button>
+        {[['profil', 'Profil'], ['tresor', `Dokumenten-Tresor (${documents.length})`], ['verfuegbarkeit', 'Verfügbarkeit'], ['saetze', 'Tagessätze'], ['verlauf', 'Änderungsverlauf']].map(([k, label]) => (
+          <button key={k} className={tab === k ? 'tab active' : 'tab'}
+            onClick={() => {
+              setTab(k);
+              if (k === 'verlauf' && !auditRows) {
+                api.get(`/api/experts/${id}/audit`).then((d) => setAuditRows(d.rows)).catch((e) => setError(e.message));
+              }
+            }}>{label}</button>
         ))}
       </div>
 
@@ -243,6 +251,8 @@ export default function AdminExpertDetail() {
         <RateForm onSave={async (payload) => { await api.post(`/api/experts/${id}/rates`, payload); await load(); }} />
         </>
       )}
+
+      {tab === 'verlauf' && (auditRows ? <AuditTable rows={auditRows} /> : <p className="sub">Laden…</p>)}
     </Layout>
   );
 }
