@@ -35,8 +35,32 @@ app.get('*', (req, res, next) => {
 
 const PORT = process.env.PORT || 3001;
 
+async function waitForDb(retries = 15, delayMs = 3000) {
+  // Railway: Postgres/Private Networking kann beim Kaltstart einige Sekunden
+  // brauchen — statt Crash-Loop warten wir mit klarer Diagnose.
+  for (let i = 1; i <= retries; i++) {
+    try {
+      await db.raw('select 1');
+      return;
+    } catch (e) {
+      console.log(`DB nicht erreichbar (Versuch ${i}/${retries}): ${e.message}`);
+      if (i === retries) throw e;
+      await new Promise((r) => setTimeout(r, delayMs));
+    }
+  }
+}
+
 async function start() {
+  if (!process.env.DATABASE_URL) {
+    console.error(
+      'FEHLER: DATABASE_URL ist nicht gesetzt.\n' +
+      'Railway: im App-Service unter "Variables" anlegen mit dem Wert ${{Postgres.DATABASE_URL}}\n' +
+      '(Referenz auf den PostgreSQL-Service; Namen ggf. anpassen, siehe README).'
+    );
+    process.exit(1);
+  }
   // Migrationen + idempotentes Seeding bei jedem Start (Lehre aus phalanx-v01).
+  await waitForDb();
   await db.migrate.latest();
   await seed();
   startScheduler();
