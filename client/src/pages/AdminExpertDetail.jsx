@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { ArrowLeft, Download, Lock, Upload } from 'lucide-react';
+import { ArrowLeft, Download, Lock, Pencil, Upload, X } from 'lucide-react';
 import Layout from '../components/Layout';
+import ProfileForm from '../components/ProfileForm';
+import RateForm from '../components/RateForm';
 import { api } from '../api/client';
 
 const KAT_LABEL = {
@@ -21,6 +23,8 @@ export default function AdminExpertDetail() {
   const [uploadKat, setUploadKat] = useState('referenz');
   const [busy, setBusy] = useState(false);
   const [info, setInfo] = useState('');
+  const [editing, setEditing] = useState(false);
+  const [newSkill, setNewSkill] = useState({ name: '', kategorie: 'kompetenz' });
 
   const load = () => api.get(`/api/experts/${id}`).then(setData).catch((e) => setError(e.message));
   useEffect(() => { load(); }, [id]);
@@ -85,8 +89,28 @@ export default function AdminExpertDetail() {
         ))}
       </div>
 
-      {tab === 'profil' && (
+      {tab === 'profil' && editing && (
         <div className="detail-grid">
+          <ProfileForm
+            expert={expert}
+            allowStatus
+            onSave={async (payload) => {
+              await api.put(`/api/experts/${id}`, payload);
+              setEditing(false);
+              await load();
+            }}
+            onCancel={() => setEditing(false)}
+          />
+        </div>
+      )}
+      {tab === 'profil' && !editing && (
+        <div className="detail-grid">
+          <div className="card" style={{ gridColumn: '1 / -1', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 22px' }}>
+            <span className="muted">Profil zuletzt geändert: {fmtDate(expert.created_at)}</span>
+            <button className="btn" style={{ width: 'auto', padding: '8px 16px' }} onClick={() => setEditing(true)}>
+              <Pencil size={14} /> Bearbeiten
+            </button>
+          </div>
           <div className="card">
             <h3>Kurzprofil</h3>
             <p>{expert.kurzprofil}</p>
@@ -114,10 +138,40 @@ export default function AdminExpertDetail() {
             return items.length ? (
               <div className="card" key={kat}>
                 <h3>{label}</h3>
-                <p>{items.map((s) => <span className="tag" key={s.id}>{s.name}</span>)}</p>
+                <p>{items.map((s) => (
+                  <span className="tag" key={s.id}>
+                    {s.name}{' '}
+                    <X size={11} style={{ cursor: 'pointer', verticalAlign: '-1px' }}
+                      onClick={async () => { await api.del(`/api/experts/${id}/skills/${s.id}`); await load(); }} />
+                  </span>
+                ))}</p>
               </div>
             ) : null;
           })}
+          <div className="card" style={{ gridColumn: '1 / -1' }}>
+            <h3>Skill hinzufügen</h3>
+            <form
+              style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'flex-end', marginTop: 8 }}
+              onSubmit={async (e) => {
+                e.preventDefault();
+                if (!newSkill.name.trim()) return;
+                await api.post(`/api/experts/${id}/skills`, newSkill);
+                setNewSkill({ ...newSkill, name: '' });
+                await load();
+              }}>
+              <div className="field" style={{ marginBottom: 0, minWidth: 220 }}>
+                <label>Bezeichnung</label>
+                <input type="text" value={newSkill.name} onChange={(e) => setNewSkill({ ...newSkill, name: e.target.value })} />
+              </div>
+              <div className="field" style={{ marginBottom: 0, minWidth: 160 }}>
+                <label>Kategorie</label>
+                <select value={newSkill.kategorie} onChange={(e) => setNewSkill({ ...newSkill, kategorie: e.target.value })}>
+                  {SKILL_KAT.map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                </select>
+              </div>
+              <button className="btn" style={{ width: 'auto' }}>Hinzufügen</button>
+            </form>
+          </div>
         </div>
       )}
 
@@ -172,6 +226,7 @@ export default function AdminExpertDetail() {
       )}
 
       {tab === 'saetze' && (
+        <>
         <table className="table">
           <thead><tr><th>Kategorie</th><th>Satz</th><th>Gültig ab</th><th>Erfasst</th></tr></thead>
           <tbody>
@@ -185,6 +240,8 @@ export default function AdminExpertDetail() {
             ))}
           </tbody>
         </table>
+        <RateForm onSave={async (payload) => { await api.post(`/api/experts/${id}/rates`, payload); await load(); }} />
+        </>
       )}
     </Layout>
   );

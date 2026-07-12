@@ -14,6 +14,8 @@ async function request(path, options = {}) {
 export const api = {
   get: (path) => request(path),
   post: (path, body) => request(path, { method: 'POST', body }),
+  put: (path, body) => request(path, { method: 'PUT', body }),
+  del: (path) => request(path, { method: 'DELETE' }),
   upload: async (path, formData) => {
     const res = await fetch(path, { method: 'POST', credentials: 'include', body: formData });
     const data = await res.json().catch(() => ({}));

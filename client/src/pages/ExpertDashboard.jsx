@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { UserRound, CalendarClock, Euro, FileText } from 'lucide-react';
 import Layout from '../components/Layout';
 import { useAuth } from '../context/AuthContext';
@@ -45,9 +46,9 @@ export default function ExpertDashboard() {
   };
 
   const modules = [
-    { icon: UserRound, title: 'Mein Profil', desc: 'Persönliche Daten, Kompetenzen, Branchen und Sprachen.', sprint: 'Bearbeitung folgt' },
-    { icon: FileText, title: 'Dokumente', desc: 'Lebenslauf, Zertifikate und Referenzen — versioniert.', sprint: 'Bearbeitung folgt' },
-    { icon: Euro, title: 'Tagessätze', desc: 'Sätze für Remote, vor Ort, Interim, Projektleitung, Beratung.', sprint: 'Sprint 3' },
+    { icon: UserRound, title: 'Mein Profil', desc: 'Persönliche Daten, Kurzprofil, Sprachen — selbst pflegen.', link: '/profil' },
+    { icon: Euro, title: 'Tagessätze', desc: 'Sätze für Remote, vor Ort, Interim, Projektleitung, Beratung.', link: '/profil' },
+    { icon: FileText, title: 'Dokumente', desc: 'Lebenslauf, Zertifikate und Referenzen — versioniert.', sprint: 'Upload folgt' },
   ];
 
   return (
@@ -92,11 +93,12 @@ export default function ExpertDashboard() {
       )}
 
       <div className="card-grid">
-        {modules.map(({ icon: Icon, title, desc, sprint }) => (
+        {modules.map(({ icon: Icon, title, desc, sprint, link }) => (
           <div className="card" key={title}>
-            <h3><Icon size={17} /> {title}</h3>
+            <h3><Icon size={17} /> {link ? <Link to={link}>{title}</Link> : title}</h3>
             <p>{desc}</p>
-            <span className="badge">{sprint}</span>
+            {sprint && <span className="badge">{sprint}</span>}
+            {link && <span className="badge badge-active">Aktiv</span>}
           </div>
         ))}
       </div>

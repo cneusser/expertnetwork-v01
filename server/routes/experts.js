@@ -1,5 +1,6 @@
 const express = require('express');
 const multer = require('multer');
+const { z } = require('zod');
 const { db } = require('../db/knex');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const storage = require('../providers/storage');
@@ -195,6 +196,146 @@ router.post('/:id(\\d+)/documents', requireRole('admin'), upload.single('file'),
     .returning(['id', 'kategorie', 'filename', 'version']);
   await req.audit({ action: 'document.upload', resource: 'documents', resourceId: doc.id, newValue: doc });
   res.status(201).json({ ok: true, document: doc });
+});
+
+/* ============================== Sprint 3: Pflege ============================== */
+
+const profileSchema = z.object({
+  vorname: z.string().min(1).max(100).optional(),
+  nachname: z.string().min(1).max(100).optional(),
+  firma: z.string().max(150).nullable().optional(),
+  berufsbezeichnung: z.string().max(200).nullable().optional(),
+  kurzprofil: z.string().max(3000).nullable().optional(),
+  adresse_json: z.object({
+    strasse: z.string().max(150).optional(),
+    plz: z.string().max(12).optional(),
+    ort: z.string().max(100).optional(),
+    land: z.string().max(60).optional(),
+  }).optional(),
+  telefon: z.string().max(40).nullable().optional(),
+  mobil: z.string().max(40).nullable().optional(),
+  email: z.string().email().optional(),
+  linkedin: z.string().max(250).nullable().optional(),
+  webseite: z.string().max(250).nullable().optional(),
+  ust_id: z.string().max(30).nullable().optional(),
+  steuernummer: z.string().max(30).nullable().optional(),
+  ort: z.string().max(100).nullable().optional(),
+  land: z.string().max(60).nullable().optional(),
+  reisebereitschaft: z.string().max(100).nullable().optional(),
+  arbeitsmodell: z.enum(['remote', 'hybrid', 'vor_ort']).nullable().optional(),
+  sprachen_json: z.array(z.object({ sprache: z.string().max(40), niveau: z.string().max(40) })).optional(),
+  status: z.enum(['eingeladen', 'registriert', 'freigegeben', 'inaktiv']).optional(), // nur Admin
+});
+
+const rateSchema = z.object({
+  kategorie: z.enum(['remote', 'vor_ort', 'interim', 'projektleitung', 'beratung']),
+  satz_von_eur: z.number().int().min(1).max(20000),
+  satz_bis_eur: z.number().int().min(1).max(20000).nullable().optional(),
+  gueltig_ab: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+});
+
+const skillSchema = z.object({
+  name: z.string().min(2).max(80),
+  kategorie: z.enum(['kompetenz', 'technologie', 'rolle', 'branche', 'zertifikat']),
+});
+
+async function updateProfile(req, res, expert, { allowStatus }) {
+  const parsed = profileSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.errors[0].message });
+  const data = { ...parsed.data };
+  if (!allowStatus) delete data.status; // Experten können sich nicht selbst freigeben
+  if (data.adresse_json) data.adresse_json = JSON.stringify(data.adresse_json);
+  if (data.sprachen_json) data.sprachen_json = JSON.stringify(data.sprachen_json);
+  if (!Object.keys(data).length) return res.status(400).json({ error: 'Keine Änderungen übergeben' });
+
+  const oldValues = {};
+  for (const k of Object.keys(data)) oldValues[k] = expert[k];
+  const [updated] = await db('experts').where({ id: expert.id }).update(data).returning('*');
+  await req.audit({
+    action: 'expert.update',
+    resource: 'experts',
+    resourceId: expert.id,
+    oldValue: oldValues,
+    newValue: data,
+  });
+  res.locals.auditLogged = true;
+  res.json({ ok: true, expert: updated });
+}
+
+/** Profil bearbeiten — Experte (eigenes Profil). */
+router.put('/me', async (req, res) => {
+  const expert = await db('experts').where({ user_id: req.user.id }).first();
+  if (!expert) return res.status(404).json({ error: 'Kein Expertenprofil vorhanden' });
+  return updateProfile(req, res, expert, { allowStatus: false });
+});
+
+/** Profil bearbeiten — Admin. */
+router.put('/:id(\\d+)', requireRole('admin'), async (req, res) => {
+  const expert = await db('experts').where({ id: Number(req.params.id), tenant_id: req.user.tenantId }).first();
+  if (!expert) return res.status(404).json({ error: 'Experte nicht gefunden' });
+  return updateProfile(req, res, expert, { allowStatus: true });
+});
+
+async function addRate(req, res, expert) {
+  const parsed = rateSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: 'Ungültige Satzangaben' });
+  const d = parsed.data;
+  if (d.satz_bis_eur && d.satz_bis_eur < d.satz_von_eur) {
+    return res.status(400).json({ error: '„bis"-Satz darf nicht unter dem „von"-Satz liegen' });
+  }
+  const [rate] = await db('rates')
+    .insert({
+      tenant_id: expert.tenant_id,
+      expert_id: expert.id,
+      kategorie: d.kategorie,
+      satz_von_eur: d.satz_von_eur,
+      satz_bis_eur: d.satz_bis_eur || null,
+      gueltig_ab: d.gueltig_ab,
+      created_by: req.user.id,
+    })
+    .returning('*');
+  await req.audit({ action: 'rate.add', resource: 'rates', resourceId: rate.id, newValue: d });
+  res.locals.auditLogged = true;
+  res.status(201).json({ ok: true, rate });
+}
+
+/** Tagessatz erfassen — Experte (Insert-only, Historie bleibt). */
+router.post('/me/rates', async (req, res) => {
+  const expert = await db('experts').where({ user_id: req.user.id }).first();
+  if (!expert) return res.status(404).json({ error: 'Kein Expertenprofil vorhanden' });
+  return addRate(req, res, expert);
+});
+
+/** Tagessatz erfassen — Admin. */
+router.post('/:id(\\d+)/rates', requireRole('admin'), async (req, res) => {
+  const expert = await db('experts').where({ id: Number(req.params.id), tenant_id: req.user.tenantId }).first();
+  if (!expert) return res.status(404).json({ error: 'Experte nicht gefunden' });
+  return addRate(req, res, expert);
+});
+
+/** Skill hinzufügen — Admin (legt Skill bei Bedarf an). */
+router.post('/:id(\\d+)/skills', requireRole('admin'), async (req, res) => {
+  const parsed = skillSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: 'Ungültige Skill-Angaben' });
+  const expert = await db('experts').where({ id: Number(req.params.id), tenant_id: req.user.tenantId }).first();
+  if (!expert) return res.status(404).json({ error: 'Experte nicht gefunden' });
+  let skill = await db('skills').whereRaw('lower(name) = lower(?)', [parsed.data.name]).first();
+  if (!skill) [skill] = await db('skills').insert({ name: parsed.data.name, kategorie: parsed.data.kategorie }).returning('*');
+  await db('expert_skills').insert({ expert_id: expert.id, skill_id: skill.id }).onConflict(['expert_id', 'skill_id']).ignore();
+  await req.audit({ action: 'expert.skill_add', resource: 'experts', resourceId: expert.id, newValue: { skill: skill.name } });
+  res.locals.auditLogged = true;
+  res.status(201).json({ ok: true, skill });
+});
+
+/** Skill entfernen — Admin. */
+router.delete('/:id(\\d+)/skills/:skillId(\\d+)', requireRole('admin'), async (req, res) => {
+  const expert = await db('experts').where({ id: Number(req.params.id), tenant_id: req.user.tenantId }).first();
+  if (!expert) return res.status(404).json({ error: 'Experte nicht gefunden' });
+  const skill = await db('skills').where({ id: Number(req.params.skillId) }).first();
+  await db('expert_skills').where({ expert_id: expert.id, skill_id: Number(req.params.skillId) }).delete();
+  await req.audit({ action: 'expert.skill_remove', resource: 'experts', resourceId: expert.id, oldValue: { skill: skill?.name } });
+  res.locals.auditLogged = true;
+  res.json({ ok: true });
 });
 
 module.exports = router;

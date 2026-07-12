@@ -13,6 +13,7 @@ export default function Layout({ children }) {
           <nav className="topnav">
             <NavLink to={home} end>Dashboard</NavLink>
             {user?.role === 'admin' && <NavLink to="/admin/experten">Experten</NavLink>}
+            {user?.role === 'expert' && <NavLink to="/profil">Mein Profil</NavLink>}
           </nav>
         </div>
         <div className="user">
