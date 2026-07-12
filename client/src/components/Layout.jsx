@@ -2,18 +2,28 @@ import { Link, NavLink } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import Logo from './Logo';
 import { APP_VERSION } from '../version';
+import { api } from '../api/client';
 
 export default function Layout({ children }) {
   const { user, logout } = useAuth();
   const home = user?.role === 'admin' ? '/admin' : '/dashboard';
   return (
     <div className="app-shell">
+      {user?.impersonated && (
+        <div className="birdview-banner">
+          Birdview aktiv — Sie sehen die Plattform aus der Sicht von <strong>{user.email}</strong>.
+          <button onClick={async () => { await api.post('/api/auth/stop-impersonate'); window.location.href = '/admin'; }}>
+            Zurück zur Admin-Ansicht
+          </button>
+        </div>
+      )}
       <header className="topbar">
         <div className="topbar-left">
           <Link to={home} style={{ textDecoration: 'none' }}><Logo inverse /></Link>
           <nav className="topnav">
             <NavLink to={home} end>Dashboard</NavLink>
             {user?.role === 'admin' && <NavLink to="/admin/experten">Experten</NavLink>}
+            {user?.role === 'admin' && <NavLink to="/admin/suche">Suche</NavLink>}
             {user?.role === 'admin' && <NavLink to="/admin/audit">Audit-Log</NavLink>}
             {user?.role === 'expert' && <NavLink to="/profil">Mein Profil</NavLink>}
           </nav>

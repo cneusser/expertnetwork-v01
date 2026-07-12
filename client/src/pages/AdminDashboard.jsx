@@ -13,7 +13,7 @@ export default function AdminDashboard() {
     { icon: Users, title: 'Experten', desc: 'Verzeichnis mit Profilen, Skills und Dokumenten-Tresor.', link: '/admin/experten' },
     { icon: CalendarClock, title: 'Verfügbarkeit', desc: '14-Tage-Bestätigungs-Loop mit Ein-Klick-Link läuft automatisch.', link: '/admin/experten' },
     { icon: Euro, title: 'Tagessätze', desc: 'Erfassen im Profil (Tab „Tagessätze") — Historie bleibt lückenlos.', link: '/admin/experten' },
-    { icon: Search, title: 'Suche', desc: 'Volltext, Facetten und Boolean-Syntax.', sprint: 'Sprint 5' },
+    { icon: Search, title: 'Suche', desc: 'Volltext, Facetten und Boolean-Syntax wie bei LinkedIn.', link: '/admin/suche' },
     { icon: FolderKanban, title: 'Projekte', desc: 'Interne Projekte mit erklärbarem Matching-Score.', sprint: 'Sprint 6' },
     { icon: Mail, title: 'Kommunikation', desc: 'Einzel- und Serienmails mit Historie am Profil.', sprint: 'Sprint 7' },
   ];

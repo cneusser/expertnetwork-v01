@@ -12,6 +12,7 @@ import AdminDashboard from './pages/AdminDashboard';
 import AdminExperts from './pages/AdminExperts';
 import AdminExpertDetail from './pages/AdminExpertDetail';
 import AdminAudit from './pages/AdminAudit';
+import AdminSearch from './pages/AdminSearch';
 import ExpertDashboard from './pages/ExpertDashboard';
 import ExpertProfil from './pages/ExpertProfil';
 
@@ -39,6 +40,7 @@ export default function App() {
           <Route path="/admin/experten" element={<ProtectedRoute roles={['admin']}><AdminExperts /></ProtectedRoute>} />
           <Route path="/admin/experten/:id" element={<ProtectedRoute roles={['admin']}><AdminExpertDetail /></ProtectedRoute>} />
           <Route path="/admin/audit" element={<ProtectedRoute roles={['admin']}><AdminAudit /></ProtectedRoute>} />
+          <Route path="/admin/suche" element={<ProtectedRoute roles={['admin']}><AdminSearch /></ProtectedRoute>} />
           <Route path="/dashboard" element={<ProtectedRoute roles={['expert']}><ExpertDashboard /></ProtectedRoute>} />
           <Route path="/profil" element={<ProtectedRoute roles={['expert']}><ExpertProfil /></ProtectedRoute>} />
           <Route path="*" element={<Navigate to="/" replace />} />

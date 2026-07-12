@@ -110,6 +110,26 @@ a:hover { text-decoration: underline; }
 
 .auth-links { margin-top: 18px; font-size: 13.5px; color: var(--grey-600); display: flex; justify-content: space-between; }
 
+/* Birdview-Banner */
+.birdview-banner {
+  background: #d99b1f;
+  color: #fff;
+  padding: 9px 28px;
+  font-size: 13.5px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.birdview-banner button {
+  background: rgba(255,255,255,0.2);
+  border: 1px solid rgba(255,255,255,0.5);
+  color: #fff;
+  padding: 5px 12px;
+  border-radius: 6px;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+
 /* App-Layout (nach Login) */
 .app-shell { min-height: 100vh; display: flex; flex-direction: column; }
 .topbar {

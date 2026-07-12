@@ -2,10 +2,10 @@ const jwt = require('jsonwebtoken');
 
 const SECRET = process.env.JWT_SECRET || 'dev-secret-change-me';
 
-/** Session-Token (Login) — httpOnly-Cookie, 7 Tage. */
-function signSession(user) {
+/** Session-Token (Login) — httpOnly-Cookie, 7 Tage. extra: z. B. { impersonatedBy } für Birdview. */
+function signSession(user, extra = {}) {
   return jwt.sign(
-    { sub: user.id, role: user.role, tenantId: user.tenant_id },
+    { sub: user.id, role: user.role, tenantId: user.tenant_id, ...extra },
     SECRET,
     { expiresIn: '7d' }
   );

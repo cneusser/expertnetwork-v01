@@ -6,7 +6,12 @@ function requireAuth(req, res, next) {
   if (!token) return res.status(401).json({ error: 'Nicht angemeldet' });
   try {
     const payload = verifyToken(token);
-    req.user = { id: payload.sub, role: payload.role, tenantId: payload.tenantId };
+    req.user = {
+      id: payload.sub,
+      role: payload.role,
+      tenantId: payload.tenantId,
+      impersonatedBy: payload.impersonatedBy || null, // Birdview: Admin hinter der Experten-Sicht
+    };
     next();
   } catch {
     return res.status(401).json({ error: 'Sitzung abgelaufen' });

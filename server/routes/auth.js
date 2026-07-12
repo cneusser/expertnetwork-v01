@@ -3,7 +3,7 @@ const bcrypt = require('bcryptjs');
 const { z } = require('zod');
 const { db } = require('../db/knex');
 const { signSession, signPurposeToken, verifyToken } = require('../utils/tokens');
-const { requireAuth } = require('../middleware/auth');
+const { requireAuth, requireRole } = require('../middleware/auth');
 const { getMailProvider } = require('../providers/mail');
 const { verificationMail, passwordResetMail } = require('../providers/mail/templates');
 const { CONSENT_VERSION, CONSENT_ZWECK, CONSENT_TEXT, consentExpiry } = require('../consent');
@@ -143,7 +143,53 @@ router.post('/logout', (_req, res) => {
 router.get('/me', requireAuth, async (req, res) => {
   const user = await db('users').where({ id: req.user.id }).first();
   if (!user) return res.status(404).json({ error: 'Benutzer nicht gefunden' });
-  res.json({ user: { id: user.id, email: user.email, role: user.role, isApproved: user.is_approved } });
+  res.json({
+    user: {
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      isApproved: user.is_approved,
+      impersonated: Boolean(req.user.impersonatedBy),
+    },
+  });
+});
+
+/**
+ * Birdview (Admin): in die Sicht eines Experten schalten.
+ * Setzt eine Experten-Session mit Rücksprungmarke (impersonatedBy) — auditiert.
+ */
+router.post('/impersonate/:userId(\\d+)', requireAuth, requireRole('admin'), async (req, res) => {
+  const target = await db('users')
+    .where({ id: Number(req.params.userId), tenant_id: req.user.tenantId, role: 'expert' })
+    .first();
+  if (!target) return res.status(404).json({ error: 'Experten-Konto nicht gefunden' });
+  await db('audit_log').insert({
+    tenant_id: req.user.tenantId,
+    actor_id: req.user.id,
+    action: 'auth.birdview_start',
+    resource: 'users',
+    resource_id: target.id,
+    ip: req.ip,
+  });
+  res.cookie('session', signSession(target, { impersonatedBy: req.user.id }), cookieOpts);
+  res.json({ ok: true });
+});
+
+/** Birdview beenden — zurück zur Admin-Session. */
+router.post('/stop-impersonate', requireAuth, async (req, res) => {
+  if (!req.user.impersonatedBy) return res.status(400).json({ error: 'Kein Birdview aktiv' });
+  const admin = await db('users').where({ id: req.user.impersonatedBy, role: 'admin' }).first();
+  if (!admin) return res.status(400).json({ error: 'Admin-Konto nicht gefunden' });
+  await db('audit_log').insert({
+    tenant_id: admin.tenant_id,
+    actor_id: admin.id,
+    action: 'auth.birdview_stop',
+    resource: 'users',
+    resource_id: req.user.id,
+    ip: req.ip,
+  });
+  res.cookie('session', signSession(admin), cookieOpts);
+  res.json({ ok: true });
 });
 
 /** Passwort vergessen — antwortet immer gleich (kein User-Enumeration-Leak). */

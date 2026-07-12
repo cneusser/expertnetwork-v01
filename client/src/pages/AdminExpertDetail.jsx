@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { ArrowLeft, Download, Lock, Pencil, Upload, X } from 'lucide-react';
+import { ArrowLeft, Download, Eye, Lock, Pencil, Upload, X } from 'lucide-react';
 import Layout from '../components/Layout';
 import ProfileForm from '../components/ProfileForm';
 import RateForm from '../components/RateForm';
@@ -57,7 +57,19 @@ export default function AdminExpertDetail() {
     <Layout>
       <p><Link to="/admin/experten"><ArrowLeft size={14} style={{ verticalAlign: '-2px' }} /> Zurück zur Liste</Link></p>
       <h1>{{ herr: 'Herr', frau: 'Frau', divers: '' }[expert.anrede] || ''} {expert.titel || ''} {expert.vorname} {expert.nachname}</h1>
-      <p className="sub">{expert.berufsbezeichnung} · {expert.firma}</p>
+      <p className="sub">
+        {expert.berufsbezeichnung} · {expert.firma}
+        {expert.user_id && (
+          <>
+            {' · '}
+            <a href="#birdview" onClick={async (e) => {
+              e.preventDefault();
+              await api.post(`/api/auth/impersonate/${expert.user_id}`);
+              window.location.href = '/dashboard';
+            }}><Eye size={13} style={{ verticalAlign: '-2px' }} /> Birdview: als dieser Experte ansehen</a>
+          </>
+        )}
+      </p>
 
       {!consent && (
         <div className="notice">
