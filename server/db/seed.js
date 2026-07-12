@@ -30,7 +30,14 @@ async function seed() {
       is_approved: true,
     })
     .onConflict('email')
-    .merge({ role: 'admin', is_approved: true, email_verified_at: db.fn.now() });
+    .merge({
+      // ADMIN_PASSWORD ist bei jedem Start maßgeblich — Passwortänderung
+      // über Env-Variable wirkt damit auch für bestehende Admin-User.
+      password_hash: passwordHash,
+      role: 'admin',
+      is_approved: true,
+      email_verified_at: db.fn.now(),
+    });
 
   console.log(`Seed ok — Tenant "phalanx", Admin ${adminEmail}`);
   return tenant;

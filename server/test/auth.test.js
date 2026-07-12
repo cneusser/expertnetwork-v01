@@ -91,3 +91,14 @@ test('Falsches Passwort wird abgelehnt', async () => {
   const res = await post('/api/auth/login', { email, password: 'falsches-passwort' });
   assert.strictEqual(res.status, 401);
 });
+
+test('Seed aktualisiert Admin-Passwort bei geänderter Env-Variable', async () => {
+  const bcrypt = require('bcryptjs');
+  const adminEmail = process.env.ADMIN_EMAIL || 'admin@phalanx.example';
+  // Altes Passwort simulieren, dann Seed erneut ausführen
+  await db('users').where({ email: adminEmail }).update({ password_hash: await bcrypt.hash('altes-passwort-123', 10) });
+  await seed();
+  const admin = await db('users').where({ email: adminEmail }).first();
+  const currentPw = process.env.ADMIN_PASSWORD || 'phalanx-admin-2026';
+  assert.ok(await bcrypt.compare(currentPw, admin.password_hash), 'ADMIN_PASSWORD greift nach erneutem Seed');
+});
