@@ -154,6 +154,28 @@ a:hover { text-decoration: underline; }
   padding: 3px 8px;
 }
 
+/* Tabellen */
+.table { width: 100%; border-collapse: collapse; background: var(--white); border: 1px solid var(--grey-200); border-radius: var(--radius); overflow: hidden; }
+.table th { text-align: left; font-size: 12px; text-transform: uppercase; letter-spacing: 0.4px; color: var(--grey-400); padding: 12px 14px; border-bottom: 1px solid var(--grey-200); background: var(--grey-100); }
+.table td { padding: 12px 14px; border-bottom: 1px solid var(--grey-200); font-size: 14px; vertical-align: top; }
+.table tr:last-child td { border-bottom: none; }
+.muted { color: var(--grey-400); font-size: 12.5px; }
+
+/* Tags & Status */
+.tag { display: inline-block; background: #eaf0f6; color: var(--navy); border-radius: 4px; padding: 2px 8px; font-size: 12px; margin: 2px 4px 2px 0; }
+.status { display: inline-block; border-radius: 4px; padding: 3px 8px; font-size: 12px; font-weight: 600; }
+.status-freigegeben { background: #e8f3ee; color: var(--success); }
+.status-registriert, .status-eingeladen { background: #fdf6e7; color: #7a5c12; }
+.status-inaktiv { background: var(--grey-100); color: var(--grey-400); }
+
+/* Tabs */
+.tabs { display: flex; gap: 4px; margin: 20px 0 18px; border-bottom: 1px solid var(--grey-200); }
+.tab { background: none; border: none; border-bottom: 2px solid transparent; padding: 9px 14px; font-size: 14px; color: var(--grey-600); cursor: pointer; }
+.tab.active { color: var(--navy); font-weight: 600; border-bottom-color: var(--navy); }
+
+.detail-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
+.badge-active { background: #e8f3ee; color: var(--success); }
+
 .notice {
   background: #fdf6e7;
   border: 1px solid #f0dfb6;

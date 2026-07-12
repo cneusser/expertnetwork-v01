@@ -7,6 +7,8 @@ import VerifyEmail from './pages/VerifyEmail';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
 import AdminDashboard from './pages/AdminDashboard';
+import AdminExperts from './pages/AdminExperts';
+import AdminExpertDetail from './pages/AdminExpertDetail';
 import ExpertDashboard from './pages/ExpertDashboard';
 
 function Home() {
@@ -28,6 +30,8 @@ export default function App() {
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/admin" element={<ProtectedRoute roles={['admin']}><AdminDashboard /></ProtectedRoute>} />
+          <Route path="/admin/experten" element={<ProtectedRoute roles={['admin']}><AdminExperts /></ProtectedRoute>} />
+          <Route path="/admin/experten/:id" element={<ProtectedRoute roles={['admin']}><AdminExpertDetail /></ProtectedRoute>} />
           <Route path="/dashboard" element={<ProtectedRoute roles={['expert']}><ExpertDashboard /></ProtectedRoute>} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
