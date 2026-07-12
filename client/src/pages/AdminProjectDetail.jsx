@@ -19,7 +19,13 @@ export default function AdminProjectDetail() {
 
   if (error) return <Layout><div className="msg msg-error">{error}</div></Layout>;
   if (!data) return <Layout><p className="sub">Laden…</p></Layout>;
-  const { project, skills, applications, matches } = data;
+  const { project, skills, applications, matches, releases = [], vendor } = data;
+
+  const release = async (expertId) => {
+    const anonymized = window.confirm('Profil ANONYMISIERT freigeben? (OK = anonymisiert, Abbrechen = mit Klarnamen)');
+    await api.post(`/api/projects/${id}/releases`, { expert_id: expertId, anonymized });
+    load();
+  };
 
   return (
     <Layout>
@@ -34,6 +40,13 @@ export default function AdminProjectDetail() {
           {Object.entries(STATUS_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
         </select>
       </p>
+      {vendor && (
+        <div className="notice">
+          Kundenprojekt von <strong>{vendor.email}</strong>
+          {project.status === 'eingereicht' && ' — wartet auf Freigabe (Status auf „Offen" setzen).'}
+          {releases.length > 0 && ` · ${releases.length} Profil(e) für den Kunden freigegeben.`}
+        </div>
+      )}
       {project.beschreibung && <div className="card" style={{ marginBottom: 14 }}><p>{project.beschreibung}</p></div>}
       <p style={{ marginBottom: 20 }}>{skills.map((s) => <span className="tag" key={s.id}>{s.name}</span>)}</p>
 
@@ -54,6 +67,12 @@ export default function AdminProjectDetail() {
                     onChange={async (e) => { await api.put(`/api/projects/${id}/applications/${a.id}`, { status: e.target.value }); load(); }}>
                     {APP_STATUS.map((s) => <option key={s} value={s}>{s.replace('_', ' ')}</option>)}
                   </select>
+                  {vendor && (
+                    releases.some((r) => r.expert_id === a.expert_id)
+                      ? <div className="muted" style={{ marginTop: 4 }}>✓ für Kunden freigegeben</div>
+                      : <button type="button" className="tab" style={{ padding: '4px 0', color: 'var(--accent)' }}
+                          onClick={() => release(a.expert_id)}>Für Kunden freigeben</button>
+                  )}
                 </td>
               </tr>
             ))}

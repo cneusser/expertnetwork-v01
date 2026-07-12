@@ -20,7 +20,7 @@ const projectSchema = z.object({
   ende: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
   ort: z.string().max(100).nullable().optional(),
   arbeitsmodell: z.enum(['remote', 'hybrid', 'vor_ort']).nullable().optional(),
-  status: z.enum(['entwurf', 'offen', 'besetzt', 'geschlossen']).optional(),
+  status: z.enum(['entwurf', 'eingereicht', 'offen', 'besetzt', 'geschlossen']).optional(),
   skill_ids: z.array(z.number().int()).optional(),
 });
 
@@ -140,7 +140,9 @@ router.get('/:id(\\d+)', requireRole('admin'), async (req, res) => {
   }
   matches.sort((a, b) => b.score - a.score);
 
-  res.json({ project, skills, applications, matches });
+  const releases = await db('project_releases').where({ project_id: project.id });
+  const vendor = project.vendor_id ? await db('users').where({ id: project.vendor_id }).select('id', 'email').first() : null;
+  res.json({ project, skills, applications, matches, releases, vendor });
 });
 
 router.put('/:id(\\d+)', requireRole('admin'), async (req, res) => {
@@ -185,6 +187,34 @@ router.post('/:id(\\d+)/applications', requireRole('admin'), async (req, res) =>
   await req.audit({ action: 'application.propose', resource: 'applications', resourceId: app.id, newValue: { expert: `${expert.vorname} ${expert.nachname}`, score: match.score } });
   res.locals.auditLogged = true;
   res.status(201).json({ ok: true, application: app });
+});
+
+/** Profil für den Kunden freigeben (Admin) — Standard: anonymisiert. */
+router.post('/:id(\\d+)/releases', requireRole('admin'), async (req, res) => {
+  const project = await db('projects').where({ id: Number(req.params.id), tenant_id: req.user.tenantId }).first();
+  if (!project) return res.status(404).json({ error: 'Projekt nicht gefunden' });
+  const expert = await db('experts').where({ id: Number(req.body?.expert_id), tenant_id: req.user.tenantId }).first();
+  if (!expert) return res.status(404).json({ error: 'Experte nicht gefunden' });
+  const anonymized = req.body?.anonymized !== false;
+  const [release] = await db('project_releases')
+    .insert({
+      tenant_id: req.user.tenantId,
+      project_id: project.id,
+      expert_id: expert.id,
+      anonymized,
+      released_by: req.user.id,
+    })
+    .onConflict(['project_id', 'expert_id'])
+    .merge({ anonymized })
+    .returning('*');
+  await req.audit({
+    action: 'project.release',
+    resource: 'project_releases',
+    resourceId: release.id,
+    newValue: { expert: `${expert.vorname} ${expert.nachname}`, anonymized },
+  });
+  res.locals.auditLogged = true;
+  res.status(201).json({ ok: true, release });
 });
 
 /** Pipeline-Status ändern (Admin). */

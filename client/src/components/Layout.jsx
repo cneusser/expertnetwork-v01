@@ -6,7 +6,8 @@ import { api } from '../api/client';
 
 export default function Layout({ children }) {
   const { user, logout } = useAuth();
-  const home = user?.role === 'admin' ? '/admin' : '/dashboard';
+  const isAdmin = ['admin', 'tenant_owner'].includes(user?.role);
+  const home = user?.role === 'vendor' ? '/vendor' : isAdmin ? '/admin' : '/dashboard';
   return (
     <div className="app-shell">
       {user?.impersonated && (
@@ -22,18 +23,19 @@ export default function Layout({ children }) {
           <Link to={home} style={{ textDecoration: 'none' }}><Logo inverse /></Link>
           <nav className="topnav">
             <NavLink to={home} end>Dashboard</NavLink>
-            {user?.role === 'admin' && <NavLink to="/admin/experten">Experten</NavLink>}
-            {user?.role === 'admin' && <NavLink to="/admin/suche">Suche</NavLink>}
-            {user?.role === 'admin' && <NavLink to="/admin/projekte">Projekte</NavLink>}
-            {user?.role === 'admin' && <NavLink to="/admin/kommunikation">Kommunikation</NavLink>}
-            {user?.role === 'admin' && <NavLink to="/admin/audit">Audit-Log</NavLink>}
+            {isAdmin && <NavLink to="/admin/experten">Experten</NavLink>}
+            {isAdmin && <NavLink to="/admin/suche">Suche</NavLink>}
+            {isAdmin && <NavLink to="/admin/projekte">Projekte</NavLink>}
+            {isAdmin && <NavLink to="/admin/kommunikation">Kommunikation</NavLink>}
+            {isAdmin && <NavLink to="/admin/audit">Audit-Log</NavLink>}
+            {isAdmin && <NavLink to="/admin/mandanten">Mandanten</NavLink>}
             {user?.role === 'expert' && <NavLink to="/profil">Mein Profil</NavLink>}
             {user?.role === 'expert' && <NavLink to="/projekte">Projekte</NavLink>}
             <NavLink to="/konto">Konto</NavLink>
           </nav>
         </div>
         <div className="user">
-          <span>{user?.email} · {user?.role === 'admin' ? 'Administrator' : 'Experte'}</span>
+          <span>{user?.email} · {user?.role === 'vendor' ? 'Kunde' : isAdmin ? 'Administrator' : 'Experte'}</span>
           <button onClick={logout}>Abmelden</button>
         </div>
       </header>

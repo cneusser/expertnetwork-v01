@@ -18,6 +18,8 @@ import AdminProjectDetail from './pages/AdminProjectDetail';
 import ExpertProjekte from './pages/ExpertProjekte';
 import Konto from './pages/Konto';
 import AdminKommunikation from './pages/AdminKommunikation';
+import AdminMandanten from './pages/AdminMandanten';
+import VendorPortal from './pages/VendorPortal';
 import ExpertDashboard from './pages/ExpertDashboard';
 import ExpertProfil from './pages/ExpertProfil';
 
@@ -25,7 +27,8 @@ function Home() {
   const { user, loading } = useAuth();
   if (loading) return null;
   if (!user) return <Navigate to="/login" replace />;
-  return <Navigate to={user.role === 'admin' ? '/admin' : '/dashboard'} replace />;
+  const home = user.role === 'vendor' ? '/vendor' : ['admin', 'tenant_owner'].includes(user.role) ? '/admin' : '/dashboard';
+  return <Navigate to={home} replace />;
 }
 
 export default function App() {
@@ -41,16 +44,18 @@ export default function App() {
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/verfuegbarkeit" element={<Verfuegbarkeit />} />
           <Route path="/einladung" element={<Einladung />} />
-          <Route path="/admin" element={<ProtectedRoute roles={['admin']}><AdminDashboard /></ProtectedRoute>} />
-          <Route path="/admin/experten" element={<ProtectedRoute roles={['admin']}><AdminExperts /></ProtectedRoute>} />
-          <Route path="/admin/experten/:id" element={<ProtectedRoute roles={['admin']}><AdminExpertDetail /></ProtectedRoute>} />
-          <Route path="/admin/audit" element={<ProtectedRoute roles={['admin']}><AdminAudit /></ProtectedRoute>} />
-          <Route path="/admin/suche" element={<ProtectedRoute roles={['admin']}><AdminSearch /></ProtectedRoute>} />
-          <Route path="/admin/projekte" element={<ProtectedRoute roles={['admin']}><AdminProjects /></ProtectedRoute>} />
-          <Route path="/admin/projekte/:id" element={<ProtectedRoute roles={['admin']}><AdminProjectDetail /></ProtectedRoute>} />
-          <Route path="/admin/kommunikation" element={<ProtectedRoute roles={['admin']}><AdminKommunikation /></ProtectedRoute>} />
+          <Route path="/admin" element={<ProtectedRoute roles={['admin', 'tenant_owner']}><AdminDashboard /></ProtectedRoute>} />
+          <Route path="/admin/experten" element={<ProtectedRoute roles={['admin', 'tenant_owner']}><AdminExperts /></ProtectedRoute>} />
+          <Route path="/admin/experten/:id" element={<ProtectedRoute roles={['admin', 'tenant_owner']}><AdminExpertDetail /></ProtectedRoute>} />
+          <Route path="/admin/audit" element={<ProtectedRoute roles={['admin', 'tenant_owner']}><AdminAudit /></ProtectedRoute>} />
+          <Route path="/admin/suche" element={<ProtectedRoute roles={['admin', 'tenant_owner']}><AdminSearch /></ProtectedRoute>} />
+          <Route path="/admin/projekte" element={<ProtectedRoute roles={['admin', 'tenant_owner']}><AdminProjects /></ProtectedRoute>} />
+          <Route path="/admin/projekte/:id" element={<ProtectedRoute roles={['admin', 'tenant_owner']}><AdminProjectDetail /></ProtectedRoute>} />
+          <Route path="/admin/kommunikation" element={<ProtectedRoute roles={['admin', 'tenant_owner']}><AdminKommunikation /></ProtectedRoute>} />
           <Route path="/projekte" element={<ProtectedRoute roles={['expert']}><ExpertProjekte /></ProtectedRoute>} />
           <Route path="/konto" element={<ProtectedRoute><Konto /></ProtectedRoute>} />
+          <Route path="/admin/mandanten" element={<ProtectedRoute roles={['admin', 'tenant_owner']}><AdminMandanten /></ProtectedRoute>} />
+          <Route path="/vendor" element={<ProtectedRoute roles={['vendor']}><VendorPortal /></ProtectedRoute>} />
           <Route path="/dashboard" element={<ProtectedRoute roles={['expert']}><ExpertDashboard /></ProtectedRoute>} />
           <Route path="/profil" element={<ProtectedRoute roles={['expert']}><ExpertProfil /></ProtectedRoute>} />
           <Route path="*" element={<Navigate to="/" replace />} />

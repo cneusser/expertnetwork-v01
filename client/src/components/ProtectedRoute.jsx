@@ -6,7 +6,8 @@ export default function ProtectedRoute({ children, roles }) {
   if (loading) return null;
   if (!user) return <Navigate to="/login" replace />;
   if (roles && !roles.includes(user.role)) {
-    return <Navigate to={user.role === 'admin' ? '/admin' : '/dashboard'} replace />;
+    const home = user.role === 'vendor' ? '/vendor' : ['admin', 'tenant_owner'].includes(user.role) ? '/admin' : '/dashboard';
+    return <Navigate to={home} replace />;
   }
   return children;
 }

@@ -15,6 +15,8 @@ const auditRoutes = require('./routes/audit');
 const searchRoutes = require('./routes/search');
 const projectRoutes = require('./routes/projects');
 const communicationRoutes = require('./routes/communications');
+const vendorRoutes = require('./routes/vendor');
+const tenantRoutes = require('./routes/tenants');
 const { runAvailabilityReminders, runConsentJobs } = require('./jobs');
 const { startScheduler } = require('./scheduler');
 
@@ -43,6 +45,8 @@ app.use('/api/audit', auditRoutes);
 app.use('/api/search', searchRoutes);
 app.use('/api/projects', projectRoutes);
 app.use('/api/communications', communicationRoutes);
+app.use('/api/vendor', vendorRoutes);
+app.use('/api/tenants', tenantRoutes);
 
 // Produktion: gebauten Client ausliefern (ein Railway-Service für beides).
 const clientDist = path.join(__dirname, '..', 'client', 'dist');
