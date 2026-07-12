@@ -24,8 +24,11 @@ export default function Layout({ children }) {
             <NavLink to={home} end>Dashboard</NavLink>
             {user?.role === 'admin' && <NavLink to="/admin/experten">Experten</NavLink>}
             {user?.role === 'admin' && <NavLink to="/admin/suche">Suche</NavLink>}
+            {user?.role === 'admin' && <NavLink to="/admin/projekte">Projekte</NavLink>}
             {user?.role === 'admin' && <NavLink to="/admin/audit">Audit-Log</NavLink>}
             {user?.role === 'expert' && <NavLink to="/profil">Mein Profil</NavLink>}
+            {user?.role === 'expert' && <NavLink to="/projekte">Projekte</NavLink>}
+            <NavLink to="/konto">Konto</NavLink>
           </nav>
         </div>
         <div className="user">

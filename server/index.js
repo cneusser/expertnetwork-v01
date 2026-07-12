@@ -13,6 +13,7 @@ const expertRoutes = require('./routes/experts');
 const availabilityRoutes = require('./routes/availability');
 const auditRoutes = require('./routes/audit');
 const searchRoutes = require('./routes/search');
+const projectRoutes = require('./routes/projects');
 const { runAvailabilityReminders, runConsentJobs } = require('./jobs');
 const { startScheduler } = require('./scheduler');
 
@@ -39,6 +40,7 @@ app.use('/api/experts', expertRoutes);
 app.use('/api/availability', availabilityRoutes);
 app.use('/api/audit', auditRoutes);
 app.use('/api/search', searchRoutes);
+app.use('/api/projects', projectRoutes);
 
 // Produktion: gebauten Client ausliefern (ein Railway-Service für beides).
 const clientDist = path.join(__dirname, '..', 'client', 'dist');

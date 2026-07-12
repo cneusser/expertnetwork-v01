@@ -154,6 +154,58 @@ router.get('/me', requireAuth, async (req, res) => {
   });
 });
 
+/** Konto ändern (alle Rollen): E-Mail-Adresse — auditiert mit Alt/Neu. */
+router.put('/account', requireAuth, async (req, res) => {
+  const email = String(req.body?.email || '').toLowerCase().trim();
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return res.status(400).json({ error: 'Ungültige E-Mail-Adresse' });
+  const user = await db('users').where({ id: req.user.id }).first();
+  if (email === user.email) return res.json({ ok: true, message: 'Keine Änderung.' });
+  const taken = await db('users').where({ email }).first();
+  if (taken) return res.status(409).json({ error: 'E-Mail-Adresse bereits vergeben' });
+  await db('users').where({ id: user.id }).update({ email });
+  await db('experts').where({ user_id: user.id }).update({ email }); // Expertenprofil synchron halten
+  await db('audit_log').insert({
+    tenant_id: user.tenant_id,
+    actor_id: user.id,
+    action: 'account.email_change',
+    resource: 'users',
+    resource_id: user.id,
+    old_value_json: JSON.stringify({ email: user.email }),
+    new_value_json: JSON.stringify({ email }),
+    ip: req.ip,
+  });
+  res.json({ ok: true, message: 'E-Mail-Adresse geändert.' });
+});
+
+/** Passwort ändern (alle Rollen) — aktuelles Passwort erforderlich. */
+router.post('/change-password', requireAuth, async (req, res) => {
+  const { current, next } = req.body || {};
+  if (!next || String(next).length < 10) return res.status(400).json({ error: 'Neues Passwort: mindestens 10 Zeichen' });
+  const user = await db('users').where({ id: req.user.id }).first();
+  if (!user || !(await bcrypt.compare(String(current || ''), user.password_hash))) {
+    return res.status(401).json({ error: 'Aktuelles Passwort ist falsch' });
+  }
+  await db('users').where({ id: user.id }).update({ password_hash: await bcrypt.hash(String(next), 10) });
+  await db('audit_log').insert({
+    tenant_id: user.tenant_id,
+    actor_id: user.id,
+    action: 'account.password_change',
+    resource: 'users',
+    resource_id: user.id,
+    ip: req.ip,
+  });
+  res.json({ ok: true, message: 'Passwort geändert.' });
+});
+
+/** Eigene Änderungshistorie (alle Rollen). */
+router.get('/my-audit', requireAuth, async (req, res) => {
+  const rows = await db('audit_log')
+    .where({ actor_id: req.user.id })
+    .orderBy('ts', 'desc')
+    .limit(100);
+  res.json({ rows: rows.map((r) => ({ ...r, actor_email: null })) });
+});
+
 /**
  * Birdview (Admin): in die Sicht eines Experten schalten.
  * Setzt eine Experten-Session mit Rücksprungmarke (impersonatedBy) — auditiert.
