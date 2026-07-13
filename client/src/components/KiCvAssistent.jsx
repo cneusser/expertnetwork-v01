@@ -69,7 +69,7 @@ export default function KiCvAssistent({ expertId = null, onApplied }) {
         <>
           <p style={{ margin: '8px 0' }}>
             Aktuellen Lebenslauf (PDF) hochladen — die KI erkennt Skills, Rollen und Kurzprofil
-            und erstellt einen Vorschlag. <strong>Nichts wird ohne Ihre Bestätigung geändert.</strong>
+            und erstellt einen Vorschlag. <strong>Nichts wird ohne Ihre Bestätigung geändert.</strong>{' '}Tipp: Auch Ihr LinkedIn-Profil-PDF funktioniert — auf LinkedIn „Als PDF speichern“ wählen und hier hochladen, dann gleicht die KI Ihr Phalanx-Profil damit ab.
           </p>
           <input type="file" accept="application/pdf" disabled={busy} onChange={(e) => extract(e.target.files[0])} />
           {busy && <p className="muted" style={{ marginTop: 8 }}>KI analysiert den Lebenslauf…</p>}

@@ -433,4 +433,68 @@ router.post('/renew-consent', async (req, res) => {
   }
 });
 
+
+/* ---------------- v1.6.0 LinkedIn OIDC ---------------- */
+const linkedin = require('../utils/linkedinOidc');
+
+/** Für den Login-Button: ist LinkedIn konfiguriert? */
+router.get('/linkedin/status', (_req, res) => res.json({ enabled: linkedin.enabled() }));
+
+/** Start des OIDC-Flows: Redirect zu LinkedIn mit CSRF-State. */
+router.get('/linkedin', (req, res) => {
+  if (!linkedin.enabled()) return res.redirect('/login?error=linkedin-nicht-konfiguriert');
+  const state = require('crypto').randomBytes(16).toString('hex');
+  res.cookie('li_state', state, { ...cookieOpts, maxAge: 10 * 60 * 1000 });
+  res.redirect(linkedin.authorizeUrl(state));
+});
+
+/**
+ * Callback: Code gegen Userinfo tauschen und mit BESTEHENDEM Konto verknüpfen.
+ * Bewusst KEINE automatische Kontoanlage — Registrierung (inkl. Einwilligung)
+ * läuft weiterhin über die regulären Flows (DSGVO-Vorgabe).
+ */
+router.get('/linkedin/callback', async (req, res) => {
+  const { code, state, error } = req.query;
+  const expected = req.cookies?.li_state;
+  res.clearCookie('li_state', { ...cookieOpts, maxAge: 0 });
+  if (error) return res.redirect('/login?error=linkedin-abgebrochen');
+  if (!code || !state || !expected || String(state) !== String(expected)) {
+    return res.redirect('/login?error=linkedin-state');
+  }
+  try {
+    const info = await linkedin.fetchUserinfo(String(code));
+    if (!info?.sub) return res.redirect('/login?error=linkedin-fehler');
+
+    let user = await db('users').where({ linkedin_sub: info.sub }).first();
+    if (!user && info.email) {
+      user = await db('users').where({ email: String(info.email).toLowerCase() }).first();
+      if (user) {
+        await db('users').where({ id: user.id }).update({
+          linkedin_sub: info.sub,
+          ...(user.email_verified_at || !info.email_verified ? {} : { email_verified_at: db.fn.now() }),
+        });
+        await db('audit_log').insert({
+          tenant_id: user.tenant_id, actor_id: user.id, action: 'auth.linkedin_linked',
+          resource: 'users', resource_id: user.id,
+          new_value_json: JSON.stringify({ linkedin_sub: info.sub }), ip: req.ip,
+        });
+        user = await db('users').where({ id: user.id }).first();
+      }
+    }
+    if (!user) return res.redirect('/login?error=linkedin-kein-konto');
+    if (!user.email_verified_at) return res.redirect('/login?error=email-nicht-bestaetigt');
+
+    await db('audit_log').insert({
+      tenant_id: user.tenant_id, actor_id: user.id, action: 'auth.login',
+      resource: 'users', resource_id: user.id,
+      new_value_json: JSON.stringify({ quelle: 'linkedin' }), ip: req.ip,
+    });
+    res.cookie('session', signSession(user), cookieOpts);
+    res.redirect(user.role === 'vendor' ? '/vendor' : ['admin', 'tenant_owner'].includes(user.role) ? '/admin' : '/dashboard');
+  } catch (e) {
+    console.error('LinkedIn-Callback:', e.message);
+    res.redirect('/login?error=linkedin-fehler');
+  }
+});
+
 module.exports = router;
