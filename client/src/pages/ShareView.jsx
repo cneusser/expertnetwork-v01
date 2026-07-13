@@ -21,6 +21,8 @@ export default function ShareView() {
     <div style={{ maxWidth: 960, margin: '0 auto', padding: '32px 20px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
         <Logo />
+        <a href={`/api/public/share/${token}/pptx`} className="btn" style={{ width: 'auto', textDecoration: 'none', marginRight: 10 }}>
+          <Download size={15} /> Profile als PPTX</a>
         <a href={`/api/public/share/${token}/pdf`} className="btn" style={{ width: 'auto', textDecoration: 'none' }}>
           <Download size={15} /> Shortlist als PDF
         </a>

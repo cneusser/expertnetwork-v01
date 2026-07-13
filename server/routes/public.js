@@ -187,4 +187,23 @@ router.get('/share/:token/pdf', async (req, res) => {
   }).pipe(res);
 });
 
+/** v1.5.0 — PPTX-Download am Hidden-Link: identische Freigabe-Schranke wie PDF. */
+router.get('/share/:token/pptx', async (req, res) => {
+  const data = await loadShare(String(req.params.token));
+  if (!data) return res.status(404).json({ error: 'Link ungültig, abgelaufen oder widerrufen' });
+  const { buildProfilePptx } = require('../utils/profilePptx');
+  const { ANSPRECHPARTNER } = require('../utils/profileData');
+  await db('audit_log').insert({
+    tenant_id: data.link.tenant_id, action: 'share.pptx_download', resource: 'share_links',
+    resource_id: data.link.id, ip: req.ip,
+  });
+  const buf = await buildProfilePptx({
+    projektName: data.project.name, referenz: data.project.referenz,
+    profiles: data.profiles, ansprechpartner: ANSPRECHPARTNER,
+  });
+  res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.presentationml.presentation');
+  res.setHeader('Content-Disposition', `attachment; filename="Phalanx-Profile-${data.project.referenz || data.project.id}.pptx"`);
+  res.send(buf);
+});
+
 module.exports = router;

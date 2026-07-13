@@ -87,6 +87,9 @@ export default function AdminExpertDetail() {
           load();
         }}>{watch ? '★ Gemerkt' : '☆ Merken'}</a>
         {' · '}
+        <a href={`/api/experts/${id}/profil-pptx`} style={{ cursor: 'pointer' }}>
+          Profil als PPTX</a>
+        {' · '}
         <a href="#blockieren" style={{ color: blocked ? 'var(--danger)' : undefined }} onClick={async (e) => {
           e.preventDefault();
           await api.post(`/api/experts/${id}/block`, {});

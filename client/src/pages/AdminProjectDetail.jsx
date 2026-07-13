@@ -56,7 +56,11 @@ export default function AdminProjectDetail() {
       <p style={{ marginBottom: 20 }}>{skills.map((s) => <span className="tag" key={s.id}>{s.name}</span>)}</p>
 
       <div className="card" style={{ marginBottom: 18 }}>
-        <h3>Hidden-Links für Kunden (Projekt + freigegebene Profile, mit PDF)</h3>
+        <h3>Hidden-Links für Kunden (Projekt + freigegebene Profile, mit PDF &amp; PPTX)</h3>
+        <p style={{ margin: '6px 0 10px' }}>
+          <a href={`/api/projects/${id}/profile-pptx`} className="btn" style={{ width: 'auto', padding: '6px 14px', textDecoration: 'none', display: 'inline-block' }}>
+            Sammelprofil als PPTX (Phalanx-Format)</a>
+        </p>
         {shareLinks.filter((l) => !l.revoked_at).map((l) => (
           <p key={l.id} style={{ display: 'flex', gap: 10, alignItems: 'center', fontSize: 13, marginTop: 8, flexWrap: 'wrap' }}>
             <code style={{ background: 'var(--grey-100)', padding: '4px 8px', borderRadius: 4 }}>{`${window.location.origin}/s/${l.token}`}</code>

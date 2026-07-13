@@ -249,6 +249,21 @@ router.get('/:id(\\d+)/documents/:docId(\\d+)/view', async (req, res) => {
   storage.createReadStream(doc.storage_ref).pipe(res);
 });
 
+/** v1.5.0 — Beraterprofil als PPTX im Phalanx-Format (Admin). */
+router.get('/:id(\\d+)/profil-pptx', requireRole('admin'), async (req, res) => {
+  const expert = await db('experts').where({ id: Number(req.params.id), tenant_id: req.user.tenantId }).first();
+  if (!expert) return res.status(404).json({ error: 'Experte nicht gefunden' });
+  const { expertToProfile, ANSPRECHPARTNER } = require('../utils/profileData');
+  const { buildProfilePptx } = require('../utils/profilePptx');
+  const profil = await expertToProfile(expert, { mitFoto: true });
+  const buf = await buildProfilePptx({ profiles: [profil], ansprechpartner: ANSPRECHPARTNER });
+  await req.audit({ action: 'expert.pptx_export', resource: 'experts', resourceId: expert.id });
+  res.locals.auditLogged = true;
+  res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.presentationml.presentation');
+  res.setHeader('Content-Disposition', `attachment; filename="Phalanx-Profil-${encodeURIComponent(expert.nachname)}.pptx"`);
+  res.send(buf);
+});
+
 /** Dokument hochladen (Admin) — neue Version, nie überschreiben. */
 router.post('/:id(\\d+)/documents', requireRole('admin'), upload.single('file'), async (req, res) => {
   const expert = await db('experts').where({ id: Number(req.params.id), tenant_id: req.user.tenantId }).first();

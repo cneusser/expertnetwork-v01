@@ -125,6 +125,22 @@ router.post('/bewerbungen/:appId(\\d+)/zurueckziehen', async (req, res) => {
 
 /* ---------------- Admin ---------------- */
 
+/** v1.5.0 — Sammelprofil als PPTX (Admin): alle für das Projekt freigegebenen Profile. */
+router.get('/:id(\\d+)/profile-pptx', requireRole('admin'), async (req, res) => {
+  const project = await db('projects').where({ id: Number(req.params.id), tenant_id: req.user.tenantId }).first();
+  if (!project) return res.status(404).json({ error: 'Projekt nicht gefunden' });
+  const { releasedProfiles, ANSPRECHPARTNER } = require('../utils/profileData');
+  const { buildProfilePptx } = require('../utils/profilePptx');
+  const profiles = await releasedProfiles(project.id, { mitFoto: true });
+  if (!profiles.length) return res.status(400).json({ error: 'Keine freigegebenen Profile — bitte zuerst Profile in der Pipeline freigeben.' });
+  const buf = await buildProfilePptx({ projektName: project.name, referenz: project.referenz, profiles, ansprechpartner: ANSPRECHPARTNER });
+  await req.audit({ action: 'project.pptx_export', resource: 'projects', resourceId: project.id, newValue: { profile: profiles.length } });
+  res.locals.auditLogged = true;
+  res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.presentationml.presentation');
+  res.setHeader('Content-Disposition', `attachment; filename="Phalanx-Profile-${project.referenz || project.id}.pptx"`);
+  res.send(buf);
+});
+
 router.get('/', requireRole('admin'), async (req, res) => {
   const projects = await db('projects').where({ tenant_id: req.user.tenantId }).orderBy('created_at', 'desc');
   const out = [];
