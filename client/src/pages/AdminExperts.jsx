@@ -22,6 +22,8 @@ function currentAvailability(avails) {
 export default function AdminExperts() {
   const [experts, setExperts] = useState(null);
   const [error, setError] = useState('');
+  const [statusFilter, setStatusFilter] = useState('alle');
+  const [nurUnbestaetigt, setNurUnbestaetigt] = useState(false);
 
   useEffect(() => {
     api.get('/api/experts').then((d) => setExperts(d.experts)).catch((e) => setError(e.message));
@@ -33,12 +35,35 @@ export default function AdminExperts() {
       <p className="sub">{experts ? `${experts.length} Profil(e) im Pool` : 'Laden…'}</p>
       {error && <div className="msg msg-error">{error}</div>}
       {experts && (
+        <p style={{ margin: '0 0 14px', display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+          {['alle', 'freigegeben', 'eingeladen', 'registriert', 'inaktiv'].map((st) => {
+            const n = st === 'alle' ? experts.length : experts.filter((e) => e.status === st).length;
+            if (st !== 'alle' && n === 0) return null;
+            const aktiv = statusFilter === st;
+            return (
+              <button key={st} type="button" className="tag"
+                style={{ cursor: 'pointer', border: 'none', background: aktiv ? 'var(--navy)' : undefined, color: aktiv ? '#fff' : undefined }}
+                onClick={() => setStatusFilter(st)}>
+                {st === 'alle' ? 'Alle' : st} ({n})
+              </button>
+            );
+          })}
+          <label style={{ fontSize: 13, marginLeft: 8, display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer' }}>
+            <input type="checkbox" checked={nurUnbestaetigt} onChange={(e) => setNurUnbestaetigt(e.target.checked)} />
+            nur „nicht bestätigt“
+          </label>
+        </p>
+      )}
+      {experts && (
         <table className="table">
           <thead>
             <tr><th>Name</th><th>Rolle</th><th>Verfügbarkeit</th><th>Frische</th><th>Tagessatz</th><th>Skills</th><th>Status</th></tr>
           </thead>
           <tbody>
-            {experts.map((e) => (
+            {experts
+              .filter((e) => statusFilter === 'alle' || e.status === statusFilter)
+              .filter((e) => !nurUnbestaetigt || e.freshness?.nichtBestaetigt)
+              .map((e) => (
               <tr key={e.id}>
                 <td><Link to={`/admin/experten/${e.id}`}><strong>{e.vorname} {e.nachname}</strong></Link><br />
                   <span className="muted">{e.firma}</span></td>

@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import Logo from '../components/Logo';
+import LegalFooter from '../components/LegalFooter';
 import { api } from '../api/client';
 
 const fmtDate = (d) => (d ? new Date(d).toLocaleDateString('de-DE') : '—');
@@ -94,6 +95,7 @@ export default function ProjektOeffentlich() {
         )}
       </div>
       <p className="muted" style={{ marginTop: 20, fontSize: 12 }}>Phalanx GmbH · Erlangen · neusser@phalanx.de</p>
+      <LegalFooter />
     </div>
   );
 }

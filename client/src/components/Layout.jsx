@@ -40,8 +40,13 @@ export default function Layout({ children }) {
         </div>
       </header>
       <main className="main">{children}</main>
-      <footer style={{ padding: '14px 28px', fontSize: 12, color: 'var(--grey-400)', textAlign: 'right' }}>
-        Phalanx Expert Network · {APP_VERSION}
+      <footer style={{ padding: '14px 28px', fontSize: 12, color: 'var(--grey-400)', display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+        <span>
+          <a href="https://www.phalanx.de/de/impressum" target="_blank" rel="noreferrer" style={{ color: 'inherit' }}>Impressum</a>
+          {' · '}
+          <Link to="/datenschutz" style={{ color: 'inherit' }}>Datenschutz</Link>
+        </span>
+        <span>Phalanx Expert Network · {APP_VERSION}</span>
       </footer>
     </div>
   );

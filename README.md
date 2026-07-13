@@ -43,6 +43,10 @@ Deckt ab: Registrierung inkl. Consent-Pflicht, Verifizierung, Login/Session-Cook
 2. GitHub-Repo verbinden (Auto-Deploy bei Push).
 3. **PostgreSQL-Plugin** hinzufügen; Railway setzt `DATABASE_URL` automatisch — im Service als Variable referenzieren (`${{Postgres.DATABASE_URL}}`).
 4. Service-Variablen setzen: `JWT_SECRET` (langer Zufallswert), `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `APP_URL` (öffentliche URL), `NODE_ENV=production`, optional `MAIL_PROVIDER=resend` + `RESEND_API_KEY` + `MAIL_FROM`.
+5. Optional — „Mit LinkedIn anmelden" (OIDC, nur Login/Verknüpfung bestehender Konten, kein Scraping):
+   LinkedIn Developer Portal → App anlegen → Produkt „Sign In with LinkedIn using OpenID Connect" →
+   Redirect-URL `https://<domain>/api/auth/linkedin/callback` eintragen → Railway-Variablen
+   `LINKEDIN_CLIENT_ID` und `LINKEDIN_CLIENT_SECRET` setzen. Der Button erscheint automatisch.
 5. Build-Command: `npm run build` · Start-Command: `npm start`.
    Migrationen + Seed laufen automatisch beim Serverstart — kein manueller Migrationsschritt nötig.
 

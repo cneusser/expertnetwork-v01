@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { Download } from 'lucide-react';
 import Logo from '../components/Logo';
+import LegalFooter from '../components/LegalFooter';
 import { api } from '../api/client';
 
 export default function ShareView() {
@@ -59,6 +60,7 @@ export default function ShareView() {
           +49 9131 920 60 75 · +49 151 625 00 802 · <a href="mailto:neusser@phalanx.de">neusser@phalanx.de</a>
         </p>
       </div>
+      <LegalFooter />
     </div>
   );
 }

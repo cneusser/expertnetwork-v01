@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import Logo from '../components/Logo';
+import LegalFooter from '../components/LegalFooter';
 
 export default function Login() {
   const { login } = useAuth();
@@ -69,6 +70,7 @@ export default function Login() {
           <Link to="/forgot-password">Passwort vergessen?</Link>
         </div>
       </form>
+      <LegalFooter />
     </div>
   );
 }

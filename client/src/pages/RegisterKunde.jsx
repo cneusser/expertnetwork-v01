@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api/client';
 import Logo from '../components/Logo';
+import LegalFooter from '../components/LegalFooter';
 
 export default function RegisterKunde() {
   const [f, setF] = useState({
@@ -84,6 +85,7 @@ export default function RegisterKunde() {
         )}
         <div className="auth-links"><Link to="/login">Zur Anmeldung</Link></div>
       </form>
+      <LegalFooter />
     </div>
   );
 }

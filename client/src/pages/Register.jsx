@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api/client';
 import Logo from '../components/Logo';
+import LegalFooter from '../components/LegalFooter';
 
 export default function Register() {
   const [email, setEmail] = useState('');
@@ -73,6 +74,7 @@ export default function Register() {
         <button className="btn" disabled={busy || !consent}>{busy ? 'Registrieren…' : 'Registrieren'}</button>
         <div className="auth-links"><Link to="/login">Bereits registriert? Anmelden</Link></div>
       </form>
+      <LegalFooter />
     </div>
   );
 }
