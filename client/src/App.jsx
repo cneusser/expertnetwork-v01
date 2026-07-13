@@ -20,6 +20,7 @@ import Konto from './pages/Konto';
 import AdminKommunikation from './pages/AdminKommunikation';
 import AdminMandanten from './pages/AdminMandanten';
 import VendorPortal from './pages/VendorPortal';
+import RegisterKunde from './pages/RegisterKunde';
 import ExpertDashboard from './pages/ExpertDashboard';
 import ExpertProfil from './pages/ExpertProfil';
 
@@ -39,6 +40,7 @@ export default function App() {
           <Route path="/" element={<Home />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/register-kunde" element={<RegisterKunde />} />
           <Route path="/verify" element={<VerifyEmail />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPassword />} />

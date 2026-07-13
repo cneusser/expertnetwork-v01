@@ -11,7 +11,7 @@ export default function VendorPortal() {
   const [projects, setProjects] = useState(null);
   const [detail, setDetail] = useState(null);
   const [showForm, setShowForm] = useState(false);
-  const [f, setF] = useState({ name: '', beschreibung: '', start: '', ende: '', ort: '', arbeitsmodell: 'hybrid' });
+  const [f, setF] = useState({ name: '', beschreibung: '', start: '', ende: '', ort: '', arbeitsmodell: 'hybrid', bewerbungsfrist: '', auslastung_prozent: '', remote_anteil: '', tagessatz_von_eur: '', tagessatz_bis_eur: '' });
   const [msg, setMsg] = useState(null);
 
   const load = () => api.get('/api/vendor/projects').then((d) => setProjects(d.projects)).catch((e) => setMsg({ ok: false, text: e.message }));
@@ -20,10 +20,18 @@ export default function VendorPortal() {
   const submit = async (e) => {
     e.preventDefault();
     try {
-      const d = await api.post('/api/vendor/projects', { ...f, start: f.start || null, ende: f.ende || null, beschreibung: f.beschreibung || null, ort: f.ort || null });
+      const d = await api.post('/api/vendor/projects', {
+        name: f.name, beschreibung: f.beschreibung || null, start: f.start || null, ende: f.ende || null,
+        ort: f.ort || null, arbeitsmodell: f.arbeitsmodell,
+        bewerbungsfrist: f.bewerbungsfrist || null,
+        auslastung_prozent: f.auslastung_prozent ? Number(f.auslastung_prozent) : null,
+        remote_anteil: f.remote_anteil ? Number(f.remote_anteil) : null,
+        tagessatz_von_eur: f.tagessatz_von_eur ? Number(f.tagessatz_von_eur) : null,
+        tagessatz_bis_eur: f.tagessatz_bis_eur ? Number(f.tagessatz_bis_eur) : null,
+      });
       setMsg({ ok: true, text: d.message });
       setShowForm(false);
-      setF({ name: '', beschreibung: '', start: '', ende: '', ort: '', arbeitsmodell: 'hybrid' });
+      setF({ ...f, name: '', beschreibung: '' });
       load();
     } catch (err) { setMsg({ ok: false, text: err.message }); }
   };
@@ -55,6 +63,16 @@ export default function VendorPortal() {
               <select value={f.arbeitsmodell} onChange={(e) => setF({ ...f, arbeitsmodell: e.target.value })}>
                 <option value="remote">Remote</option><option value="hybrid">Hybrid</option><option value="vor_ort">Vor Ort</option>
               </select></div>
+            <div className="field"><label>Bewerbungsfrist</label>
+              <input type="datetime-local" value={f.bewerbungsfrist} onChange={(e) => setF({ ...f, bewerbungsfrist: e.target.value })} /></div>
+            <div className="field"><label>Auslastung (%)</label>
+              <input type="number" min="10" max="100" value={f.auslastung_prozent} onChange={(e) => setF({ ...f, auslastung_prozent: e.target.value })} /></div>
+            <div className="field"><label>Remote-Anteil (%)</label>
+              <input type="number" min="0" max="100" value={f.remote_anteil} onChange={(e) => setF({ ...f, remote_anteil: e.target.value })} /></div>
+            <div className="field"><label>Budget-Tagessatz von (€)</label>
+              <input type="number" value={f.tagessatz_von_eur} onChange={(e) => setF({ ...f, tagessatz_von_eur: e.target.value })} /></div>
+            <div className="field"><label>bis (€)</label>
+              <input type="number" value={f.tagessatz_bis_eur} onChange={(e) => setF({ ...f, tagessatz_bis_eur: e.target.value })} /></div>
           </div>
           <button className="btn" style={{ width: 'auto' }}>Einreichen</button>
         </form>
@@ -97,6 +115,21 @@ export default function VendorPortal() {
                     <p className="muted" style={{ marginTop: 6 }}>{p.firma} · {p.email} · {p.mobil}</p>
                   )}
                   {p.anonymized && <span className="badge">Anonymisiertes Profil — Kontakt über Phalanx</span>}
+                  <p style={{ marginTop: 10, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    <button type="button" className="tab" style={{ color: 'var(--accent)', padding: 0 }}
+                      onClick={async () => { /* Favorit braucht expert_id — über release nicht exponiert; Feedback als Hauptaktion */ }} hidden>★</button>
+                    {['interessant', 'gespraech_angefragt', 'absage'].map((fb) => (
+                      <button type="button" key={fb} className="tab"
+                        style={{ padding: '3px 8px', border: '1px solid var(--grey-200)', borderRadius: 6,
+                          background: p.feedback === fb ? 'var(--navy)' : 'transparent', color: p.feedback === fb ? '#fff' : 'var(--grey-600)', fontSize: 12.5 }}
+                        onClick={async () => {
+                          await api.put(`/api/vendor/projects/${detail.project.id}/releases/${p.release_id}`, { feedback: fb });
+                          openDetail(detail.project.id);
+                        }}>
+                        {{ interessant: '★ Interessant', gespraech_angefragt: 'Gespräch anfragen', absage: 'Absage' }[fb]}
+                      </button>
+                    ))}
+                  </p>
                 </div>
               ))}
             </div>

@@ -13,6 +13,12 @@ const APP_STATUS = ['vorgeschlagen', 'beworben', 'im_gespraech', 'angeboten', 'a
 
 const projectSchema = z.object({
   name: z.string().min(2).max(150),
+  bewerbungsfrist: z.string().nullable().optional(),
+  auslastung_prozent: z.number().int().min(10).max(100).nullable().optional(),
+  remote_anteil: z.number().int().min(0).max(100).nullable().optional(),
+  tagessatz_von_eur: z.number().int().positive().nullable().optional(),
+  gebuehr_modell: z.enum(['gu_anteil', 'erfolg']).nullable().optional(),
+  gebuehr_prozent: z.number().int().min(0).max(50).nullable().optional(),
   beschreibung: z.string().max(5000).nullable().optional(),
   budget_eur: z.number().int().positive().nullable().optional(),
   tagessatz_bis_eur: z.number().int().positive().nullable().optional(),
@@ -62,6 +68,9 @@ router.post('/:id(\\d+)/apply', async (req, res) => {
   if (!expert) return res.status(404).json({ error: 'Kein Expertenprofil vorhanden' });
   const project = await db('projects').where({ id: Number(req.params.id), tenant_id: req.user.tenantId, status: 'offen' }).first();
   if (!project) return res.status(404).json({ error: 'Projekt nicht gefunden oder nicht offen' });
+  if (project.bewerbungsfrist && new Date(project.bewerbungsfrist) < new Date()) {
+    return res.status(400).json({ error: 'Die Bewerbungsfrist ist abgelaufen.' });
+  }
   const nachricht = String(req.body?.nachricht || '').slice(0, 2000);
 
   const projectSkillIds = await db('project_skills').where({ project_id: project.id }).pluck('skill_id');
@@ -106,7 +115,12 @@ router.post('/', requireRole('admin'), async (req, res) => {
   if (!parsed.success) return res.status(400).json({ error: parsed.error.errors[0].message });
   const { skill_ids = [], ...data } = parsed.data;
   const [project] = await db('projects')
-    .insert({ tenant_id: req.user.tenantId, created_by: req.user.id, ...data })
+    .insert({
+      tenant_id: req.user.tenantId,
+      created_by: req.user.id,
+      referenz: 'PHX-' + require('crypto').randomBytes(2).toString('hex').toUpperCase(),
+      ...data,
+    })
     .returning('*');
   for (const sid of skill_ids) {
     await db('project_skills').insert({ project_id: project.id, skill_id: sid }).onConflict(['project_id', 'skill_id']).ignore();

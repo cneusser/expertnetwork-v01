@@ -42,7 +42,7 @@ export default function Login() {
         </div>
         <button className="btn" disabled={busy}>{busy ? 'Anmelden…' : 'Anmelden'}</button>
         <div className="auth-links">
-          <Link to="/register">Als Experte registrieren</Link>
+          <span><Link to="/register">Als Experte</Link> · <Link to="/register-kunde">Als Kunde registrieren</Link></span>
           <Link to="/forgot-password">Passwort vergessen?</Link>
         </div>
       </form>

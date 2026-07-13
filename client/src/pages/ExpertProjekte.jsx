@@ -41,10 +41,24 @@ export default function ExpertProjekte() {
               <p>{p.beschreibung?.slice(0, 220) || ''}</p>
               <p className="muted" style={{ marginTop: 8 }}>
                 {fmtDate(p.start)} – {fmtDate(p.ende)} · {p.ort || 'ortsunabhängig'} · {p.arbeitsmodell}
+                {p.auslastung_prozent ? ` · Auslastung ab ${p.auslastung_prozent} %` : ''}
+                {p.remote_anteil != null ? ` · Remote ${p.remote_anteil} %` : ''}
               </p>
+              {p.bewerbungsfrist && (
+                <p className="muted" style={{ marginTop: 4 }}>
+                  <strong>Bewerbungsfrist:</strong> {new Date(p.bewerbungsfrist).toLocaleString('de-DE')} Uhr
+                  {new Date(p.bewerbungsfrist) < new Date() && <span className="status status-inaktiv" style={{ marginLeft: 6 }}>abgelaufen</span>}
+                </p>
+              )}
+              {p.tagessatz_von_eur && (
+                <p className="muted" style={{ marginTop: 4 }}>
+                  Tagessatzindikation: {p.tagessatz_von_eur}{p.tagessatz_bis_eur ? `–${p.tagessatz_bis_eur}` : ''} €
+                  {p.gebuehr_modell === 'gu_anteil' && p.gebuehr_prozent ? ` (inkl. ${p.gebuehr_prozent} % Phalanx-Anteil)` : ''}
+                </p>
+              )}
               <p style={{ marginTop: 8 }}>{p.skills.map((s) => <span className="tag" key={s.id}>{s.name}</span>)}</p>
-              {p.application ? (
-                <span className="badge badge-active" style={{ marginTop: 10 }}>{APP_LABEL[p.application.status]}</span>
+              {p.application || (p.bewerbungsfrist && new Date(p.bewerbungsfrist) < new Date()) ? (
+                <span className="badge badge-active" style={{ marginTop: 10 }}>{p.application ? APP_LABEL[p.application.status] : 'Frist abgelaufen'}</span>
               ) : (
                 <button className="btn" style={{ width: 'auto', marginTop: 12, padding: '8px 16px' }} onClick={() => apply(p)}>
                   Bewerben

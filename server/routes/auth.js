@@ -86,6 +86,59 @@ router.post('/register', async (req, res) => {
   res.status(201).json({ ok: true, message: 'Registrierung erfolgreich. Bitte E-Mail bestätigen.' });
 });
 
+/**
+ * v1.1.0 — Kunden-Selbstregistrierung (öffentlich, Freigabe durch Admin).
+ * Legt users(role=vendor, is_approved=false) + vendor_profiles an.
+ */
+router.post('/register-kunde', async (req, res) => {
+  const b = req.body || {};
+  const email = String(b.email || '').toLowerCase().trim();
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return res.status(400).json({ error: 'Ungültige E-Mail-Adresse' });
+  if (!b.password || String(b.password).length < 10) return res.status(400).json({ error: 'Passwort: mindestens 10 Zeichen' });
+  if (b.consent !== true) return res.status(400).json({ error: 'Zustimmung zu AGB/Datenschutz erforderlich' });
+  if (!b.firmenname || String(b.firmenname).length < 2) return res.status(400).json({ error: 'Firmenname erforderlich' });
+  const ap = b.ansprechpartner || {};
+  if (!ap.vorname || !ap.nachname) return res.status(400).json({ error: 'Ansprechpartner (Vor-/Nachname) erforderlich' });
+
+  const tenant = await db('tenants').where({ slug: DEFAULT_TENANT_SLUG }).first();
+  if (await db('users').where({ email }).first()) return res.status(409).json({ error: 'E-Mail-Adresse bereits registriert' });
+
+  const [user] = await db('users').insert({
+    tenant_id: tenant.id,
+    email,
+    password_hash: await bcrypt.hash(String(b.password), 10),
+    role: 'vendor',
+    is_approved: false,
+  }).returning('*');
+
+  await db('vendor_profiles').insert({
+    tenant_id: tenant.id,
+    user_id: user.id,
+    firmenname: String(b.firmenname).slice(0, 150),
+    branche: b.branche ? String(b.branche).slice(0, 100) : null,
+    telefon: b.telefon ? String(b.telefon).slice(0, 40) : null,
+    adresse_json: JSON.stringify(b.adresse || {}),
+    ansprechpartner_json: JSON.stringify({
+      anrede: ap.anrede || null, titel: ap.titel || null,
+      vorname: String(ap.vorname).slice(0, 100), nachname: String(ap.nachname).slice(0, 100),
+      position: ap.position ? String(ap.position).slice(0, 100) : null,
+    }),
+  });
+
+  await db('audit_log').insert({
+    tenant_id: tenant.id, actor_id: user.id, action: 'vendor.register',
+    resource: 'users', resource_id: user.id,
+    new_value_json: JSON.stringify({ email, firmenname: b.firmenname }), ip: req.ip,
+  });
+
+  try {
+    const token = signPurposeToken(user.id, 'verify-email', '7d');
+    await getMailProvider().send({ to: email, ...verificationMail(token) });
+  } catch (e) { console.error('Mail-Versand fehlgeschlagen (Kunden-Verifizierung):', e.message); }
+
+  res.status(201).json({ ok: true, message: 'Registrierung eingegangen. Bitte E-Mail bestätigen — die Phalanx GmbH schaltet Ihren Zugang anschließend frei.' });
+});
+
 /** E-Mail-Verifizierung per Token-Link. */
 router.post('/verify', async (req, res) => {
   try {

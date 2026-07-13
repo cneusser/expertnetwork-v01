@@ -78,8 +78,44 @@ router.post('/vendors', requireRole('admin'), async (req, res) => {
 });
 
 router.get('/vendors', requireRole('admin'), async (req, res) => {
-  const vendors = await db('users').where({ tenant_id: req.user.tenantId, role: 'vendor' }).select('id', 'email', 'created_at');
+  const vendors = await db('users as u')
+    .leftJoin('vendor_profiles as vp', 'vp.user_id', 'u.id')
+    .where({ 'u.tenant_id': req.user.tenantId, 'u.role': 'vendor' })
+    .select('u.id', 'u.email', 'u.is_approved', 'u.created_at', 'vp.firmenname', 'vp.branche');
   res.json({ vendors });
+});
+
+/** Kunden-Zugang freigeben (v1.1.0). */
+router.post('/vendors/:id(\\d+)/approve', requireRole('admin'), async (req, res) => {
+  const vendor = await db('users').where({ id: Number(req.params.id), tenant_id: req.user.tenantId, role: 'vendor' }).first();
+  if (!vendor) return res.status(404).json({ error: 'Kunde nicht gefunden' });
+  await db('users').where({ id: vendor.id }).update({ is_approved: true });
+  await req.audit({ action: 'vendor.approve', resource: 'users', resourceId: vendor.id });
+  res.locals.auditLogged = true;
+  res.json({ ok: true, message: 'Zugang freigegeben.' });
+});
+
+/** Gebühren-Defaults des Mandanten (v1.1.0). */
+router.get('/settings', requireRole('admin'), async (req, res) => {
+  const tenant = await db('tenants').where({ id: req.user.tenantId }).first();
+  const b = typeof tenant.branding_json === 'string' ? JSON.parse(tenant.branding_json || '{}') : (tenant.branding_json || {});
+  res.json({ gebuehr_modell_default: b.gebuehr_modell_default || 'gu_anteil', gebuehr_prozent_default: b.gebuehr_prozent_default ?? 15 });
+});
+
+router.put('/settings', requireRole('admin'), async (req, res) => {
+  const modell = String(req.body?.gebuehr_modell_default || 'gu_anteil');
+  const prozent = Number(req.body?.gebuehr_prozent_default);
+  if (!['gu_anteil', 'erfolg'].includes(modell) || !(prozent >= 0 && prozent <= 50)) {
+    return res.status(400).json({ error: 'Ungültige Gebühren-Einstellung' });
+  }
+  const tenant = await db('tenants').where({ id: req.user.tenantId }).first();
+  const b = typeof tenant.branding_json === 'string' ? JSON.parse(tenant.branding_json || '{}') : (tenant.branding_json || {});
+  b.gebuehr_modell_default = modell;
+  b.gebuehr_prozent_default = prozent;
+  await db('tenants').where({ id: tenant.id }).update({ branding_json: JSON.stringify(b) });
+  await req.audit({ action: 'settings.gebuehren', resource: 'tenants', resourceId: tenant.id, newValue: { modell, prozent } });
+  res.locals.auditLogged = true;
+  res.json({ ok: true });
 });
 
 module.exports = router;

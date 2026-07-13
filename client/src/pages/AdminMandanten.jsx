@@ -9,11 +9,13 @@ export default function AdminMandanten() {
   const [vendors, setVendors] = useState([]);
   const [t, setT] = useState({ slug: '', name: '', owner_email: '', owner_password: '' });
   const [v, setV] = useState({ email: '', password: '', firma: '' });
+  const [geb, setGeb] = useState({ gebuehr_modell_default: 'gu_anteil', gebuehr_prozent_default: 15 });
   const [msg, setMsg] = useState(null);
 
   const load = () => {
     api.get('/api/tenants').then((d) => setTenants(d.tenants)).catch(() => setTenants([]));
     api.get('/api/tenants/vendors').then((d) => setVendors(d.vendors)).catch(() => {});
+    api.get('/api/tenants/settings').then(setGeb).catch(() => {});
   };
   useEffect(() => { load(); }, []);
 
@@ -47,8 +49,39 @@ export default function AdminMandanten() {
         <div className="card">
           <h3>Kunden-Zugänge (Vendor-Portal)</h3>
           {vendors.length ? (
-            <p style={{ margin: '10px 0' }}>{vendors.map((x) => <span className="tag" key={x.id}>{x.email}</span>)}</p>
+            <div style={{ margin: '10px 0' }}>
+              {vendors.map((x) => (
+                <p key={x.id} style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '4px 0', fontSize: 13.5 }}>
+                  <span>{x.firmenname ? `${x.firmenname} · ` : ''}{x.email}</span>
+                  {x.is_approved ? <span className="status status-freigegeben">aktiv</span> : (
+                    <button type="button" className="btn" style={{ width: 'auto', padding: '4px 10px', fontSize: 12 }}
+                      onClick={async () => { await api.post(`/api/tenants/vendors/${x.id}/approve`); load(); }}>
+                      Freigeben
+                    </button>
+                  )}
+                </p>
+              ))}
+            </div>
           ) : <p className="muted" style={{ margin: '10px 0' }}>Noch keine Kunden-Zugänge.</p>}
+          <h3 style={{ marginTop: 16 }}>Gebühren-Defaults</h3>
+          <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end', marginTop: 8 }}>
+            <div className="field" style={{ marginBottom: 0, minWidth: 180 }}>
+              <label>Modell</label>
+              <select value={geb.gebuehr_modell_default} onChange={(e) => setGeb({ ...geb, gebuehr_modell_default: e.target.value })}>
+                <option value="gu_anteil">GU-Anteil auf Tagessatz</option>
+                <option value="erfolg">Erfolgsgebühr</option>
+              </select>
+            </div>
+            <div className="field" style={{ marginBottom: 0, width: 100 }}>
+              <label>Prozent</label>
+              <input type="number" min="0" max="50" value={geb.gebuehr_prozent_default}
+                onChange={(e) => setGeb({ ...geb, gebuehr_prozent_default: Number(e.target.value) })} />
+            </div>
+            <button type="button" className="btn" style={{ width: 'auto' }}
+              onClick={async () => { await api.put('/api/tenants/settings', geb); setMsg({ ok: true, text: 'Gebühren-Defaults gespeichert.' }); }}>
+              Speichern
+            </button>
+          </div>
           <form onSubmit={createVendor}>
             <div className="field"><label>E-Mail</label>
               <input type="email" required value={v.email} onChange={(e) => setV({ ...v, email: e.target.value })} /></div>
