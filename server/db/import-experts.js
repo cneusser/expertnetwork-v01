@@ -175,8 +175,60 @@ async function importExpert(def) {
   console.log(`Import ok — ${def.expert.vorname} ${def.expert.nachname} (Experte #${expert.id})`);
 }
 
+/**
+ * v1.0.1 — Kontakt-Bulkimport (Minimalprofile, Status 'eingeladen').
+ * Idempotent per E-Mail; Rolle als Skill-Tag; Notiz als internes Kurzprofil.
+ * Keine Einwilligung → kein Consent-Record, keine Reminder (Consent-Schranke);
+ * aktiv wird der Kontakt erst über den Einladungs-Flow (Art. 13/14 DSGVO).
+ */
+async function importContact(c) {
+  const tenant = await db('tenants').where({ slug: 'phalanx' }).first();
+  let user = await db('users').where({ email: c.email }).first();
+  if (!user) {
+    [user] = await db('users')
+      .insert({
+        tenant_id: tenant.id,
+        email: c.email,
+        password_hash: await bcrypt.hash(crypto.randomBytes(24).toString('hex'), 10),
+        role: 'expert',
+        is_approved: true,
+      })
+      .returning('*');
+  }
+  let expert = await db('experts').where({ user_id: user.id }).first();
+  if (expert) return; // existiert (z. B. Adrian) — nichts überschreiben
+
+  [expert] = await db('experts')
+    .insert({
+      tenant_id: tenant.id,
+      user_id: user.id,
+      status: 'eingeladen',
+      vorname: c.vorname === '—' ? '' : c.vorname,
+      nachname: c.nachname === '—' ? '' : c.nachname,
+      firma: c.firma,
+      email: c.email,
+      kurzprofil: c.notiz ? `[Import-Notiz] ${c.notiz}` : null,
+    })
+    .returning('*');
+
+  let skill = await db('skills').whereRaw('lower(name) = lower(?)', [c.rolle]).first();
+  if (!skill) [skill] = await db('skills').insert({ name: c.rolle, kategorie: 'rolle' }).returning('*');
+  await db('expert_skills').insert({ expert_id: expert.id, skill_id: skill.id }).onConflict(['expert_id', 'skill_id']).ignore();
+
+  await db('audit_log').insert({
+    tenant_id: tenant.id,
+    action: 'expert.contact_import',
+    resource: 'experts',
+    resource_id: expert.id,
+    new_value_json: JSON.stringify({ email: c.email, quelle: `Kontaktliste 13.07.2026 / ${c.quelle}` }),
+  });
+}
+
 async function importAll() {
   await importExpert(ADRIAN);
+  const { CONTACTS } = require('./import-contacts');
+  for (const c of CONTACTS) await importContact(c);
+  console.log(`Kontakt-Import ok — ${CONTACTS.length} Kontakte geprüft`);
 }
 
 if (require.main === module) {
