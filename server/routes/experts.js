@@ -20,6 +20,51 @@ const upload = multer({
     file.mimetype === 'application/pdf' ? cb(null, true) : cb(new Error('Nur PDF erlaubt')),
 });
 
+/* ---------------- v1.4.0 Profilbild ---------------- */
+const fotoUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 3 * 1024 * 1024 } });
+const isImageBuffer = (b) =>
+  b && b.length > 8 &&
+  ((b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff) || // JPEG
+   (b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47)); // PNG
+
+async function storeFoto(expert, file, req, res) {
+  if (!file) return res.status(400).json({ error: 'Keine Datei übertragen' });
+  if (!isImageBuffer(file.buffer)) return res.status(400).json({ error: 'Nur JPEG oder PNG erlaubt' });
+  const ext = file.buffer[0] === 0x89 ? 'png' : 'jpg';
+  if (expert.foto_pfad) { try { await storage.remove(expert.foto_pfad); } catch { /* alt weg */ } }
+  const relPath = `fotos/expert-${expert.id}-${Date.now()}.${ext}`;
+  await storage.save(relPath, file.buffer);
+  await db('experts').where({ id: expert.id }).update({ foto_pfad: relPath });
+  await req.audit({ action: 'expert.foto_upload', resource: 'experts', resourceId: expert.id });
+  res.locals.auditLogged = true;
+  res.status(201).json({ ok: true });
+}
+
+/** Eigenes Profilbild hochladen (Experte). */
+router.post('/me/foto', fotoUpload.single('file'), async (req, res) => {
+  const expert = await db('experts').where({ user_id: req.user.id }).first();
+  if (!expert) return res.status(404).json({ error: 'Kein Expertenprofil vorhanden' });
+  return storeFoto(expert, req.file, req, res);
+});
+
+/** Profilbild hochladen (Admin). */
+router.post('/:id(\\d+)/foto', requireRole('admin'), fotoUpload.single('file'), async (req, res) => {
+  const expert = await db('experts').where({ id: Number(req.params.id), tenant_id: req.user.tenantId }).first();
+  if (!expert) return res.status(404).json({ error: 'Experte nicht gefunden' });
+  return storeFoto(expert, req.file, req, res);
+});
+
+/** Profilbild abrufen (Admin oder eigenes Profil). */
+router.get('/:id(\\d+)/foto', async (req, res) => {
+  const expert = await db('experts').where({ id: Number(req.params.id) }).first();
+  if (!expert || !expert.foto_pfad || !storage.exists(expert.foto_pfad)) return res.status(404).json({ error: 'Kein Foto' });
+  const isAdmin = ['admin', 'tenant_owner'].includes(req.user.role);
+  if (!isAdmin && expert.user_id !== req.user.id) return res.status(403).json({ error: 'Kein Zugriff' });
+  res.setHeader('Content-Type', expert.foto_pfad.endsWith('.png') ? 'image/png' : 'image/jpeg');
+  res.setHeader('Cache-Control', 'private, max-age=60');
+  storage.createReadStream(expert.foto_pfad).pipe(res);
+});
+
 /** Aktuelle Verfügbarkeit + aktuelle Sätze je Experte anreichern. */
 async function enrich(expertIds) {
   if (!expertIds.length) return { avail: {}, rates: {} };
@@ -186,6 +231,21 @@ router.get('/:id(\\d+)/documents/:docId(\\d+)/download', async (req, res) => {
   await req.audit({ action: 'document.download', resource: 'documents', resourceId: doc.id });
   res.setHeader('Content-Type', doc.mimetype || 'application/pdf');
   res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(doc.filename)}"`);
+  storage.createReadStream(doc.storage_ref).pipe(res);
+});
+
+/** v1.4.0 — Dokument im Browser ansehen (inline statt Download), gleicher Tresor-Zugriffsschutz. */
+router.get('/:id(\\d+)/documents/:docId(\\d+)/view', async (req, res) => {
+  const expert = await db('experts').where({ id: Number(req.params.id), tenant_id: req.user.tenantId }).first();
+  if (!expert) return res.status(404).json({ error: 'Experte nicht gefunden' });
+  if (req.user.role !== 'admin' && expert.user_id !== req.user.id) {
+    return res.status(403).json({ error: 'Keine Berechtigung' });
+  }
+  const doc = await db('documents').where({ id: Number(req.params.docId), expert_id: expert.id }).first();
+  if (!doc || !storage.exists(doc.storage_ref)) return res.status(404).json({ error: 'Dokument nicht gefunden' });
+  await req.audit({ action: 'document.view', resource: 'documents', resourceId: doc.id });
+  res.setHeader('Content-Type', doc.mimetype || 'application/pdf');
+  res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(doc.filename)}"`);
   storage.createReadStream(doc.storage_ref).pipe(res);
 });
 
@@ -439,6 +499,7 @@ router.delete('/:id(\\d+)', requireRole('admin'), async (req, res) => {
   for (const d of docs) {
     try { await storage.remove(d.storage_ref); } catch (e) { console.error('Datei-Löschung:', e.message); }
   }
+  if (expert.foto_pfad) { try { await storage.remove(expert.foto_pfad); } catch (e) { console.error('Foto-Löschung:', e.message); } }
 
   await db('project_releases').where({ expert_id: expert.id }).delete();
   await db('applications').where({ expert_id: expert.id }).delete();

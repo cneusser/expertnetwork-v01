@@ -127,6 +127,11 @@ export default function AdminSearch() {
                   run(params);
                 }}>
                 {s.name}{' '}
+                <span title={s.agent_aktiv ? 'Suchagent aktiv — meldet neue Treffer per E-Mail. Klick deaktiviert.' : 'Suchagent aktivieren: meldet neue Treffer täglich per E-Mail.'}
+                  style={{ fontWeight: 700, color: s.agent_aktiv ? 'var(--navy)' : 'var(--grey-400, #9aa3ae)' }}
+                  onClick={async (e) => { e.stopPropagation(); await api.post(`/api/search/saved/${s.id}/agent`); loadSaved(); }}>
+                  {s.agent_aktiv ? '🔔' : '🔕'}
+                </span>{' '}
                 <Trash2 size={11} style={{ verticalAlign: '-1px' }}
                   onClick={async (e) => { e.stopPropagation(); await api.del(`/api/search/saved/${s.id}`); loadSaved(); }} />
               </span>

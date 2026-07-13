@@ -10,7 +10,7 @@
 const { db } = require('../db/knex');
 const { signPurposeToken } = require('../utils/tokens');
 const { getMailProvider } = require('../providers/mail');
-const { availabilityReminderMail, reconsentMail } = require('../providers/mail/templates');
+const { availabilityReminderMail, reconsentMail, searchAgentMail } = require('../providers/mail/templates');
 
 const DAYS = (n) => new Date(Date.now() - n * 24 * 60 * 60 * 1000);
 const IN_DAYS = (n) => new Date(Date.now() + n * 24 * 60 * 60 * 1000);
@@ -85,4 +85,44 @@ async function runConsentJobs() {
   return { reminded, locked };
 }
 
-module.exports = { runAvailabilityReminders, runConsentJobs };
+/**
+ * v1.4.0 — Suchagent: führt aktive gespeicherte Suchen aus und meldet dem
+ * Besitzer per Mail, welche Experten seit dem letzten Lauf NEU in die
+ * Treffermenge gekommen sind (interne Admin-Mail, keine Experten-Mail —
+ * daher keine Consent-Schranke nötig).
+ */
+async function runSearchAgents() {
+  const { executeSearch } = require('../utils/searchRunner');
+  const agents = await db('saved_searches').where({ agent_aktiv: true });
+  let notified = 0;
+  for (const a of agents) {
+    let results;
+    try {
+      ({ results } = await executeSearch(a.tenant_id, a.params_json || {}));
+    } catch (e) {
+      console.error(`Suchagent "${a.name}" (#${a.id}):`, e.message);
+      continue;
+    }
+    const ids = results.map((r) => r.id);
+    const known = new Set(a.last_result_ids || []);
+    const neu = results.filter((r) => !known.has(r.id));
+    await db('saved_searches').where({ id: a.id }).update({
+      last_result_ids: JSON.stringify(ids), last_run_at: db.fn.now(),
+    });
+    if (!neu.length) continue;
+    const owner = await db('users').where({ id: a.user_id }).first();
+    if (owner) {
+      try {
+        await getMailProvider().send({ to: owner.email, ...searchAgentMail(a.name, neu.map((n) => ({ vorname: n.vorname, nachname: n.nachname, berufsbezeichnung: n.berufsbezeichnung }))) });
+      } catch (e) { console.error('Suchagent-Mail fehlgeschlagen:', e.message); }
+    }
+    await db('audit_log').insert({
+      tenant_id: a.tenant_id, action: 'search.agent_hit', resource: 'saved_searches', resource_id: a.id,
+      new_value_json: JSON.stringify({ neue_treffer: neu.map((n) => n.id) }),
+    });
+    notified++;
+  }
+  return { agents: agents.length, notified };
+}
+
+module.exports = { runAvailabilityReminders, runConsentJobs, runSearchAgents };

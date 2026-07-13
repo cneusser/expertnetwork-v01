@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { Pencil } from 'lucide-react';
 import Layout from '../components/Layout';
 import ProfileForm from '../components/ProfileForm';
+import FotoAvatar from '../components/FotoAvatar';
 import RateForm from '../components/RateForm';
 import KiCvAssistent from '../components/KiCvAssistent';
 import { api } from '../api/client';
@@ -44,9 +45,12 @@ export default function ExpertProfil() {
       ) : (
         <>
           <div className="card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-            <div>
-              <h3>{expert.vorname} {expert.nachname}</h3>
-              <p className="muted">{expert.firma} · {expert.email} · {expert.mobil}</p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+              <FotoAvatar expertId={expert.id} size={64} editable uploadUrl="/api/experts/me/foto" />
+              <div>
+                <h3>{expert.vorname} {expert.nachname}</h3>
+                <p className="muted">{expert.firma} · {expert.email} · {expert.mobil}</p>
+              </div>
             </div>
             <button className="btn" style={{ width: 'auto', padding: '8px 16px' }} onClick={() => { setSaved(false); setEditing(true); }}>
               <Pencil size={14} /> Bearbeiten

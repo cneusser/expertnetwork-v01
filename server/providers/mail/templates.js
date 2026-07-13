@@ -102,4 +102,20 @@ function reconsentMail(token, vorname, expiresAt) {
   };
 }
 
-module.exports = { verificationMail, passwordResetMail, availabilityReminderMail, inviteMail, reconsentMail };
+/** v1.4.0 — Suchagent meldet neue Treffer einer beobachteten Suche. */
+function searchAgentMail(searchName, hits) {
+  const url = `${APP_URL()}/suche`;
+  const items = hits.map((h) =>
+    `<li><strong>${h.vorname} ${h.nachname}</strong>${h.berufsbezeichnung ? ` — ${h.berufsbezeichnung}` : ''}</li>`).join('');
+  return {
+    subject: `Suchagent "${searchName}": ${hits.length} neue${hits.length === 1 ? 'r Treffer' : ' Treffer'}`,
+    html: layout(`
+      <p>Guten Tag,</p>
+      <p>Ihr Suchagent <strong>${searchName}</strong> hat neue passende Experten gefunden:</p>
+      <ul>${items}</ul>
+      <p>${button(url, 'Zur Suche')}</p>`),
+    text: `Suchagent "${searchName}": ${hits.map((h) => `${h.vorname} ${h.nachname}`).join(', ')} — ${url}`,
+  };
+}
+
+module.exports = { verificationMail, passwordResetMail, availabilityReminderMail, inviteMail, reconsentMail, searchAgentMail };

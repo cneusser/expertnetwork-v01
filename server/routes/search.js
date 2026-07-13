@@ -18,77 +18,14 @@ router.get('/meta', async (_req, res) => {
   res.json({ skills });
 });
 
+const { executeSearch } = require('../utils/searchRunner');
+
 router.get('/', async (req, res) => {
-  const today = new Date().toISOString().slice(0, 10);
-  let query = db('experts').where({ tenant_id: req.user.tenantId }).whereNot('status', 'inaktiv');
-
-  // Volltext mit Boolean-Syntax
-  if (req.query.q) {
-    let ts;
-    try {
-      ts = toTsQuery(String(req.query.q));
-    } catch (e) {
-      return res.status(400).json({ error: e.message });
-    }
-    if (ts) query = query.whereRaw(`search_vector @@ to_tsquery('german', ?)`, [ts]);
+  try {
+    res.json(await executeSearch(req.user.tenantId, req.query));
+  } catch (e) {
+    res.status(400).json({ error: e.message });
   }
-
-  // Skill-Facetten (AND-Logik: Experte muss ALLE gewählten Skills haben)
-  const skillIds = String(req.query.skills || '').split(',').filter(Boolean).map(Number);
-  for (const sid of skillIds) {
-    query = query.whereIn('id', db('expert_skills').select('expert_id').where('skill_id', sid));
-  }
-
-  if (req.query.arbeitsmodell) query = query.where('arbeitsmodell', String(req.query.arbeitsmodell));
-  if (req.query.ort) query = query.whereILike('ort', `%${req.query.ort}%`);
-  if (req.query.sprache) query = query.whereRaw('sprachen_json::text ILIKE ?', [`%${req.query.sprache}%`]);
-
-  // Tagessatz-Range: es existiert ein aktueller Satz, der sich mit [min,max] überschneidet
-  const satzMin = Number(req.query.satz_min) || null;
-  const satzMax = Number(req.query.satz_max) || null;
-  if (satzMin || satzMax) {
-    query = query.whereIn('id', function () {
-      this.select('expert_id').from('rates');
-      if (satzMax) this.where('satz_von_eur', '<=', satzMax);
-      if (satzMin) this.whereRaw('COALESCE(satz_bis_eur, satz_von_eur) >= ?', [satzMin]);
-    });
-  }
-
-  const experts = await query.orderBy('nachname');
-
-  // Anreicherung + Nachfilter (Verfügbarkeit, Ampel) — Pool-Größen erlauben das in JS.
-  const results = [];
-  for (const e of experts) {
-    const avails = await db('availabilities').where({ expert_id: e.id }).orderBy('created_at', 'desc');
-    const latestAvail = avails[0] || null;
-    const latestRate = await db('rates').where({ expert_id: e.id }).orderBy('created_at', 'desc').first();
-    const latestCv = await db('documents').where({ expert_id: e.id, kategorie: 'cv' }).orderBy('uploaded_at', 'desc').first();
-    const skills = await db('expert_skills').join('skills', 'skills.id', 'expert_skills.skill_id')
-      .where('expert_id', e.id).select('skills.id', 'skills.name', 'skills.kategorie');
-    const f = freshness({
-      availabilityConfirmedAt: latestAvail?.confirmed_at,
-      rateCreatedAt: latestRate?.created_at,
-      cvUploadedAt: latestCv?.uploaded_at,
-    });
-
-    if (req.query.verfuegbar === 'jetzt') {
-      const current = avails.find((a) => !a.ab_datum || new Date(a.ab_datum).toISOString().slice(0, 10) <= today) || latestAvail;
-      if (!current || !['sofort', 'teilweise'].includes(current.status) || f.nichtBestaetigt) continue;
-    }
-    if (req.query.verfuegbar === 'ab_datum' && req.query.ab_datum) {
-      const ok = avails.some((a) => a.ab_datum && new Date(a.ab_datum).toISOString().slice(0, 10) <= String(req.query.ab_datum) && a.status !== 'ausgebucht');
-      if (!ok && (!latestAvail || latestAvail.status === 'ausgebucht')) continue;
-    }
-    if (req.query.ampel && f.ampel !== req.query.ampel) continue;
-
-    results.push({ ...e, search_vector: undefined, skills, availabilities: avails, latestRate, freshness: f });
-  }
-
-  // Facetten-Zählung über die Treffermenge (für die Sidebar)
-  const facetCounts = {};
-  for (const r of results) for (const s of r.skills) facetCounts[s.id] = (facetCounts[s.id] || 0) + 1;
-
-  res.json({ count: results.length, results, facetCounts });
 });
 
 /* -------- Gespeicherte Suchen -------- */
@@ -119,6 +56,28 @@ router.post('/saved', async (req, res) => {
 router.delete('/saved/:id(\\d+)', async (req, res) => {
   await db('saved_searches').where({ id: Number(req.params.id), user_id: req.user.id }).delete();
   res.json({ ok: true });
+});
+
+
+/** v1.4.0 — Suchagent: gespeicherte Suche beobachtet den Pool und meldet neue Treffer per Mail. */
+router.post('/saved/:id(\\d+)/agent', async (req, res) => {
+  const row = await db('saved_searches').where({ id: Number(req.params.id), user_id: req.user.id }).first();
+  if (!row) return res.status(404).json({ error: 'Gespeicherte Suche nicht gefunden' });
+  const aktiv = !row.agent_aktiv;
+  // Beim Aktivieren aktuellen Stand als Basis merken — gemeldet wird nur, was NEU dazukommt.
+  let lastIds = row.last_result_ids || [];
+  if (aktiv) {
+    try {
+      const { results } = await executeSearch(row.tenant_id, row.params_json || {});
+      lastIds = results.map((r) => r.id);
+    } catch { lastIds = []; }
+  }
+  await db('saved_searches').where({ id: row.id }).update({
+    agent_aktiv: aktiv, last_result_ids: JSON.stringify(lastIds), last_run_at: db.fn.now(),
+  });
+  await req.audit({ action: aktiv ? 'search.agent_on' : 'search.agent_off', resource: 'saved_searches', resourceId: row.id, newValue: { name: row.name } });
+  res.locals.auditLogged = true;
+  res.json({ ok: true, agent_aktiv: aktiv });
 });
 
 module.exports = router;

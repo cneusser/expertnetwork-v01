@@ -6,6 +6,7 @@ import ProfileForm from '../components/ProfileForm';
 import RateForm from '../components/RateForm';
 import AuditTable from '../components/AuditTable';
 import KiCvAssistent from '../components/KiCvAssistent';
+import FotoAvatar from '../components/FotoAvatar';
 import { api } from '../api/client';
 
 const KAT_LABEL = {
@@ -59,7 +60,10 @@ export default function AdminExpertDetail() {
   return (
     <Layout>
       <p><Link to="/admin/experten"><ArrowLeft size={14} style={{ verticalAlign: '-2px' }} /> Zurück zur Liste</Link></p>
-      <h1>{{ herr: 'Herr', frau: 'Frau', divers: '' }[expert.anrede] || ''} {expert.titel || ''} {expert.vorname} {expert.nachname}</h1>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+        <FotoAvatar expertId={expert.id} size={56} editable />
+        <h1 style={{ margin: 0 }}>{{ herr: 'Herr', frau: 'Frau', divers: '' }[expert.anrede] || ''} {expert.titel || ''} {expert.vorname} {expert.nachname}</h1>
+      </div>
       <p className="sub">
         {expert.berufsbezeichnung} · {expert.firma}
         {expert.user_id && (
@@ -240,8 +244,13 @@ export default function AdminExpertDetail() {
                   <td>{d.sprache?.toUpperCase() || '—'}</td>
                   <td>v{d.version}</td>
                   <td>{fmtDate(d.uploaded_at)}</td>
-                  <td><a href={`/api/experts/${id}/documents/${d.id}/download`}>
-                    <Download size={14} style={{ verticalAlign: '-2px' }} /> Download</a></td>
+                  <td>
+                    <a href={`/api/experts/${id}/documents/${d.id}/view`} target="_blank" rel="noreferrer"
+                      style={{ marginRight: 12 }}>
+                      <Eye size={14} style={{ verticalAlign: '-2px' }} /> Ansehen</a>
+                    <a href={`/api/experts/${id}/documents/${d.id}/download`}>
+                      <Download size={14} style={{ verticalAlign: '-2px' }} /> Download</a>
+                  </td>
                 </tr>
               ))}
             </tbody>

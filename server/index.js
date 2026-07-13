@@ -21,7 +21,7 @@ const vendorRoutes = require('./routes/vendor');
 const tenantRoutes = require('./routes/tenants');
 const aiRoutes = require('./routes/ai');
 const publicRoutes = require('./routes/public');
-const { runAvailabilityReminders, runConsentJobs } = require('./jobs');
+const { runAvailabilityReminders, runConsentJobs, runSearchAgents } = require('./jobs');
 const { startScheduler } = require('./scheduler');
 
 // Ein fehlgeschlagener Mail-Versand o. ä. darf den Server nie mitreißen.
@@ -131,6 +131,7 @@ async function start() {
   await importAll(); // kuratierte Expertenprofile (idempotent)
   registerJob('availability-reminders', runAvailabilityReminders);
   registerJob('consent-jobs', runConsentJobs);
+  registerJob('search-agents', runSearchAgents);
   startScheduler();
   app.listen(PORT, () => console.log(`Phalanx Expert Network Server auf Port ${PORT}`));
 }
