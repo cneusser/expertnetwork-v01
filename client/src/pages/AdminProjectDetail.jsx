@@ -14,8 +14,12 @@ export default function AdminProjectDetail() {
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
   const [ki, setKi] = useState({}); // expertId -> Text
+  const [shareLinks, setShareLinks] = useState([]);
 
-  const load = () => api.get(`/api/projects/${id}`).then(setData).catch((e) => setError(e.message));
+  const load = () => {
+    api.get(`/api/projects/${id}`).then(setData).catch((e) => setError(e.message));
+    api.get(`/api/projects/${id}/share`).then((d) => setShareLinks(d.links)).catch(() => {});
+  };
   useEffect(() => { load(); }, [id]);
 
   if (error) return <Layout><div className="msg msg-error">{error}</div></Layout>;
@@ -50,6 +54,25 @@ export default function AdminProjectDetail() {
       )}
       {project.beschreibung && <div className="card" style={{ marginBottom: 14 }}><p>{project.beschreibung}</p></div>}
       <p style={{ marginBottom: 20 }}>{skills.map((s) => <span className="tag" key={s.id}>{s.name}</span>)}</p>
+
+      <div className="card" style={{ marginBottom: 18 }}>
+        <h3>Hidden-Links für Kunden (Projekt + freigegebene Profile, mit PDF)</h3>
+        {shareLinks.filter((l) => !l.revoked_at).map((l) => (
+          <p key={l.id} style={{ display: 'flex', gap: 10, alignItems: 'center', fontSize: 13, marginTop: 8, flexWrap: 'wrap' }}>
+            <code style={{ background: 'var(--grey-100)', padding: '4px 8px', borderRadius: 4 }}>{`${window.location.origin}/s/${l.token}`}</code>
+            <span className="muted">bis {new Date(l.expires_at).toLocaleDateString('de-DE')} · {l.zugriffe} Zugriff(e)</span>
+            <button type="button" className="tab" style={{ padding: 0, color: 'var(--accent)' }}
+              onClick={() => navigator.clipboard.writeText(`${window.location.origin}/s/${l.token}`)}>Kopieren</button>
+            <button type="button" className="tab" style={{ padding: 0, color: 'var(--danger)' }}
+              onClick={async () => { await api.del(`/api/projects/${id}/share/${l.id}`); load(); }}>Widerrufen</button>
+          </p>
+        ))}
+        <button type="button" className="btn" style={{ width: 'auto', marginTop: 10, padding: '8px 16px' }}
+          onClick={async () => { await api.post(`/api/projects/${id}/share`, { gueltig_tage: 30 }); load(); }}>
+          Neuen Hidden-Link erzeugen (30 Tage)
+        </button>
+        <p className="muted" style={{ marginTop: 8 }}>Zeigt Projekt + alle „Für Kunden freigegeben"-Profile — ideal für Kunden ohne eigenen Zugang. Jeder Zugriff wird protokolliert.</p>
+      </div>
 
       <h2 style={{ fontSize: 18, color: 'var(--navy)', margin: '18px 0 10px' }}>Pipeline ({applications.length})</h2>
       {applications.length ? (

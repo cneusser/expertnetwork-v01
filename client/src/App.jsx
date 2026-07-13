@@ -21,6 +21,8 @@ import AdminKommunikation from './pages/AdminKommunikation';
 import AdminMandanten from './pages/AdminMandanten';
 import VendorPortal from './pages/VendorPortal';
 import RegisterKunde from './pages/RegisterKunde';
+import ProjektOeffentlich from './pages/ProjektOeffentlich';
+import ShareView from './pages/ShareView';
 import ExpertDashboard from './pages/ExpertDashboard';
 import ExpertProfil from './pages/ExpertProfil';
 
@@ -46,6 +48,8 @@ export default function App() {
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/verfuegbarkeit" element={<Verfuegbarkeit />} />
           <Route path="/einladung" element={<Einladung />} />
+          <Route path="/p/:referenz" element={<ProjektOeffentlich />} />
+          <Route path="/s/:token" element={<ShareView />} />
           <Route path="/admin" element={<ProtectedRoute roles={['admin', 'tenant_owner']}><AdminDashboard /></ProtectedRoute>} />
           <Route path="/admin/experten" element={<ProtectedRoute roles={['admin', 'tenant_owner']}><AdminExperts /></ProtectedRoute>} />
           <Route path="/admin/experten/:id" element={<ProtectedRoute roles={['admin', 'tenant_owner']}><AdminExpertDetail /></ProtectedRoute>} />

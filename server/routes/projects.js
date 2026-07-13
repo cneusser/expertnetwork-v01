@@ -243,4 +243,36 @@ router.put('/:id(\\d+)/applications/:appId(\\d+)', requireRole('admin'), async (
   res.json({ ok: true });
 });
 
+/** v1.2.0 — Hidden-Links (Admin): erzeugen, auflisten, widerrufen. */
+router.get('/:id(\\d+)/share', requireRole('admin'), async (req, res) => {
+  const links = await db('share_links').where({ project_id: Number(req.params.id), tenant_id: req.user.tenantId }).orderBy('created_at', 'desc');
+  res.json({ links });
+});
+
+router.post('/:id(\\d+)/share', requireRole('admin'), async (req, res) => {
+  const project = await db('projects').where({ id: Number(req.params.id), tenant_id: req.user.tenantId }).first();
+  if (!project) return res.status(404).json({ error: 'Projekt nicht gefunden' });
+  const tage = Math.min(Math.max(Number(req.body?.gueltig_tage) || 30, 1), 180);
+  const token = require('crypto').randomBytes(16).toString('hex');
+  const [link] = await db('share_links').insert({
+    tenant_id: req.user.tenantId,
+    project_id: project.id,
+    token,
+    expires_at: new Date(Date.now() + tage * 86400000),
+    created_by: req.user.id,
+  }).returning('*');
+  await req.audit({ action: 'share.create', resource: 'share_links', resourceId: link.id, newValue: { projekt: project.referenz, tage } });
+  res.locals.auditLogged = true;
+  res.status(201).json({ ok: true, link });
+});
+
+router.delete('/:id(\\d+)/share/:linkId(\\d+)', requireRole('admin'), async (req, res) => {
+  const link = await db('share_links').where({ id: Number(req.params.linkId), project_id: Number(req.params.id), tenant_id: req.user.tenantId }).first();
+  if (!link) return res.status(404).json({ error: 'Link nicht gefunden' });
+  await db('share_links').where({ id: link.id }).update({ revoked_at: db.fn.now() });
+  await req.audit({ action: 'share.revoke', resource: 'share_links', resourceId: link.id });
+  res.locals.auditLogged = true;
+  res.json({ ok: true });
+});
+
 module.exports = router;
