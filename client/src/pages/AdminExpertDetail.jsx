@@ -52,7 +52,7 @@ export default function AdminExpertDetail() {
 
   if (error) return <Layout><div className="msg msg-error">{error}</div></Layout>;
   if (!data) return <Layout><p className="sub">Laden…</p></Layout>;
-  const { expert, skills, documents, availabilities, rates, consent } = data;
+  const { expert, skills, documents, availabilities, rates, consent, watch, blocked } = data;
   const adresse = typeof expert.adresse_json === 'string' ? JSON.parse(expert.adresse_json || '{}') : (expert.adresse_json || {});
   const sprachen = typeof expert.sprachen_json === 'string' ? JSON.parse(expert.sprachen_json || '[]') : (expert.sprachen_json || []);
 
@@ -72,6 +72,22 @@ export default function AdminExpertDetail() {
             }}><Eye size={13} style={{ verticalAlign: '-2px' }} /> Birdview: als dieser Experte ansehen</a>
           </>
         )}
+        {' · '}
+        <a href="#merken" onClick={async (e) => {
+          e.preventDefault();
+          if (watch) { await api.post(`/api/experts/${id}/watch`, { entfernen: true }); }
+          else {
+            const notiz = window.prompt('Private Notiz zur Merkliste (optional):') || '';
+            await api.post(`/api/experts/${id}/watch`, { notiz });
+          }
+          load();
+        }}>{watch ? '★ Gemerkt' : '☆ Merken'}</a>
+        {' · '}
+        <a href="#blockieren" style={{ color: blocked ? 'var(--danger)' : undefined }} onClick={async (e) => {
+          e.preventDefault();
+          await api.post(`/api/experts/${id}/block`, {});
+          load();
+        }}>{blocked ? 'Blockiert (aufheben)' : 'Ausschließen'}</a>
         {' · '}
         <a href="#loeschen" style={{ color: 'var(--danger)' }} onClick={async (e) => {
           e.preventDefault();
@@ -101,6 +117,8 @@ export default function AdminExpertDetail() {
           </button>
         </div>
       )}
+      {watch?.notiz && <p className="muted" style={{ marginBottom: 10 }}>📌 Merkliste-Notiz: {watch.notiz}</p>}
+      {blocked && <div className="notice">Dieser Experte ist auf Ihrer Ausschlussliste — er erscheint nicht in Matching-Vorschlägen.</div>}
       {info && <div className="msg msg-success">{info}</div>}
       {consent && (
         <p className="muted" style={{ marginBottom: 18 }}>

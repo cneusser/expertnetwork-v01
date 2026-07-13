@@ -9,10 +9,12 @@ const APP_LABEL = { vorgeschlagen: 'Von Phalanx vorgeschlagen', beworben: 'Bewor
 
 export default function ExpertProjekte() {
   const [projects, setProjects] = useState(null);
+  const [bewerbungen, setBewerbungen] = useState([]);
   const [msg, setMsg] = useState(null);
 
   const load = () => api.get('/api/projects/offen').then((d) => setProjects(d.projects)).catch((e) => setMsg({ ok: false, text: e.message }));
-  useEffect(() => { load(); }, []);
+  const loadBew = () => api.get('/api/projects/meine-bewerbungen').then((d) => setBewerbungen(d.bewerbungen)).catch(() => {});
+  useEffect(() => { load(); loadBew(); }, []);
 
   const apply = async (p) => {
     const nachricht = window.prompt(`Bewerbung auf „${p.name}" — kurze Nachricht (optional):`) ?? null;
@@ -68,6 +70,32 @@ export default function ExpertProjekte() {
           ))}
         </div>
       )}
+      <h2 style={{ fontSize: 18, color: 'var(--navy)', margin: '30px 0 10px' }}>Meine Bewerbungen</h2>
+      {bewerbungen.length ? (
+        <table className="table">
+          <thead><tr><th>Datum</th><th>Projekt</th><th>Frist</th><th>Status</th><th></th></tr></thead>
+          <tbody>
+            {bewerbungen.map((b) => (
+              <tr key={b.id}>
+                <td>{new Date(b.created_at).toLocaleDateString('de-DE')}</td>
+                <td><strong>{b.name}</strong> <span className="muted">({b.referenz || '—'})</span></td>
+                <td>{b.bewerbungsfrist ? new Date(b.bewerbungsfrist).toLocaleString('de-DE') : '—'}</td>
+                <td><span className={`status status-${['besetzt'].includes(b.status) ? 'freigegeben' : ['abgelehnt', 'zurueckgezogen'].includes(b.status) ? 'inaktiv' : 'registriert'}`}>
+                  {{ vorgeschlagen: 'Vorgeschlagen', beworben: 'Beworben', im_gespraech: 'Im Gespräch', angeboten: 'Angebot erhalten', abgelehnt: 'Absage', besetzt: 'Gewonnen', zurueckgezogen: 'Eigene Absage' }[b.status] || b.status}
+                </span></td>
+                <td>{!['besetzt', 'abgelehnt', 'zurueckgezogen'].includes(b.status) && (
+                  <button type="button" className="tab" style={{ padding: 0, color: 'var(--danger)' }}
+                    onClick={async () => {
+                      if (!window.confirm('Bewerbung wirklich zurückziehen?')) return;
+                      await api.post(`/api/projects/bewerbungen/${b.id}/zurueckziehen`);
+                      loadBew();
+                    }}>Zurückziehen</button>
+                )}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      ) : <p className="sub">Noch keine Bewerbungen.</p>}
     </Layout>
   );
 }

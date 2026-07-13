@@ -20,7 +20,7 @@ export default function ExpertProfil() {
 
   if (error) return <Layout><div className="msg msg-error">{error}</div></Layout>;
   if (!data) return <Layout><p className="sub">Laden…</p></Layout>;
-  const { expert, skills, rates, documents } = data;
+  const { expert, skills, rates, documents, educations = [], career_steps = [] } = data;
 
   return (
     <Layout>
@@ -71,6 +71,54 @@ export default function ExpertProfil() {
       )}
 
       <KiCvAssistent onApplied={load} />
+
+      <h2 style={{ fontSize: 18, color: 'var(--navy)', margin: '28px 0 12px' }}>Karrierestationen &amp; Referenzprojekte</h2>
+      <div className="card">
+        {career_steps.map((c) => (
+          <p key={c.id} style={{ padding: '6px 0', borderBottom: '1px solid var(--grey-200)', fontSize: 14 }}>
+            <strong>{c.rolle}</strong>{c.firma ? ` — ${c.firma}` : ''}{c.zeitraum ? ` (${c.zeitraum})` : ''}
+            {c.ergebnis && <span className="muted"> · {c.ergebnis}</span>}
+            <button type="button" className="tab" style={{ padding: '0 0 0 10px', color: 'var(--danger)' }}
+              onClick={async () => { await api.del(`/api/experts/me/career-steps/${c.id}`); load(); }}>Entfernen</button>
+          </p>
+        ))}
+        <form style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end', marginTop: 10 }}
+          onSubmit={async (e) => {
+            e.preventDefault();
+            const fd = new FormData(e.target);
+            await api.post('/api/experts/me/career-steps', Object.fromEntries(fd));
+            e.target.reset(); load();
+          }}>
+          <div className="field" style={{ marginBottom: 0, minWidth: 180 }}><label>Rolle *</label><input name="rolle" required /></div>
+          <div className="field" style={{ marginBottom: 0, minWidth: 160 }}><label>Firma</label><input name="firma" /></div>
+          <div className="field" style={{ marginBottom: 0, width: 130 }}><label>Zeitraum</label><input name="zeitraum" placeholder="2024 – heute" /></div>
+          <div className="field" style={{ marginBottom: 0, flex: '1 1 220px' }}><label>Kern-Ergebnis</label><input name="ergebnis" /></div>
+          <button className="btn" style={{ width: 'auto' }}>Hinzufügen</button>
+        </form>
+      </div>
+
+      <h2 style={{ fontSize: 18, color: 'var(--navy)', margin: '28px 0 12px' }}>Ausbildung</h2>
+      <div className="card">
+        {educations.map((c) => (
+          <p key={c.id} style={{ padding: '6px 0', borderBottom: '1px solid var(--grey-200)', fontSize: 14 }}>
+            <strong>{c.abschluss}</strong>{c.institution ? ` — ${c.institution}` : ''}{c.zeitraum ? ` (${c.zeitraum})` : ''}
+            <button type="button" className="tab" style={{ padding: '0 0 0 10px', color: 'var(--danger)' }}
+              onClick={async () => { await api.del(`/api/experts/me/educations/${c.id}`); load(); }}>Entfernen</button>
+          </p>
+        ))}
+        <form style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end', marginTop: 10 }}
+          onSubmit={async (e) => {
+            e.preventDefault();
+            const fd = new FormData(e.target);
+            await api.post('/api/experts/me/educations', Object.fromEntries(fd));
+            e.target.reset(); load();
+          }}>
+          <div className="field" style={{ marginBottom: 0, minWidth: 200 }}><label>Abschluss *</label><input name="abschluss" required /></div>
+          <div className="field" style={{ marginBottom: 0, minWidth: 180 }}><label>Institution</label><input name="institution" /></div>
+          <div className="field" style={{ marginBottom: 0, width: 130 }}><label>Zeitraum</label><input name="zeitraum" /></div>
+          <button className="btn" style={{ width: 'auto' }}>Hinzufügen</button>
+        </form>
+      </div>
 
       <h2 style={{ fontSize: 18, color: 'var(--navy)', margin: '28px 0 12px' }}>Meine Tagessätze</h2>
       <table className="table">

@@ -98,6 +98,31 @@ router.post('/:id(\\d+)/apply', async (req, res) => {
   res.status(201).json({ ok: true, message: 'Bewerbung eingegangen — die Phalanx GmbH meldet sich bei Ihnen.' });
 });
 
+/** Meine Bewerbungen (Experte) — Historie inkl. Projekt und Frist. */
+router.get('/meine-bewerbungen', async (req, res) => {
+  const expert = await db('experts').where({ user_id: req.user.id }).first();
+  if (!expert) return res.status(404).json({ error: 'Kein Expertenprofil vorhanden' });
+  const rows = await db('applications as a')
+    .join('projects as p', 'p.id', 'a.project_id')
+    .where('a.expert_id', expert.id)
+    .select('a.id', 'a.status', 'a.created_at', 'a.updated_at', 'p.name', 'p.referenz', 'p.bewerbungsfrist')
+    .orderBy('a.created_at', 'desc');
+  res.json({ bewerbungen: rows });
+});
+
+/** Bewerbung zurückziehen (Experte). */
+router.post('/bewerbungen/:appId(\\d+)/zurueckziehen', async (req, res) => {
+  const expert = await db('experts').where({ user_id: req.user.id }).first();
+  if (!expert) return res.status(404).json({ error: 'Kein Expertenprofil vorhanden' });
+  const app1 = await db('applications').where({ id: Number(req.params.appId), expert_id: expert.id }).first();
+  if (!app1) return res.status(404).json({ error: 'Bewerbung nicht gefunden' });
+  if (['besetzt', 'abgelehnt'].includes(app1.status)) return res.status(400).json({ error: 'Nicht mehr zurückziehbar' });
+  await db('applications').where({ id: app1.id }).update({ status: 'zurueckgezogen', updated_at: db.fn.now() });
+  await req.audit({ action: 'application.withdraw', resource: 'applications', resourceId: app1.id });
+  res.locals.auditLogged = true;
+  res.json({ ok: true, message: 'Bewerbung zurückgezogen.' });
+});
+
 /* ---------------- Admin ---------------- */
 
 router.get('/', requireRole('admin'), async (req, res) => {
@@ -144,9 +169,11 @@ router.get('/:id(\\d+)', requireRole('admin'), async (req, res) => {
 
   // Matching-Vorschläge: freigegebene Experten ohne Bewerbung, sortiert nach Score
   const appliedIds = applications.map((a) => a.expert_id);
+  const blockedIds = await db('blocklist').where({ user_id: req.user.id }).pluck('expert_id');
+  const excluded = [...appliedIds, ...blockedIds];
   const candidates = await db('experts')
     .where({ tenant_id: req.user.tenantId, status: 'freigegeben' })
-    .whereNotIn('id', appliedIds.length ? appliedIds : [0]);
+    .whereNotIn('id', excluded.length ? excluded : [0]);
   const matches = [];
   for (const e of candidates) {
     const match = computeMatch({ project, projectSkillIds, ...(await expertMatchInput(e.id)) });

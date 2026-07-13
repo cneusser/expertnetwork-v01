@@ -28,6 +28,8 @@ export default function ProfileForm({ expert, allowStatus = false, onSave, onCan
     webseite: expert.webseite || '',
     ust_id: expert.ust_id || '',
     steuernummer: expert.steuernummer || '',
+    iban: expert.iban || '',
+    bic: expert.bic || '',
     reisebereitschaft: expert.reisebereitschaft || '',
     arbeitsmodell: expert.arbeitsmodell || 'hybrid',
     sprachen: sprachen.map((s) => `${s.sprache} (${s.niveau})`).join(', '),
@@ -58,6 +60,8 @@ export default function ProfileForm({ expert, allowStatus = false, onSave, onCan
         webseite: f.webseite || null,
         ust_id: f.ust_id || null,
         steuernummer: f.steuernummer || null,
+        iban: f.iban || null,
+        bic: f.bic || null,
         reisebereitschaft: f.reisebereitschaft || null,
         arbeitsmodell: f.arbeitsmodell,
         sprachen_json: f.sprachen
@@ -120,6 +124,8 @@ export default function ProfileForm({ expert, allowStatus = false, onSave, onCan
         {field('Webseite', 'webseite')}
         {field('USt-ID', 'ust_id')}
         {field('Steuernummer (optional)', 'steuernummer')}
+        {field('IBAN (für Abrechnung)', 'iban')}
+        {field('BIC', 'bic')}
         {field('Reisebereitschaft', 'reisebereitschaft')}
         <div className="field">
           <label>Arbeitsmodell</label>

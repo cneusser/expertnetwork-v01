@@ -371,7 +371,7 @@ router.post('/accept-invite', async (req, res) => {
       text_version: CONSENT_VERSION,
       expires_at: consentExpiry(),
     });
-    await db('experts').where({ user_id: user.id, status: 'registriert' }).update({ status: 'freigegeben' });
+    await db('experts').where({ user_id: user.id }).whereIn('status', ['eingeladen', 'registriert']).update({ status: 'freigegeben' });
     await db('audit_log').insert({
       tenant_id: user.tenant_id,
       actor_id: user.id,

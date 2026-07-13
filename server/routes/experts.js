@@ -131,10 +131,19 @@ router.get('/:id(\\d+)', async (req, res) => {
   if (req.user.role !== 'admin' && expert.user_id !== req.user.id) {
     return res.status(403).json({ error: 'Keine Berechtigung' });
   }
+  if (expert.user_id !== req.user.id) {
+    await db('experts').where({ id: expert.id }).increment('profil_views', 1); // aggregierter Zähler
+  }
   return detail(req, res, expert);
 });
 
 async function detail(req, res, expert) {
+  const [educations, careerSteps] = await Promise.all([
+    db('educations').where({ expert_id: expert.id }).orderBy('id'),
+    db('career_steps').where({ expert_id: expert.id }).orderBy('id'),
+  ]);
+  const watch = await db('watchlist').where({ user_id: req.user.id, expert_id: expert.id }).first();
+  const block = await db('blocklist').where({ user_id: req.user.id, expert_id: expert.id }).first();
   const [skills, documents, availabilities, rates, consent] = await Promise.all([
     db('expert_skills')
       .join('skills', 'skills.id', 'expert_skills.skill_id')
@@ -149,6 +158,10 @@ async function detail(req, res, expert) {
   ]);
   res.json({
     expert,
+    educations,
+    career_steps: careerSteps,
+    watch: watch ? { notiz: watch.notiz } : null,
+    blocked: Boolean(block),
     skills,
     documents: documents.map(({ storage_ref, ...d }) => d), // interne Pfade nicht leaken
     availabilities,
@@ -291,6 +304,8 @@ const profileSchema = z.object({
   webseite: z.string().max(250).nullable().optional(),
   ust_id: z.string().max(30).nullable().optional(),
   steuernummer: z.string().max(30).nullable().optional(),
+  iban: z.string().max(40).nullable().optional(),
+  bic: z.string().max(15).nullable().optional(),
   ort: z.string().max(100).nullable().optional(),
   land: z.string().max(60).nullable().optional(),
   reisebereitschaft: z.string().max(100).nullable().optional(),
@@ -458,6 +473,142 @@ router.delete('/:id(\\d+)', requireRole('admin'), async (req, res) => {
     ip: req.ip,
   });
   res.json({ ok: true, message: 'Experte vollständig gelöscht (Audit anonymisiert, Nachweis protokolliert).' });
+});
+
+/* ============================== v1.3.0 ============================== */
+
+/** Experten-Dashboard-Kennzahlen (Rolle expert). */
+router.get('/me/dashboard', async (req, res) => {
+  const expert = await db('experts').where({ user_id: req.user.id }).first();
+  if (!expert) return res.status(404).json({ error: 'Kein Expertenprofil vorhanden' });
+
+  // Profil-Vollständigkeit: 10 Bausteine à 10 %
+  const [skillCount, rateCount, availCount, cvCount, eduCount, stepCount] = await Promise.all([
+    db('expert_skills').where({ expert_id: expert.id }).count('* as c').first(),
+    db('rates').where({ expert_id: expert.id }).count('* as c').first(),
+    db('availabilities').where({ expert_id: expert.id }).count('* as c').first(),
+    db('documents').where({ expert_id: expert.id, kategorie: 'cv' }).count('* as c').first(),
+    db('educations').where({ expert_id: expert.id }).count('* as c').first(),
+    db('career_steps').where({ expert_id: expert.id }).count('* as c').first(),
+  ]);
+  const checks = {
+    kurzprofil: Boolean(expert.kurzprofil),
+    kontakt: Boolean(expert.mobil || expert.telefon),
+    adresse: Boolean(expert.adresse_json && JSON.stringify(expert.adresse_json).length > 10),
+    skills: Number(skillCount.c) >= 5,
+    tagessatz: Number(rateCount.c) > 0,
+    verfuegbarkeit: Number(availCount.c) > 0,
+    cv_dokument: Number(cvCount.c) > 0,
+    ausbildung: Number(eduCount.c) > 0,
+    stationen: Number(stepCount.c) > 0,
+    sprachen: Boolean(expert.sprachen_json && JSON.stringify(expert.sprachen_json).length > 4),
+  };
+  const vollstaendigkeit = Math.round((Object.values(checks).filter(Boolean).length / 10) * 100);
+
+  // Offene + empfohlene Projekte (deterministisches Matching >= 60)
+  const projects = await db('projects').where({ tenant_id: expert.tenant_id, status: 'offen' });
+  const { computeMatch } = require('../utils/matching');
+  const expertSkillIds = await db('expert_skills').where({ expert_id: expert.id }).pluck('skill_id');
+  const latestAvail = await db('availabilities').where({ expert_id: expert.id }).orderBy('created_at', 'desc').first();
+  const latestRate = await db('rates').where({ expert_id: expert.id }).orderBy('created_at', 'desc').first();
+  let empfohlen = 0;
+  for (const p of projects) {
+    const ids = await db('project_skills').where({ project_id: p.id }).pluck('skill_id');
+    const m = computeMatch({ project: p, projectSkillIds: ids, expertSkillIds, latestAvail, latestRate, freshnessScore: 80, nichtBestaetigt: false });
+    if (m.score >= 60) empfohlen++;
+  }
+  const bewerbungen = await db('applications').where({ expert_id: expert.id }).count('* as c').first();
+
+  res.json({
+    vollstaendigkeit,
+    checks,
+    offene_projekte: projects.length,
+    empfohlene_projekte: empfohlen,
+    bewerbungen: Number(bewerbungen.c),
+    profil_views: expert.profil_views || 0,
+  });
+});
+
+/** Strukturierter CV: Ausbildung + Stationen (Self-Service, minimal-CRUD). */
+async function ownExpert(req) { return db('experts').where({ user_id: req.user.id }).first(); }
+
+router.post('/me/educations', async (req, res) => {
+  const expert = await ownExpert(req);
+  if (!expert) return res.status(404).json({ error: 'Kein Expertenprofil' });
+  const { abschluss, institution, zeitraum } = req.body || {};
+  if (!abschluss) return res.status(400).json({ error: 'Abschluss erforderlich' });
+  const [row] = await db('educations').insert({
+    tenant_id: expert.tenant_id, expert_id: expert.id,
+    abschluss: String(abschluss).slice(0, 200), institution: institution ? String(institution).slice(0, 200) : null,
+    zeitraum: zeitraum ? String(zeitraum).slice(0, 60) : null,
+  }).returning('*');
+  await req.audit({ action: 'cv.education_add', resource: 'experts', resourceId: expert.id, newValue: { abschluss } });
+  res.locals.auditLogged = true;
+  res.status(201).json({ ok: true, education: row });
+});
+
+router.delete('/me/educations/:eid(\\d+)', async (req, res) => {
+  const expert = await ownExpert(req);
+  if (!expert) return res.status(404).json({ error: 'Kein Expertenprofil' });
+  await db('educations').where({ id: Number(req.params.eid), expert_id: expert.id }).delete();
+  res.json({ ok: true });
+});
+
+router.post('/me/career-steps', async (req, res) => {
+  const expert = await ownExpert(req);
+  if (!expert) return res.status(404).json({ error: 'Kein Expertenprofil' });
+  const { rolle, firma, zeitraum, ergebnis } = req.body || {};
+  if (!rolle) return res.status(400).json({ error: 'Rolle erforderlich' });
+  const [row] = await db('career_steps').insert({
+    tenant_id: expert.tenant_id, expert_id: expert.id,
+    rolle: String(rolle).slice(0, 200), firma: firma ? String(firma).slice(0, 200) : null,
+    zeitraum: zeitraum ? String(zeitraum).slice(0, 60) : null,
+    ergebnis: ergebnis ? String(ergebnis).slice(0, 1000) : null,
+  }).returning('*');
+  await req.audit({ action: 'cv.step_add', resource: 'experts', resourceId: expert.id, newValue: { rolle } });
+  res.locals.auditLogged = true;
+  res.status(201).json({ ok: true, step: row });
+});
+
+router.delete('/me/career-steps/:sid(\\d+)', async (req, res) => {
+  const expert = await ownExpert(req);
+  if (!expert) return res.status(404).json({ error: 'Kein Expertenprofil' });
+  await db('career_steps').where({ id: Number(req.params.sid), expert_id: expert.id }).delete();
+  res.json({ ok: true });
+});
+
+/** Merkliste (Admin): setzen/aktualisieren/entfernen mit privater Notiz. */
+router.post('/:id(\\d+)/watch', requireRole('admin'), async (req, res) => {
+  const notiz = String(req.body?.notiz || '').slice(0, 300) || null;
+  const existing = await db('watchlist').where({ user_id: req.user.id, expert_id: Number(req.params.id) }).first();
+  if (existing && req.body?.entfernen) {
+    await db('watchlist').where({ id: existing.id }).delete();
+    return res.json({ ok: true, watch: null });
+  }
+  if (existing) {
+    await db('watchlist').where({ id: existing.id }).update({ notiz });
+  } else {
+    await db('watchlist').insert({ tenant_id: req.user.tenantId, user_id: req.user.id, expert_id: Number(req.params.id), notiz });
+  }
+  res.status(201).json({ ok: true, watch: { notiz } });
+});
+
+/** Ausschlussliste (Admin): blockierte Experten fliegen aus Matching-Vorschlägen. */
+router.post('/:id(\\d+)/block', requireRole('admin'), async (req, res) => {
+  const existing = await db('blocklist').where({ user_id: req.user.id, expert_id: Number(req.params.id) }).first();
+  if (existing) {
+    await db('blocklist').where({ id: existing.id }).delete();
+    await req.audit({ action: 'expert.unblock', resource: 'experts', resourceId: Number(req.params.id) });
+    res.locals.auditLogged = true;
+    return res.json({ ok: true, blocked: false });
+  }
+  await db('blocklist').insert({
+    tenant_id: req.user.tenantId, user_id: req.user.id, expert_id: Number(req.params.id),
+    grund: String(req.body?.grund || '').slice(0, 300) || null,
+  });
+  await req.audit({ action: 'expert.block', resource: 'experts', resourceId: Number(req.params.id) });
+  res.locals.auditLogged = true;
+  res.status(201).json({ ok: true, blocked: true });
 });
 
 module.exports = router;

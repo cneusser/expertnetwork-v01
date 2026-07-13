@@ -11,6 +11,7 @@ const AVAIL_LABEL = { sofort: 'Sofort verfügbar', ab_datum: 'Verfügbar ab Datu
 export default function ExpertDashboard() {
   const { user } = useAuth();
   const [me, setMe] = useState(null);
+  const [dash, setDash] = useState(null);
   const [form, setForm] = useState({ status: 'sofort', ab_datum: '', auslastung_prozent: '', kommentar: '' });
   const [msg, setMsg] = useState(null);
 
@@ -26,7 +27,7 @@ export default function ExpertDashboard() {
       });
     }
   }).catch(() => setMe(null));
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); api.get('/api/experts/me/dashboard').then(setDash).catch(() => {}); }, []);
 
   const saveAvailability = async (e) => {
     e.preventDefault();
@@ -55,6 +56,25 @@ export default function ExpertDashboard() {
     <Layout>
       <h1>Willkommen</h1>
       <p className="sub">Ihr Bereich im Phalanx Expert Network.</p>
+      {dash && (
+        <div className="kpi-row">
+          <div className="kpi"><div className="num">{dash.vollstaendigkeit} %</div><div className="lbl">Profil-Vollständigkeit</div></div>
+          <div className="kpi"><div className="num">{dash.offene_projekte}</div><div className="lbl">Offene Projekte</div></div>
+          <div className="kpi"><div className="num">{dash.empfohlene_projekte}</div><div className="lbl">Für Sie empfohlen (≥ 60 % Match)</div></div>
+          <div className="kpi"><div className="num">{dash.bewerbungen}</div><div className="lbl">Meine Bewerbungen</div></div>
+          <div className="kpi"><div className="num">{dash.profil_views}</div><div className="lbl">Profilaufrufe durch Phalanx</div></div>
+        </div>
+      )}
+      {dash && dash.vollstaendigkeit < 100 && (
+        <div className="notice">
+          Vervollständigen Sie Ihr Profil für bessere Projektvorschläge — es fehlt:{' '}
+          {Object.entries(dash.checks).filter(([, ok]) => !ok).map(([k]) => ({
+            kurzprofil: 'Kurzprofil', kontakt: 'Telefon/Mobil', adresse: 'Adresse', skills: 'mind. 5 Skills',
+            tagessatz: 'Tagessatz', verfuegbarkeit: 'Verfügbarkeit', cv_dokument: 'CV-Upload',
+            ausbildung: 'Ausbildung', stationen: 'Karrierestationen', sprachen: 'Sprachen',
+          }[k])).join(', ')}.
+        </div>
+      )}
       {!user?.isApproved && (
         <div className="notice">
           Ihr Zugang wartet auf die Freigabe durch die Phalanx GmbH. Sie werden
