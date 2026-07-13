@@ -31,4 +31,9 @@ function exists(relPath) {
   return fs.existsSync(absolute(relPath));
 }
 
-module.exports = { save, createReadStream, exists, BASE };
+async function remove(relPath) {
+  const p = absolute(relPath);
+  if (fs.existsSync(p)) await fs.promises.unlink(p);
+}
+
+module.exports = { save, createReadStream, exists, remove, BASE };

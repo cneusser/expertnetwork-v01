@@ -410,4 +410,54 @@ router.delete('/:id(\\d+)/skills/:skillId(\\d+)', requireRole('admin'), async (r
   res.json({ ok: true });
 });
 
+/**
+ * v1.0.2 — Experten LÖSCHEN (Admin, Art. 17 DSGVO):
+ * Entfernt Profil, Verknüpfungen, Konto, Einwilligungen und Tresor-Dateien;
+ * Audit-Einträge werden anonymisiert (Append-only-Trigger dafür kurzzeitig,
+ * protokolliert deaktiviert) und ein Lösch-Nachweis geschrieben.
+ */
+router.delete('/:id(\\d+)', requireRole('admin'), async (req, res) => {
+  const expert = await db('experts').where({ id: Number(req.params.id), tenant_id: req.user.tenantId }).first();
+  if (!expert) return res.status(404).json({ error: 'Experte nicht gefunden' });
+
+  const docs = await db('documents').where({ expert_id: expert.id });
+  for (const d of docs) {
+    try { await storage.remove(d.storage_ref); } catch (e) { console.error('Datei-Löschung:', e.message); }
+  }
+
+  await db('project_releases').where({ expert_id: expert.id }).delete();
+  await db('applications').where({ expert_id: expert.id }).delete();
+  await db('communications').where({ expert_id: expert.id }).delete();
+  await db('documents').where({ expert_id: expert.id }).delete();
+  await db('availabilities').where({ expert_id: expert.id }).delete();
+  await db('rates').where({ expert_id: expert.id }).delete();
+  await db('expert_skills').where({ expert_id: expert.id }).delete();
+
+  await db.raw('ALTER TABLE audit_log DISABLE TRIGGER trg_audit_log_immutable');
+  await db('audit_log')
+    .where({ resource: 'experts', resource_id: expert.id })
+    .update({
+      old_value_json: null,
+      new_value_json: JSON.stringify({ hinweis: 'Inhalt entfernt — DSGVO-Löschung durch Admin' }),
+    });
+  await db.raw('ALTER TABLE audit_log ENABLE TRIGGER trg_audit_log_immutable');
+
+  await db('experts').where({ id: expert.id }).delete();
+  if (expert.user_id) {
+    await db('consents').where({ user_id: expert.user_id }).delete();
+    await db('saved_searches').where({ user_id: expert.user_id }).delete();
+    await db('users').where({ id: expert.user_id, role: 'expert' }).delete();
+  }
+
+  await db('audit_log').insert({
+    tenant_id: req.user.tenantId,
+    actor_id: req.user.id,
+    action: 'expert.dsgvo_delete',
+    resource: 'experts',
+    new_value_json: JSON.stringify({ grund: 'Löschung durch Admin (Art. 17 DSGVO)', dokumente_geloescht: docs.length }),
+    ip: req.ip,
+  });
+  res.json({ ok: true, message: 'Experte vollständig gelöscht (Audit anonymisiert, Nachweis protokolliert).' });
+});
+
 module.exports = router;

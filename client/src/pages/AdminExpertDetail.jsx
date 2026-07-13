@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
-import { ArrowLeft, Download, Eye, Lock, Pencil, Upload, X } from 'lucide-react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import { ArrowLeft, Download, Eye, Lock, Pencil, Trash2, Upload, X } from 'lucide-react';
 import Layout from '../components/Layout';
 import ProfileForm from '../components/ProfileForm';
 import RateForm from '../components/RateForm';
@@ -19,6 +19,7 @@ const fmtDate = (d) => (d ? new Date(d).toLocaleDateString('de-DE') : '—');
 
 export default function AdminExpertDetail() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
   const [tab, setTab] = useState('profil');
@@ -71,6 +72,15 @@ export default function AdminExpertDetail() {
             }}><Eye size={13} style={{ verticalAlign: '-2px' }} /> Birdview: als dieser Experte ansehen</a>
           </>
         )}
+        {' · '}
+        <a href="#loeschen" style={{ color: 'var(--danger)' }} onClick={async (e) => {
+          e.preventDefault();
+          if (!window.confirm(`Experten "${expert.vorname} ${expert.nachname}" ENDGÜLTIG löschen?\n\nProfil, Konto, Dokumente und Verknüpfungen werden entfernt (Art. 17 DSGVO), Audit-Einträge anonymisiert. Das kann nicht rückgängig gemacht werden.`)) return;
+          if (window.prompt('Zur Bestätigung bitte LÖSCHEN eingeben:') !== 'LÖSCHEN') return;
+          const d = await api.del(`/api/experts/${id}`);
+          window.alert(d.message);
+          navigate('/admin/experten');
+        }}><Trash2 size={13} style={{ verticalAlign: '-2px' }} /> Löschen</a>
       </p>
 
       {!consent && (
