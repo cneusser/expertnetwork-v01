@@ -125,6 +125,32 @@ router.post('/bewerbungen/:appId(\\d+)/zurueckziehen', async (req, res) => {
 
 /* ---------------- Admin ---------------- */
 
+/**
+ * v1.7.0 — Funnel: alle Experten-Projekt-Paare nach Pipeline-Status gruppiert
+ * (inkl. Freigaben an Kunden aus project_releases).
+ */
+router.get('/funnel', requireRole('admin'), async (req, res) => {
+  const rows = await db('applications as a')
+    .join('projects as p', 'p.id', 'a.project_id')
+    .join('experts as e', 'e.id', 'a.expert_id')
+    .where('p.tenant_id', req.user.tenantId)
+    .whereNotIn('p.status', ['geschlossen'])
+    .select('a.id', 'a.status', 'a.matching_score', 'a.updated_at',
+      'p.id as project_id', 'p.name as projekt', 'p.referenz',
+      'e.id as expert_id', 'e.vorname', 'e.nachname', 'e.berufsbezeichnung')
+    .orderBy('a.updated_at', 'desc');
+  const releases = await db('project_releases as r')
+    .join('projects as p', 'p.id', 'r.project_id')
+    .join('experts as e', 'e.id', 'r.expert_id')
+    .where('p.tenant_id', req.user.tenantId)
+    .select('r.project_id', 'r.expert_id', 'p.name as projekt', 'p.referenz',
+      'e.vorname', 'e.nachname', 'e.berufsbezeichnung', 'r.created_at');
+  const stufen = ['vorgeschlagen', 'beworben', 'im_gespraech', 'angeboten', 'besetzt', 'abgelehnt', 'zurueckgezogen'];
+  const funnel = Object.fromEntries(stufen.map((s) => [s, []]));
+  for (const r of rows) (funnel[r.status] = funnel[r.status] || []).push(r);
+  res.json({ funnel, freigegeben_an_kunden: releases, stufen });
+});
+
 /** v1.5.0 — Sammelprofil als PPTX (Admin): alle für das Projekt freigegebenen Profile. */
 router.get('/:id(\\d+)/profile-pptx', requireRole('admin'), async (req, res) => {
   const project = await db('projects').where({ id: Number(req.params.id), tenant_id: req.user.tenantId }).first();

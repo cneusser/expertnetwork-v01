@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Users } from 'lucide-react';
+import { Users, Trash2 } from 'lucide-react';
 import Layout from '../components/Layout';
 import { api } from '../api/client';
 
@@ -57,7 +57,7 @@ export default function AdminExperts() {
       {experts && (
         <table className="table">
           <thead>
-            <tr><th>Name</th><th>Rolle</th><th>Verfügbarkeit</th><th>Frische</th><th>Tagessatz</th><th>Skills</th><th>Status</th></tr>
+            <tr><th>Name</th><th>Rolle</th><th>Verfügbarkeit</th><th>Frische</th><th>Tagessatz</th><th>Skills</th><th>Status</th><th /></tr>
           </thead>
           <tbody>
             {experts
@@ -78,6 +78,19 @@ export default function AdminExperts() {
                   <span className="tag" key={s.name}>{s.name}</span>
                 ))}</td>
                 <td><span className={`status status-${e.status}`}>{e.status}</span></td>
+                <td>
+                  <button type="button" title="Profil endgültig löschen (Art. 17 DSGVO)"
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger, #b23a48)' }}
+                    onClick={async () => {
+                      if (!window.confirm(`Experten "${e.vorname} ${e.nachname}" ENDGÜLTIG löschen?\n\nProfil, Konto, Dokumente und Verknüpfungen werden entfernt (Art. 17 DSGVO), Audit-Einträge anonymisiert. Das kann nicht rückgängig gemacht werden.`)) return;
+                      try {
+                        await api.del(`/api/experts/${e.id}`);
+                        setExperts((prev) => prev.filter((x) => x.id !== e.id));
+                      } catch (err) { window.alert(err.message); }
+                    }}>
+                    <Trash2 size={15} />
+                  </button>
+                </td>
               </tr>
             ))}
           </tbody>
