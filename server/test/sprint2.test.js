@@ -77,9 +77,9 @@ test('Erinnerungs-Job: sendet bei veralteter Bestätigung, drosselt Wiederholung
 test('Einladungs-Flow: Invite-Mail → Einwilligung + Passwort → Login möglich', async () => {
   const res = await post(`/api/experts/${adrian.id}/invite`, {}, { cookie: adminCookie });
   assert.strictEqual(res.status, 200);
-  const mail = outbox.find((m) => m.to === adrian.email && /Einwilligung/.test(m.subject));
+  const mail = outbox.find((m) => m.to === adrian.email && /Expert Network/.test(m.subject)); // v1.8.0: Vorlage 'einladung_bestand'
   assert.ok(mail, 'Invite-Mail versendet');
-  const token = decodeURIComponent(mail.text.split('token=')[1]);
+  const token = decodeURIComponent(mail.text.split('token=')[1].split(/\s/)[0]); // Link kann mitten im Text stehen (v1.8.0)
 
   const noConsent = await post('/api/auth/accept-invite', { token, password: 'adrian-test-123', consent: false });
   assert.strictEqual(noConsent.status, 400, 'Ohne Einwilligung abgelehnt');

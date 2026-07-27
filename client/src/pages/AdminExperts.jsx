@@ -24,6 +24,7 @@ export default function AdminExperts() {
   const [error, setError] = useState('');
   const [statusFilter, setStatusFilter] = useState('alle');
   const [nurUnbestaetigt, setNurUnbestaetigt] = useState(false);
+  const [inviteMsg, setInviteMsg] = useState(null);
 
   useEffect(() => {
     api.get('/api/experts').then((d) => setExperts(d.experts)).catch((e) => setError(e.message));
@@ -33,6 +34,51 @@ export default function AdminExperts() {
     <Layout>
       <h1><Users size={22} style={{ verticalAlign: '-3px' }} /> Experten</h1>
       <p className="sub">{experts ? `${experts.length} Profil(e) im Pool` : 'Laden…'}</p>
+
+      <div className="card" style={{ marginBottom: 16 }}>
+        <h3>Neue Experten einladen</h3>
+        {inviteMsg && <div className={`msg ${inviteMsg.ok ? 'msg-success' : 'msg-error'}`} style={{ marginTop: 8 }}>{inviteMsg.text}</div>}
+        <form style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end', marginTop: 10 }}
+          onSubmit={async (ev) => {
+            ev.preventDefault();
+            const fd = new FormData(ev.target);
+            setInviteMsg(null);
+            try {
+              const d = await api.post('/api/experts/invite-neu', Object.fromEntries(fd));
+              setInviteMsg({ ok: true, text: d.message });
+              ev.target.reset();
+              api.get('/api/experts').then((x) => setExperts(x.experts));
+            } catch (err) { setInviteMsg({ ok: false, text: err.message }); }
+          }}>
+          <div className="field" style={{ marginBottom: 0, minWidth: 140 }}><label>Vorname</label><input name="vorname" required /></div>
+          <div className="field" style={{ marginBottom: 0, minWidth: 140 }}><label>Nachname</label><input name="nachname" required /></div>
+          <div className="field" style={{ marginBottom: 0, minWidth: 220 }}><label>E-Mail</label><input name="email" type="email" required /></div>
+          <button className="btn" style={{ width: 'auto' }}>Einladen</button>
+          <label className="btn" style={{ width: 'auto', background: 'transparent', color: 'var(--navy)', border: '1px solid var(--grey-200)', cursor: 'pointer' }}>
+            Liste einladen (Excel/CSV)
+            <input type="file" accept=".xlsx,.xls,.csv" style={{ display: 'none' }}
+              onChange={async (ev2) => {
+                const file = ev2.target.files[0];
+                if (!file) return;
+                const fd2 = new FormData();
+                fd2.append('file', file);
+                setInviteMsg(null);
+                const res = await fetch('/api/experts/invite-bulk', { method: 'POST', body: fd2, credentials: 'include' });
+                const d = await res.json();
+                if (!res.ok) { setInviteMsg({ ok: false, text: d.error || 'Upload fehlgeschlagen' }); return; }
+                const detail = d.uebersprungen.length
+                  ? ` Übersprungen: ${d.uebersprungen.map((u) => `${u.email} (${u.grund})`).join('; ')}`
+                  : '';
+                setInviteMsg({ ok: true, text: d.message + detail });
+                ev2.target.value = '';
+                api.get('/api/experts').then((x) => setExperts(x.experts));
+              }} />
+          </label>
+        </form>
+        <p className="muted" style={{ marginTop: 8, fontSize: 12 }}>
+          Erwartete Spalten: Vorname, Nachname, E-Mail. Die Einladungsmail sehen und ändern Sie unter „Mails“.
+        </p>
+      </div>
       {error && <div className="msg msg-error">{error}</div>}
       {experts && (
         <p style={{ margin: '0 0 14px', display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>

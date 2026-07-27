@@ -73,6 +73,7 @@ app.use('/api', autoAudit);
 app.get('/api/health', (_req, res) => res.json({ ok: true, app: 'expertnetwork', sprint: 0 }));
 app.use('/api/auth', authRoutes);
 app.use('/api/experts', expertRoutes);
+app.use('/api/mails', require('./routes/mails'));
 app.use('/api/availability', availabilityRoutes);
 app.use('/api/audit', auditRoutes);
 app.use('/api/search', searchRoutes);

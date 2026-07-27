@@ -149,14 +149,105 @@ router.post('/:id(\\d+)/invite', requireRole('admin'), async (req, res) => {
   if (!expert) return res.status(404).json({ error: 'Experte nicht gefunden' });
   if (!expert.user_id || !expert.email) return res.status(400).json({ error: 'Kein Benutzerkonto/E-Mail hinterlegt' });
   const token = signPurposeToken(expert.user_id, 'expert-invite', '14d');
+  const inviteLink = `${process.env.APP_URL || (process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : 'http://localhost:5173')}/einladung?token=${encodeURIComponent(token)}`;
+  const { getTemplate: getTpl, render: renderTpl } = require('../utils/mailTemplates');
+  const bestandTpl = await getTpl(req.user.tenantId, 'einladung_bestand');
+  const bestandMsg = renderTpl(bestandTpl, { vorname: expert.vorname, nachname: expert.nachname, link: inviteLink, link_label: 'Zugang aktivieren' });
   try {
-    await getMailProvider().send({ to: expert.email, ...inviteMail(token, expert.vorname) });
+    await getMailProvider().send({ to: expert.email, ...bestandMsg }, { tenantId: req.user.tenantId, templateKey: 'einladung_bestand' });
   } catch (e) {
     console.error('Mail-Versand fehlgeschlagen (Einladung):', e.message);
     return res.status(502).json({ error: `E-Mail-Versand fehlgeschlagen: ${e.message}` });
   }
   await req.audit({ action: 'expert.invite_sent', resource: 'experts', resourceId: expert.id });
   res.json({ ok: true, message: `Einladung an ${expert.email} versendet.` });
+});
+
+/**
+ * v1.8.0 — Neue Experten einladen (Einzel): Vorname + Nachname + E-Mail genügen.
+ * Legt Konto (unbestätigt) + Minimalprofil (Status 'eingeladen') an und sendet
+ * die Einladung aus der editierbaren Vorlage 'einladung_neu'. Kein Consent
+ * nötig, der entsteht erst, wenn die Person die Einladung annimmt.
+ */
+async function inviteNewExpert(req, { vorname, nachname, email }) {
+  const mail = String(email || '').toLowerCase().trim();
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(mail)) return { ok: false, email: mail, grund: 'Ungültige E-Mail-Adresse' };
+  if (!vorname || !nachname) return { ok: false, email: mail, grund: 'Vor- und Nachname erforderlich' };
+  if (await db('users').where({ email: mail }).first()) return { ok: false, email: mail, grund: 'Konto existiert bereits' };
+
+  const bcrypt = require('bcryptjs');
+  const [user] = await db('users').insert({
+    tenant_id: req.user.tenantId, email: mail, role: 'expert', is_approved: false,
+    password_hash: await bcrypt.hash(require('crypto').randomBytes(24).toString('hex'), 10),
+  }).returning('*');
+  const [expert] = await db('experts').insert({
+    tenant_id: req.user.tenantId, user_id: user.id,
+    vorname: String(vorname).slice(0, 100), nachname: String(nachname).slice(0, 100),
+    email: mail, status: 'eingeladen',
+  }).returning('*');
+
+  const token = signPurposeToken(user.id, 'expert-invite', '14d');
+  const link = `${process.env.APP_URL || (process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : 'http://localhost:5173')}/einladung?token=${encodeURIComponent(token)}`;
+  const { getTemplate, render } = require('../utils/mailTemplates');
+  const tpl = await getTemplate(req.user.tenantId, 'einladung_neu');
+  const msg = render(tpl, { vorname: expert.vorname, nachname: expert.nachname, link, link_label: 'Profil anlegen' });
+  try {
+    await getMailProvider().send({ to: mail, ...msg }, { tenantId: req.user.tenantId, templateKey: 'einladung_neu' });
+  } catch (err) {
+    return { ok: false, email: mail, grund: `Versand fehlgeschlagen: ${err.message}`, expertId: expert.id };
+  }
+  await db('audit_log').insert({
+    tenant_id: req.user.tenantId, actor_id: req.user.id, action: 'expert.invite_neu',
+    resource: 'experts', resource_id: expert.id, new_value_json: JSON.stringify({ email: mail }), ip: req.ip,
+  });
+  return { ok: true, email: mail, expertId: expert.id };
+}
+
+router.post('/invite-neu', requireRole('admin'), async (req, res) => {
+  const r = await inviteNewExpert(req, req.body || {});
+  if (!r.ok) return res.status(400).json({ error: r.grund });
+  res.locals.auditLogged = true;
+  res.status(201).json({ ok: true, message: `Einladung an ${r.email} versendet.`, expertId: r.expertId });
+});
+
+/**
+ * v1.8.0 — Excel-/CSV-Liste einladen. Erwartet Spalten Vorname, Nachname,
+ * E-Mail (Reihenfolge egal, Kopfzeile wird erkannt; ohne Kopfzeile werden
+ * die ersten drei Spalten angenommen). Dubletten werden übersprungen.
+ */
+const listUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
+router.post('/invite-bulk', requireRole('admin'), listUpload.single('file'), async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'Keine Datei übertragen' });
+  let rows;
+  try {
+    const XLSX = require('xlsx');
+    const wb = XLSX.read(req.file.buffer, { type: 'buffer' });
+    rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, defval: '' })
+      .map((r) => r.map((c) => String(c).trim())).filter((r) => r.some(Boolean));
+  } catch {
+    return res.status(400).json({ error: 'Datei konnte nicht gelesen werden (XLSX oder CSV erwartet)' });
+  }
+  if (!rows.length) return res.status(400).json({ error: 'Datei ist leer' });
+
+  // Spalten erkennen
+  const head = rows[0].map((c) => c.toLowerCase());
+  const idx = {
+    vorname: head.findIndex((c) => /vorname|first/.test(c)),
+    nachname: head.findIndex((c) => /nachname|last|name$/.test(c)),
+    email: head.findIndex((c) => /mail/.test(c)),
+  };
+  const hatKopf = idx.email >= 0;
+  const daten = hatKopf ? rows.slice(1) : rows;
+  const col = hatKopf ? idx : { vorname: 0, nachname: 1, email: 2 };
+
+  const ergebnis = { eingeladen: [], uebersprungen: [] };
+  for (const r of daten.slice(0, 500)) {
+    const out = await inviteNewExpert(req, { vorname: r[col.vorname], nachname: r[col.nachname], email: r[col.email] });
+    if (out.ok) ergebnis.eingeladen.push(out.email);
+    else ergebnis.uebersprungen.push({ email: out.email || '(leer)', grund: out.grund });
+  }
+  res.locals.auditLogged = true;
+  res.json({ ok: true, ...ergebnis, message: `${ergebnis.eingeladen.length} Einladung(en) versendet, ${ergebnis.uebersprungen.length} übersprungen.` });
 });
 
 /** Eigenes Profil (Experte). */
