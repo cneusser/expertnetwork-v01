@@ -1,11 +1,13 @@
 import { Link, NavLink } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import Logo from './Logo';
+import { useLang, tr } from '../i18n';
 import { APP_VERSION } from '../version';
 import { api } from '../api/client';
 
 export default function Layout({ children }) {
   const { user, logout } = useAuth();
+  const { lang, setLang } = useLang();
   const isAdmin = ['admin', 'tenant_owner'].includes(user?.role);
   const home = user?.role === 'vendor' ? '/vendor' : isAdmin ? '/admin' : '/dashboard';
   return (
@@ -31,14 +33,24 @@ export default function Layout({ children }) {
             {isAdmin && <NavLink to="/admin/mails">Mails</NavLink>}
             {isAdmin && <NavLink to="/admin/audit">Audit-Log</NavLink>}
             {isAdmin && <NavLink to="/admin/mandanten">Mandanten</NavLink>}
-            {user?.role === 'expert' && <NavLink to="/profil">Mein Profil</NavLink>}
-            {user?.role === 'expert' && <NavLink to="/projekte">Projekte</NavLink>}
-            <NavLink to="/konto">Konto</NavLink>
+            {user?.role === 'expert' && <NavLink to="/profil">{tr(lang, 'Mein Profil', 'My profile')}</NavLink>}
+            {user?.role === 'expert' && <NavLink to="/projekte">{tr(lang, 'Projekte', 'Projects')}</NavLink>}
+            <NavLink to="/konto">{tr(lang, 'Konto', 'Account')}</NavLink>
           </nav>
         </div>
         <div className="user">
-          <span>{user?.email} · {user?.role === 'vendor' ? 'Kunde' : isAdmin ? 'Administrator' : 'Experte'}</span>
-          <button onClick={logout}>Abmelden</button>
+          {user?.role === 'expert' && (
+            <span style={{ marginRight: 10 }}>
+              {['de', 'en'].map((L) => (
+                <button key={L} onClick={() => setLang(L)}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0 3px', color: '#fff', opacity: lang === L ? 1 : 0.55, fontWeight: lang === L ? 700 : 400 }}>
+                  {L.toUpperCase()}
+                </button>
+              ))}
+            </span>
+          )}
+          <span>{user?.email} · {user?.role === 'vendor' ? 'Kunde' : isAdmin ? 'Administrator' : tr(lang, 'Experte', 'Expert')}</span>
+          <button onClick={logout}>{user?.role === 'expert' ? tr(lang, 'Abmelden', 'Log out') : 'Abmelden'}</button>
         </div>
       </header>
       <main className="main">{children}</main>

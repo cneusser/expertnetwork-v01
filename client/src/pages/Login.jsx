@@ -2,10 +2,12 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import Logo from '../components/Logo';
+import { useLang, tr } from '../i18n';
 import LegalFooter from '../components/LegalFooter';
 
 export default function Login() {
   const { login } = useAuth();
+  const { lang, setLang } = useLang();
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -47,22 +49,28 @@ export default function Login() {
     <div className="auth-wrap">
       <form className="auth-card" onSubmit={submit}>
         <Logo />
-        <h1>Anmelden</h1>
-        <p className="sub">Privates Expertennetzwerk der Phalanx GmbH</p>
+        <div style={{ textAlign: 'right', fontSize: 12 }}>
+          {['de', 'en'].map((L) => (
+            <button key={L} type="button" onClick={() => setLang(L)}
+              style={{ border: 'none', background: 'none', cursor: 'pointer', fontWeight: lang === L ? 700 : 400, color: lang === L ? 'var(--navy)' : 'var(--grey-400, #8a93a0)' }}>{L.toUpperCase()}</button>
+          ))}
+        </div>
+        <h1>{tr(lang, 'Anmelden', 'Log in')}</h1>
+        <p className="sub">{tr(lang, 'Privates Expertennetzwerk der Phalanx GmbH', 'The private expert network of Phalanx GmbH')}</p>
         {error && <div className="msg msg-error">{error}</div>}
         <div className="field">
-          <label htmlFor="email">E-Mail-Adresse</label>
+          <label htmlFor="email">{tr(lang, 'E-Mail-Adresse', 'Email address')}</label>
           <input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoFocus />
         </div>
         <div className="field">
-          <label htmlFor="password">Passwort</label>
+          <label htmlFor="password">{tr(lang, 'Passwort', 'Password')}</label>
           <input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
         </div>
-        <button className="btn" disabled={busy}>{busy ? 'Anmelden…' : 'Anmelden'}</button>
+        <button className="btn" disabled={busy}>{busy ? tr(lang, 'Anmelden…', 'Logging in…') : tr(lang, 'Anmelden', 'Log in')}</button>
         {liEnabled && (
           <button type="button" className="btn" style={{ marginTop: 10, background: '#0A66C2' }}
             onClick={() => { window.location.href = '/api/auth/linkedin'; }}>
-            Mit LinkedIn anmelden
+            {tr(lang, 'Mit LinkedIn anmelden', 'Sign in with LinkedIn')}
           </button>
         )}
         <div className="auth-links">

@@ -3,11 +3,15 @@ import { useEffect, useState } from 'react';
 import { FolderKanban } from 'lucide-react';
 import Layout from '../components/Layout';
 import { api } from '../api/client';
+import { useLang, tr } from '../i18n';
 
 const fmtDate = (d) => (d ? new Date(d).toLocaleDateString('de-DE') : '—');
 const APP_LABEL = { vorgeschlagen: 'Von Phalanx vorgeschlagen', beworben: 'Beworben', im_gespraech: 'Im Gespräch', angeboten: 'Angebot erhalten', abgelehnt: 'Nicht berücksichtigt', besetzt: 'Besetzt' };
+const APP_LABEL_EN = { vorgeschlagen: 'Suggested by Phalanx', beworben: 'Applied', im_gespraech: 'In discussion', angeboten: 'Offer received', abgelehnt: 'Not selected', besetzt: 'Filled' };
 
 export default function ExpertProjekte() {
+  const { lang } = useLang();
+  const L = lang === 'en' ? APP_LABEL_EN : APP_LABEL;
   const [projects, setProjects] = useState(null);
   const [bewerbungen, setBewerbungen] = useState([]);
   const [msg, setMsg] = useState(null);
@@ -30,11 +34,11 @@ export default function ExpertProjekte() {
 
   return (
     <Layout>
-      <h1><FolderKanban size={22} style={{ verticalAlign: '-3px' }} /> Offene Projekte</h1>
-      <p className="sub">Aktuelle Mandate der Phalanx GmbH — bewerben Sie sich mit einem Klick.</p>
+      <h1><FolderKanban size={22} style={{ verticalAlign: '-3px' }} /> {tr(lang, 'Offene Projekte', 'Open projects')}</h1>
+      <p className="sub">{tr(lang, 'Aktuelle Mandate der Phalanx GmbH: bewerben Sie sich mit einem Klick.', 'Current Phalanx mandates: apply with one click.')}</p>
       {msg && <div className={`msg ${msg.ok ? 'msg-success' : 'msg-error'}`}>{msg.text}</div>}
       {!projects ? <p className="sub">Laden…</p> : !projects.length ? (
-        <p className="sub">Derzeit keine offenen Projekte — wir melden uns, sobald etwas passt.</p>
+        <p className="sub">{tr(lang, 'Derzeit keine offenen Projekte, wir melden uns, sobald etwas passt.', 'No open projects right now. We will reach out as soon as something fits.')}</p>
       ) : (
         <div className="card-grid">
           {projects.map((p) => (
@@ -60,20 +64,20 @@ export default function ExpertProjekte() {
               )}
               <p style={{ marginTop: 8 }}>{p.skills.map((s) => <span className="tag" key={s.id}>{s.name}</span>)}</p>
               {p.application || (p.bewerbungsfrist && new Date(p.bewerbungsfrist) < new Date()) ? (
-                <span className="badge badge-active" style={{ marginTop: 10 }}>{p.application ? APP_LABEL[p.application.status] : 'Frist abgelaufen'}</span>
+                <span className="badge badge-active" style={{ marginTop: 10 }}>{p.application ? L[p.application.status] : tr(lang, 'Frist abgelaufen', 'Deadline passed')}</span>
               ) : (
                 <button className="btn" style={{ width: 'auto', marginTop: 12, padding: '8px 16px' }} onClick={() => apply(p)}>
-                  Bewerben
+                  {tr(lang, 'Bewerben', 'Apply')}
                 </button>
               )}
             </div>
           ))}
         </div>
       )}
-      <h2 style={{ fontSize: 18, color: 'var(--navy)', margin: '30px 0 10px' }}>Meine Bewerbungen</h2>
+      <h2 style={{ fontSize: 18, color: 'var(--navy)', margin: '30px 0 10px' }}>{tr(lang, 'Meine Bewerbungen', 'My applications')}</h2>
       {bewerbungen.length ? (
         <table className="table">
-          <thead><tr><th>Datum</th><th>Projekt</th><th>Frist</th><th>Status</th><th></th></tr></thead>
+          <thead><tr><th>{tr(lang, 'Datum', 'Date')}</th><th>{tr(lang, 'Projekt', 'Project')}</th><th>{tr(lang, 'Frist', 'Deadline')}</th><th>Status</th><th /></tr></thead>
           <tbody>
             {bewerbungen.map((b) => (
               <tr key={b.id}>
@@ -81,21 +85,21 @@ export default function ExpertProjekte() {
                 <td><strong>{b.name}</strong> <span className="muted">({b.referenz || '—'})</span></td>
                 <td>{b.bewerbungsfrist ? new Date(b.bewerbungsfrist).toLocaleString('de-DE') : '—'}</td>
                 <td><span className={`status status-${['besetzt'].includes(b.status) ? 'freigegeben' : ['abgelehnt', 'zurueckgezogen'].includes(b.status) ? 'inaktiv' : 'registriert'}`}>
-                  {{ vorgeschlagen: 'Vorgeschlagen', beworben: 'Beworben', im_gespraech: 'Im Gespräch', angeboten: 'Angebot erhalten', abgelehnt: 'Absage', besetzt: 'Gewonnen', zurueckgezogen: 'Eigene Absage' }[b.status] || b.status}
+                  {(lang === 'en' ? { vorgeschlagen: 'Suggested', beworben: 'Applied', im_gespraech: 'In discussion', angeboten: 'Offer received', abgelehnt: 'Declined', besetzt: 'Won', zurueckgezogen: 'Withdrawn' } : { vorgeschlagen: 'Vorgeschlagen', beworben: 'Beworben', im_gespraech: 'Im Gespräch', angeboten: 'Angebot erhalten', abgelehnt: 'Absage', besetzt: 'Gewonnen', zurueckgezogen: 'Eigene Absage' })[b.status] || b.status}
                 </span></td>
                 <td>{!['besetzt', 'abgelehnt', 'zurueckgezogen'].includes(b.status) && (
                   <button type="button" className="tab" style={{ padding: 0, color: 'var(--danger)' }}
                     onClick={async () => {
-                      if (!window.confirm('Bewerbung wirklich zurückziehen?')) return;
+                      if (!window.confirm(tr(lang, 'Bewerbung wirklich zurückziehen?', 'Really withdraw this application?'))) return;
                       await api.post(`/api/projects/bewerbungen/${b.id}/zurueckziehen`);
                       loadBew();
-                    }}>Zurückziehen</button>
+                    }}>{tr(lang, 'Zurückziehen', 'Withdraw')}</button>
                 )}</td>
               </tr>
             ))}
           </tbody>
         </table>
-      ) : <p className="sub">Noch keine Bewerbungen.</p>}
+      ) : <p className="sub">{tr(lang, 'Noch keine Bewerbungen.', 'No applications yet.')}</p>}
     </Layout>
   );
 }

@@ -63,7 +63,12 @@ export default function Einladung() {
   const [params] = useSearchParams();
   const token = params.get('token');
   const renew = params.get('renew') === '1';
-  const [lang, setLang] = useState(params.get('lang') === 'en' ? 'en' : 'de');
+  const [lang, setLangState] = useState(() => {
+    const initial = params.get('lang') === 'en' ? 'en' : (typeof window !== 'undefined' && window.localStorage.getItem('phx-lang')) || 'de';
+    try { window.localStorage.setItem('phx-lang', initial); } catch { /* egal */ }
+    return initial;
+  });
+  const setLang = (l) => { try { window.localStorage.setItem('phx-lang', l); } catch { /* egal */ } setLangState(l); };
   const t = TEXTE[lang];
   const [schritt, setSchritt] = useState(0);
   const [consentText, setConsentText] = useState('');

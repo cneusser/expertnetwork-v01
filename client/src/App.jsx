@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { LangProvider } from './i18n';
 import ProtectedRoute from './components/ProtectedRoute';
 import Login from './pages/Login';
 import Datenschutz from './pages/Datenschutz';
@@ -39,6 +40,7 @@ function Home() {
 
 export default function App() {
   return (
+    <LangProvider>
     <AuthProvider>
       <BrowserRouter>
         <Routes>
@@ -74,5 +76,6 @@ export default function App() {
         </Routes>
       </BrowserRouter>
     </AuthProvider>
+    </LangProvider>
   );
 }
