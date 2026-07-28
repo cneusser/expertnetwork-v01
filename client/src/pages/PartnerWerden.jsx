@@ -77,7 +77,7 @@ export default function PartnerWerden() {
   };
 
   return (
-    <div style={{ maxWidth: 860, margin: '0 auto', padding: '32px 20px' }}>
+    <div style={{ maxWidth: 760, margin: '0 auto', padding: '32px 20px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Logo />
         <span style={{ fontSize: 12 }}>
@@ -89,7 +89,7 @@ export default function PartnerWerden() {
       </div>
 
       <h1 style={{ color: 'var(--navy)', margin: '22px 0 10px' }}>{t.titel}</h1>
-      <p style={{ fontSize: 16, lineHeight: 1.6, maxWidth: 680 }}>{t.intro}</p>
+      <p style={{ fontSize: 16, lineHeight: 1.6 }}>{t.intro}</p>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: 14, margin: '24px 0' }}>
         {t.karten.map(({ icon: Icon, titel, text }) => (
@@ -101,7 +101,7 @@ export default function PartnerWerden() {
       </div>
       <p className="muted" style={{ fontSize: 14 }}>{t.verguetung}</p>
 
-      <div className="card" style={{ marginTop: 24, maxWidth: 680 }}>
+      <div className="card" style={{ marginTop: 24 }}>
         <h3>{t.formTitel}</h3>
         {msg && <div className={`msg ${msg.ok ? 'msg-success' : 'msg-error'}`} style={{ marginTop: 10 }}>{msg.text}</div>}
         {!done && (

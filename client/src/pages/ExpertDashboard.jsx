@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { UserRound, CalendarClock, Euro, FileText } from 'lucide-react';
+import { UserRound, CalendarClock, Euro, FileText, HeartHandshake } from 'lucide-react';
 import Layout from '../components/Layout';
 import { useAuth } from '../context/AuthContext';
 import { useLang, tr } from '../i18n';
@@ -53,6 +53,7 @@ export default function ExpertDashboard() {
     { icon: UserRound, title: tr(lang, 'Mein Profil', 'My profile'), desc: tr(lang, 'Persönliche Daten, Kurzprofil, Sprachen: selbst pflegen.', 'Personal data, summary, languages: maintained by you.'), link: '/profil' },
     { icon: Euro, title: tr(lang, 'Tagessätze', 'Daily rates'), desc: tr(lang, 'Sätze für Remote, vor Ort, Interim, Projektleitung, Beratung.', 'Rates for remote, on-site, interim, project lead, advisory.'), link: '/profil' },
     { icon: FileText, title: tr(lang, 'Dokumente', 'Documents'), desc: tr(lang, 'Lebenslauf, Zertifikate und Referenzen, versioniert.', 'CV, certificates and references, versioned.'), sprint: tr(lang, 'Upload folgt', 'Upload coming') },
+    { icon: HeartHandshake, title: tr(lang, 'Assoziierte Partner', 'Associated partners'), desc: tr(lang, 'Eigenes Netzwerk? Verdienen Sie an Empfehlungen, Projekten und gemeinsamer Umsetzung mit.', 'A network of your own? Earn a share from referrals, projects and joint delivery.'), link: '/partner' },
   ];
 
   return (
