@@ -1,6 +1,6 @@
 /** v1.11.0 — Partneranfragen sichten und triagieren (neu → in Prüfung → angenommen/abgelehnt). */
 import { useEffect, useState } from 'react';
-import { Handshake } from 'lucide-react';
+import { HeartHandshake } from 'lucide-react';
 import Layout from '../components/Layout';
 import { api } from '../api/client';
 
@@ -16,7 +16,7 @@ export default function AdminPartner() {
 
   return (
     <Layout>
-      <h1><Handshake size={22} style={{ verticalAlign: '-3px' }} /> Partner</h1>
+      <h1><HeartHandshake size={22} style={{ verticalAlign: '-3px' }} /> Partner</h1>
       <p className="sub">Anfragen für die assoziierte Partnerschaft (Recruiting, Projektakquise, Delivery).</p>
       {error && <div className="msg msg-error">{error}</div>}
       {rows && (

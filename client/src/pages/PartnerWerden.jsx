@@ -5,7 +5,7 @@
  */
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Handshake, Search, Users } from 'lucide-react';
+import { HeartHandshake, Search, Users } from 'lucide-react';
 import Logo from '../components/Logo';
 import LegalFooter from '../components/LegalFooter';
 import { useLang, tr } from '../i18n';
@@ -18,7 +18,7 @@ const T = {
     karten: [
       { icon: Users, titel: 'Recruiting', text: 'Sie kennen gute Leute. Empfehlen Sie Experten für unser Netzwerk. Kommt über Ihre Empfehlung ein Mandat zustande, sind Sie am Erfolg beteiligt.' },
       { icon: Search, titel: 'Projektakquise', text: 'Sie hören von einem Projekt, das gerade nicht zu Ihnen passt? Bringen Sie es ein. Wir übernehmen Besetzung und Abwicklung, Sie erhalten eine Vermittlungsbeteiligung.' },
-      { icon: Handshake, titel: 'Delivery', text: 'Große Mandate stemmt niemand allein. Als Partner arbeiten Sie in Phalanx-Projekten mit, vom Teilprojekt bis zur gemeinsamen Projektleitung.' },
+      { icon: HeartHandshake, titel: 'Delivery', text: 'Große Mandate stemmt niemand allein. Als Partner arbeiten Sie in Phalanx-Projekten mit, vom Teilprojekt bis zur gemeinsamen Projektleitung.' },
     ],
     verguetung: 'Die Konditionen legen wir gemeinsam fest, offen und pro Fall. Kein Kleingedrucktes.',
     formTitel: 'Interesse? Schreiben Sie uns.',
@@ -36,7 +36,7 @@ const T = {
     karten: [
       { icon: Users, titel: 'Recruiting', text: 'You know good people. Recommend experts for our network. If a mandate comes about through your referral, you share in the success.' },
       { icon: Search, titel: 'Project origination', text: 'You hear about a project that does not fit you right now? Bring it in. We handle staffing and execution, you receive a referral share.' },
-      { icon: Handshake, titel: 'Delivery', text: 'Nobody handles large mandates alone. As a partner you work in Phalanx projects, from a workstream to joint project leadership.' },
+      { icon: HeartHandshake, titel: 'Delivery', text: 'Nobody handles large mandates alone. As a partner you work in Phalanx projects, from a workstream to joint project leadership.' },
     ],
     verguetung: 'We agree the terms together, openly and case by case. No fine print.',
     formTitel: 'Interested? Get in touch.',
