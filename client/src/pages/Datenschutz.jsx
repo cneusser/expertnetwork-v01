@@ -35,7 +35,7 @@ export default function Datenschutz() {
       <H>3. Verarbeitete Daten und Rechtsgrundlagen</H>
       <p>
         <strong>Expertenprofile (Talentpool):</strong> Stammdaten, Kontaktdaten, Qualifikationen,
-        Karrierestationen, Dokumente (z. B. CV), Verfügbarkeiten und Tagessätze — auf Grundlage
+        Karrierestationen, Dokumente (z. B. CV), Verfügbarkeiten und Tagessätze, auf Grundlage
         Ihrer ausdrücklichen, versionierten Einwilligung (Art. 6 Abs. 1 lit. a DSGVO). Die
         Einwilligung ist auf 24 Monate befristet und muss danach erneuert werden; sie ist
         jederzeit widerrufbar (Profilbereich, Abschnitt „Datenschutz“).
@@ -67,8 +67,8 @@ export default function Datenschutz() {
         ein Dokument zur Analyse hochladen; Vorschläge werden erst nach menschlicher Bestätigung
         übernommen. Optionale Anmeldung über LinkedIn („Sign in with LinkedIn“): Dabei erhält
         LinkedIn Kenntnis von Ihrem Login; wir erhalten von LinkedIn nur Name, E-Mail-Adresse und
-        Profil-Kennung — kein Zugriff auf Ihr LinkedIn-Profil. Freigegebene Profile werden
-        projektbezogen und — sofern vereinbart — anonymisiert an anfragende Unternehmen
+        Profil-Kennung, aber keinen Zugriff auf Ihr LinkedIn-Profil. Freigegebene Profile werden
+        projektbezogen und, sofern vereinbart, anonymisiert an anfragende Unternehmen
         weitergegeben.
       </p>
 
@@ -85,7 +85,7 @@ export default function Datenschutz() {
         Sie haben das Recht auf Auskunft (Art. 15), Berichtigung (Art. 16), Löschung (Art. 17),
         Einschränkung (Art. 18), Datenübertragbarkeit (Art. 20) und Widerspruch (Art. 21). Im
         Profilbereich können Sie Ihre Daten selbst als ZIP exportieren und Ihre Einwilligung
-        widerrufen — die Löschung erfolgt dann ohne weitere Schritte. Zudem besteht ein
+        widerrufen. Die Löschung erfolgt dann ohne weitere Schritte. Zudem besteht ein
         Beschwerderecht bei einer Datenschutz-Aufsichtsbehörde, z. B. dem Bayerischen Landesamt
         für Datenschutzaufsicht (BayLDA), Ansbach.
       </p>

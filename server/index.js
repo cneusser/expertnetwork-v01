@@ -74,6 +74,7 @@ app.get('/api/health', (_req, res) => res.json({ ok: true, app: 'expertnetwork',
 app.use('/api/auth', authRoutes);
 app.use('/api/experts', expertRoutes);
 app.use('/api/mails', require('./routes/mails'));
+app.use('/api/partner', require('./routes/partner'));
 app.use('/api/availability', availabilityRoutes);
 app.use('/api/audit', auditRoutes);
 app.use('/api/search', searchRoutes);

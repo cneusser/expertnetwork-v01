@@ -85,7 +85,10 @@ export default function RegisterKunde() {
         )}
         <div className="auth-links"><Link to="/login">Zur Anmeldung</Link></div>
       </form>
-      <LegalFooter />
+      <p style={{ fontSize: 13, textAlign: 'center', marginTop: 14 }}>
+          <Link to="/partner">Assoziierter Partner werden</Link>
+        </p>
+        <LegalFooter />
     </div>
   );
 }

@@ -206,4 +206,53 @@ router.get('/share/:token/pptx', async (req, res) => {
   res.send(buf);
 });
 
+/**
+ * v1.11.0 — Assoziierte Partner: öffentliche Interessensanfrage.
+ * Speichert die Anfrage und informiert den Admin per Mail (landet in der Outbox).
+ */
+router.post('/partner-bewerbung', async (req, res) => {
+  const b = req.body || {};
+  const email = String(b.email || '').toLowerCase().trim();
+  if (!b.vorname || !b.nachname) return res.status(400).json({ error: 'Vor- und Nachname erforderlich' });
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return res.status(400).json({ error: 'Ungültige E-Mail-Adresse' });
+  if (b.consent !== true) return res.status(400).json({ error: 'Zustimmung zur Datenverarbeitung erforderlich' });
+  const fokus = Array.isArray(b.fokus) ? b.fokus.filter((f) => ['recruiting', 'akquise', 'delivery'].includes(f)) : [];
+
+  const tenant = await db('tenants').where({ slug: 'phalanx' }).first();
+  const [row] = await db('partner_applications').insert({
+    tenant_id: tenant.id,
+    vorname: String(b.vorname).slice(0, 100),
+    nachname: String(b.nachname).slice(0, 100),
+    email,
+    telefon: b.telefon ? String(b.telefon).slice(0, 40) : null,
+    fokus_json: JSON.stringify(fokus),
+    nachricht: b.nachricht ? String(b.nachricht).slice(0, 3000) : null,
+  }).returning('*');
+
+  await db('audit_log').insert({
+    tenant_id: tenant.id, action: 'partner.anfrage', resource: 'partner_applications',
+    resource_id: row.id, new_value_json: JSON.stringify({ email, fokus }), ip: req.ip,
+  });
+
+  // Admin informieren; Fehler beim Versand blockieren die Anfrage nicht.
+  try {
+    const admin = await db('users').where({ tenant_id: tenant.id, role: 'admin' }).orderBy('id').first();
+    if (admin) {
+      const { getMailProvider } = require('../providers/mail');
+      await getMailProvider().send({
+        to: admin.email,
+        subject: `Neue Partneranfrage: ${row.vorname} ${row.nachname}`,
+        html: `<p>Neue Anfrage als assoziierter Partner:</p>
+<p><strong>${row.vorname} ${row.nachname}</strong><br />${email}${row.telefon ? `<br />${row.telefon}` : ''}</p>
+<p>Interesse: ${fokus.join(', ') || 'keine Angabe'}</p>
+${row.nachricht ? `<p>${row.nachricht}</p>` : ''}
+<p>Zur Prüfung: Admin-Konsole, Menüpunkt Partner.</p>`,
+        text: `Neue Partneranfrage von ${row.vorname} ${row.nachname} (${email}), Interesse: ${fokus.join(', ')}`,
+      }, { tenantId: tenant.id, templateKey: 'partner_anfrage_intern' });
+    }
+  } catch (e) { console.error('Partner-Anfrage-Mail fehlgeschlagen:', e.message); }
+
+  res.status(201).json({ ok: true, message: 'Danke für Ihre Anfrage. Wir melden uns persönlich, meist innerhalb von zwei Werktagen.' });
+});
+
 module.exports = router;

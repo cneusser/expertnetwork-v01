@@ -6,6 +6,8 @@ import Login from './pages/Login';
 import Datenschutz from './pages/Datenschutz';
 import AdminFunnel from './pages/AdminFunnel';
 import AdminMails from './pages/AdminMails';
+import PartnerWerden from './pages/PartnerWerden';
+import AdminPartner from './pages/AdminPartner';
 import Register from './pages/Register';
 import VerifyEmail from './pages/VerifyEmail';
 import ForgotPassword from './pages/ForgotPassword';
@@ -47,6 +49,7 @@ export default function App() {
           <Route path="/" element={<Home />} />
           <Route path="/login" element={<Login />} />
           <Route path="/datenschutz" element={<Datenschutz />} />
+          <Route path="/partner" element={<PartnerWerden />} />
           <Route path="/register" element={<Register />} />
           <Route path="/register-kunde" element={<RegisterKunde />} />
           <Route path="/verify" element={<VerifyEmail />} />
@@ -64,6 +67,7 @@ export default function App() {
           <Route path="/admin/projekte" element={<ProtectedRoute roles={['admin', 'tenant_owner']}><AdminProjects /></ProtectedRoute>} />
           <Route path="/admin/funnel" element={<ProtectedRoute roles={['admin', 'tenant_owner']}><AdminFunnel /></ProtectedRoute>} />
           <Route path="/admin/mails" element={<ProtectedRoute roles={['admin', 'tenant_owner']}><AdminMails /></ProtectedRoute>} />
+          <Route path="/admin/partner" element={<ProtectedRoute roles={['admin', 'tenant_owner']}><AdminPartner /></ProtectedRoute>} />
           <Route path="/admin/projekte/:id" element={<ProtectedRoute roles={['admin', 'tenant_owner']}><AdminProjectDetail /></ProtectedRoute>} />
           <Route path="/admin/kommunikation" element={<ProtectedRoute roles={['admin', 'tenant_owner']}><AdminKommunikation /></ProtectedRoute>} />
           <Route path="/projekte" element={<ProtectedRoute roles={['expert']}><ExpertProjekte /></ProtectedRoute>} />

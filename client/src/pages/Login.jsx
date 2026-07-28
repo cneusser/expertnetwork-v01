@@ -73,6 +73,13 @@ export default function Login() {
             {tr(lang, 'Mit LinkedIn anmelden', 'Sign in with LinkedIn')}
           </button>
         )}
+        <div style={{ marginTop: 16, padding: '12px 14px', background: 'var(--grey-100, #f4f6f8)', borderLeft: '3px solid var(--navy)', borderRadius: 6, fontSize: 13, lineHeight: 1.5 }}>
+          <strong>{tr(lang, 'Assoziierte Partner', 'Associated partners')}</strong><br />
+          {tr(lang,
+            'Interim Manager mit eigenem Netzwerk? Verdienen Sie an Empfehlungen, Projekten und gemeinsamer Umsetzung mit.',
+            'An interim manager with a network of your own? Earn a share from referrals, projects and joint delivery.')}{' '}
+          <Link to="/partner">{tr(lang, 'Mehr erfahren', 'Learn more')}</Link>
+        </div>
         <div className="auth-links">
           <span><Link to="/register">Als Experte</Link> · <Link to="/register-kunde">Als Kunde registrieren</Link></span>
           <Link to="/forgot-password">Passwort vergessen?</Link>

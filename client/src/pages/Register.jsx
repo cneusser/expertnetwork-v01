@@ -74,7 +74,10 @@ export default function Register() {
         <button className="btn" disabled={busy || !consent}>{busy ? 'Registrieren…' : 'Registrieren'}</button>
         <div className="auth-links"><Link to="/login">Bereits registriert? Anmelden</Link></div>
       </form>
-      <LegalFooter />
+      <p style={{ fontSize: 13, textAlign: 'center', marginTop: 14 }}>
+          <Link to="/partner">Assoziierter Partner werden</Link>
+        </p>
+        <LegalFooter />
     </div>
   );
 }
