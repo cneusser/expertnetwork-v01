@@ -185,6 +185,7 @@ async function inviteNewExpert(req, { vorname, nachname, email, sprache }) {
     tenant_id: req.user.tenantId, user_id: user.id,
     vorname: String(vorname).slice(0, 100), nachname: String(nachname).slice(0, 100),
     email: mail, status: 'eingeladen',
+    invite_cycle_started_at: db.fn.now(), invite_zyklus: 'neu', // v1.12.0: Erinnerung Tag 7/21, Loeschung Tag 28
   }).returning('*');
 
   const token = signPurposeToken(user.id, 'expert-invite', '14d');
@@ -250,6 +251,45 @@ router.post('/invite-bulk', requireRole('admin'), listUpload.single('file'), asy
   }
   res.locals.auditLogged = true;
   res.json({ ok: true, ...ergebnis, message: `${ergebnis.eingeladen.length} Einladung(en) versendet, ${ergebnis.uebersprungen.length} übersprungen.` });
+});
+
+/**
+ * v1.12.0 — Bestandskontakte: freundlicher Nachfass an alle 'eingeladenen'
+ * ohne Einwilligung, startet den Lebenszyklus 'bestand' (Erinnerung nach
+ * 7 Tagen, danach DSGVO-Loeschung). Nur fuer Kontakte, die noch in keinem
+ * Zyklus stecken, dadurch beliebig oft aufrufbar ohne Doppelmails.
+ */
+router.post('/invite-zyklus-start', requireRole('admin'), async (req, res) => {
+  const { getTemplate, render } = require('../utils/mailTemplates');
+  const APP_URL = process.env.APP_URL ||
+    (process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : 'http://localhost:5173');
+  const kandidaten = await db('experts')
+    .where({ tenant_id: req.user.tenantId, status: 'eingeladen' })
+    .whereNull('invite_cycle_started_at')
+    .whereNotNull('user_id')
+    .whereNotNull('email');
+
+  let angeschrieben = 0;
+  const fehler = [];
+  for (const ex of kandidaten) {
+    const consent = await db('consents')
+      .where({ user_id: ex.user_id, zweck: 'talentpool' })
+      .whereNull('revoked_at').where('expires_at', '>', db.fn.now()).first();
+    if (consent) continue;
+    const token = signPurposeToken(ex.user_id, 'expert-invite', '14d');
+    const link = `${APP_URL}/einladung?token=${encodeURIComponent(token)}`;
+    try {
+      const tpl = await getTemplate(req.user.tenantId, 'einladung_bestand_nachfass');
+      const msg = render(tpl, { vorname: ex.vorname, nachname: ex.nachname, link, link_label: 'Profil anlegen' });
+      await getMailProvider().send({ to: ex.email, ...msg }, { tenantId: req.user.tenantId, templateKey: 'einladung_bestand_nachfass' });
+      await db('experts').where({ id: ex.id }).update({ invite_cycle_started_at: db.fn.now(), invite_zyklus: 'bestand' });
+      angeschrieben++;
+    } catch (err) { fehler.push(`${ex.email}: ${err.message}`); }
+  }
+  await req.audit({ action: 'invite.zyklus_start', resource: 'experts', resourceId: null, newValue: { angeschrieben, fehler: fehler.length } });
+  res.locals.auditLogged = true;
+  res.json({ ok: true, angeschrieben, fehler,
+    message: `${angeschrieben} Bestandskontakt(e) angeschrieben. Erinnerung folgt nach 7 Tagen, danach automatische Löschung.` });
 });
 
 /** Eigenes Profil (Experte). */
@@ -602,45 +642,12 @@ router.delete('/:id(\\d+)/skills/:skillId(\\d+)', requireRole('admin'), async (r
 router.delete('/:id(\\d+)', requireRole('admin'), async (req, res) => {
   const expert = await db('experts').where({ id: Number(req.params.id), tenant_id: req.user.tenantId }).first();
   if (!expert) return res.status(404).json({ error: 'Experte nicht gefunden' });
-
-  const docs = await db('documents').where({ expert_id: expert.id });
-  for (const d of docs) {
-    try { await storage.remove(d.storage_ref); } catch (e) { console.error('Datei-Löschung:', e.message); }
-  }
-  if (expert.foto_pfad) { try { await storage.remove(expert.foto_pfad); } catch (e) { console.error('Foto-Löschung:', e.message); } }
-
-  await db('project_releases').where({ expert_id: expert.id }).delete();
-  await db('applications').where({ expert_id: expert.id }).delete();
-  await db('communications').where({ expert_id: expert.id }).delete();
-  await db('documents').where({ expert_id: expert.id }).delete();
-  await db('availabilities').where({ expert_id: expert.id }).delete();
-  await db('rates').where({ expert_id: expert.id }).delete();
-  await db('expert_skills').where({ expert_id: expert.id }).delete();
-
-  await db.raw('ALTER TABLE audit_log DISABLE TRIGGER trg_audit_log_immutable');
-  await db('audit_log')
-    .where({ resource: 'experts', resource_id: expert.id })
-    .update({
-      old_value_json: null,
-      new_value_json: JSON.stringify({ hinweis: 'Inhalt entfernt — DSGVO-Löschung durch Admin' }),
-    });
-  await db.raw('ALTER TABLE audit_log ENABLE TRIGGER trg_audit_log_immutable');
-
-  await db('experts').where({ id: expert.id }).delete();
-  if (expert.user_id) {
-    await db('consents').where({ user_id: expert.user_id }).delete();
-    await db('saved_searches').where({ user_id: expert.user_id }).delete();
-    await db('users').where({ id: expert.user_id, role: 'expert' }).delete();
-  }
-
-  await db('audit_log').insert({
-    tenant_id: req.user.tenantId,
-    actor_id: req.user.id,
-    action: 'expert.dsgvo_delete',
-    resource: 'experts',
-    new_value_json: JSON.stringify({ grund: 'Löschung durch Admin (Art. 17 DSGVO)', dokumente_geloescht: docs.length }),
-    ip: req.ip,
+  const { deleteExpertCascade } = require('../utils/expertDeletion');
+  await deleteExpertCascade(expert, {
+    tenantId: req.user.tenantId, actorId: req.user.id,
+    grund: 'Löschung durch Admin (Art. 17 DSGVO)', ip: req.ip,
   });
+  res.locals.auditLogged = true;
   res.json({ ok: true, message: 'Experte vollständig gelöscht (Audit anonymisiert, Nachweis protokolliert).' });
 });
 

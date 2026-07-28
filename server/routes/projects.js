@@ -81,7 +81,7 @@ router.post('/:id(\\d+)/apply', async (req, res) => {
     if (!['vorgeschlagen'].includes(existing.status)) {
       return res.status(409).json({ error: 'Bewerbung existiert bereits' });
     }
-    await db('applications').where({ id: existing.id }).update({ status: 'beworben', nachricht, updated_at: db.fn.now() });
+    await db('applications').where({ id: existing.id }).update({ status: 'beworben', nachricht, updated_at: db.fn.now(), stage_changed_at: db.fn.now() });
   } else {
     await db('applications').insert({
       tenant_id: req.user.tenantId,
@@ -117,7 +117,7 @@ router.post('/bewerbungen/:appId(\\d+)/zurueckziehen', async (req, res) => {
   const app1 = await db('applications').where({ id: Number(req.params.appId), expert_id: expert.id }).first();
   if (!app1) return res.status(404).json({ error: 'Bewerbung nicht gefunden' });
   if (['besetzt', 'abgelehnt'].includes(app1.status)) return res.status(400).json({ error: 'Nicht mehr zurückziehbar' });
-  await db('applications').where({ id: app1.id }).update({ status: 'zurueckgezogen', updated_at: db.fn.now() });
+  await db('applications').where({ id: app1.id }).update({ status: 'zurueckgezogen', updated_at: db.fn.now(), stage_changed_at: db.fn.now() });
   await req.audit({ action: 'application.withdraw', resource: 'applications', resourceId: app1.id });
   res.locals.auditLogged = true;
   res.json({ ok: true, message: 'Bewerbung zurückgezogen.' });
@@ -135,7 +135,7 @@ router.get('/funnel', requireRole('admin'), async (req, res) => {
     .join('experts as e', 'e.id', 'a.expert_id')
     .where('p.tenant_id', req.user.tenantId)
     .whereNotIn('p.status', ['geschlossen'])
-    .select('a.id', 'a.status', 'a.matching_score', 'a.updated_at',
+    .select('a.id', 'a.status', 'a.matching_score', 'a.updated_at', 'a.stage_changed_at', 'a.next_step',
       'p.id as project_id', 'p.name as projekt', 'p.referenz',
       'e.id as expert_id', 'e.vorname', 'e.nachname', 'e.berufsbezeichnung')
     .orderBy('a.updated_at', 'desc');
@@ -146,9 +146,49 @@ router.get('/funnel', requireRole('admin'), async (req, res) => {
     .select('r.project_id', 'r.expert_id', 'p.name as projekt', 'p.referenz',
       'e.vorname', 'e.nachname', 'e.berufsbezeichnung', 'r.created_at');
   const stufen = ['vorgeschlagen', 'beworben', 'im_gespraech', 'angeboten', 'besetzt', 'abgelehnt', 'zurueckgezogen'];
+  const STAGNANT_TAGE = 30; // Capitalmatch-Regel: laufende Vorgaenge ohne Bewegung markieren
   const funnel = Object.fromEntries(stufen.map((s) => [s, []]));
-  for (const r of rows) (funnel[r.status] = funnel[r.status] || []).push(r);
-  res.json({ funnel, freigegeben_an_kunden: releases, stufen });
+  const now = Date.now();
+  for (const r of rows) {
+    const seit = r.stage_changed_at ? new Date(r.stage_changed_at).getTime() : now;
+    const tage_in_stufe = Math.max(0, Math.floor((now - seit) / 86400000));
+    const laufend = ['vorgeschlagen', 'beworben', 'im_gespraech', 'angeboten'].includes(r.status);
+    (funnel[r.status] = funnel[r.status] || []).push({
+      ...r, tage_in_stufe, stagnant: laufend && tage_in_stufe > STAGNANT_TAGE,
+    });
+  }
+  // Conversion: wie viele haben Stufe X erreicht (Reihenfolge bis 'besetzt')
+  const reihenfolge = ['vorgeschlagen', 'beworben', 'im_gespraech', 'angeboten', 'besetzt'];
+  const counts = Object.fromEntries(stufen.map((s) => [s, funnel[s].length]));
+  const reached = {};
+  reihenfolge.forEach((s, i) => {
+    reached[s] = rows.filter((r) => {
+      const idx = reihenfolge.indexOf(r.status);
+      return idx >= i; // abgelehnt/zurueckgezogen zaehlen nicht als erreicht
+    }).length;
+  });
+  res.json({ funnel, freigegeben_an_kunden: releases, stufen, counts, reached, stagnant_tage: STAGNANT_TAGE });
+});
+
+/** v1.12.0 — Funnel-Board: Statuswechsel + naechster Schritt an der Bewerbung. */
+router.post('/funnel/:appId(\\d+)', requireRole('admin'), async (req, res) => {
+  const app1 = await db('applications').where({ id: Number(req.params.appId), tenant_id: req.user.tenantId }).first();
+  if (!app1) return res.status(404).json({ error: 'Eintrag nicht gefunden' });
+  const updates = {};
+  if (req.body?.status !== undefined) {
+    if (!APP_STATUS.concat('zurueckgezogen').includes(String(req.body.status))) {
+      return res.status(400).json({ error: 'Ungültiger Status' });
+    }
+    updates.status = String(req.body.status);
+    updates.stage_changed_at = db.fn.now();
+  }
+  if (req.body?.next_step !== undefined) updates.next_step = String(req.body.next_step || '').slice(0, 200) || null;
+  if (!Object.keys(updates).length) return res.status(400).json({ error: 'Nichts zu ändern' });
+  updates.updated_at = db.fn.now();
+  await db('applications').where({ id: app1.id }).update(updates);
+  await req.audit({ action: 'funnel.update', resource: 'applications', resourceId: app1.id, oldValue: { status: app1.status }, newValue: updates });
+  res.locals.auditLogged = true;
+  res.json({ ok: true });
 });
 
 /** v1.5.0 — Sammelprofil als PPTX (Admin): alle für das Projekt freigegebenen Profile. */
@@ -243,6 +283,15 @@ router.put('/:id(\\d+)', requireRole('admin'), async (req, res) => {
   }
   await req.audit({ action: 'project.update', resource: 'projects', resourceId: project.id, oldValue: { status: project.status }, newValue: data });
   res.locals.auditLogged = true;
+
+  // v1.12.0 — Push-Matching: Projekt wird geoeffnet → passende Experten benachrichtigen
+  if (data.status === 'offen' && project.status !== 'offen') {
+    const aktuell = await db('projects').where({ id: project.id }).first();
+    const { sendProjectMatchAlerts } = require('../utils/matchAlert');
+    sendProjectMatchAlerts(aktuell).then((r) => {
+      if (r.gesendet) console.log(`Match-Alerts fuer Projekt ${aktuell.referenz || aktuell.id}: ${r.gesendet} Mail(s)`);
+    }).catch((e) => console.error('Match-Alerts:', e.message));
+  }
   res.json({ ok: true });
 });
 
@@ -306,7 +355,7 @@ router.put('/:id(\\d+)/applications/:appId(\\d+)', requireRole('admin'), async (
   if (!APP_STATUS.includes(status)) return res.status(400).json({ error: 'Ungültiger Status' });
   const app = await db('applications').where({ id: Number(req.params.appId), project_id: Number(req.params.id), tenant_id: req.user.tenantId }).first();
   if (!app) return res.status(404).json({ error: 'Bewerbung nicht gefunden' });
-  await db('applications').where({ id: app.id }).update({ status, updated_at: db.fn.now() });
+  await db('applications').where({ id: app.id }).update({ status, updated_at: db.fn.now(), stage_changed_at: db.fn.now() });
   await req.audit({ action: 'application.status', resource: 'applications', resourceId: app.id, oldValue: { status: app.status }, newValue: { status } });
   res.locals.auditLogged = true;
   res.json({ ok: true });

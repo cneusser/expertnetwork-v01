@@ -80,6 +80,18 @@ export default function AdminExperts() {
         <p className="muted" style={{ marginTop: 8, fontSize: 12 }}>
           Erwartete Spalten: Vorname, Nachname, E-Mail. Die Einladungsmail sehen und ändern Sie unter „Mails“.
         </p>
+        <p style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--grey-200, #e3e6ea)' }}>
+          <button type="button" className="btn" style={{ width: 'auto', background: 'transparent', color: 'var(--navy)', border: '1px solid var(--grey-200)' }}
+            onClick={async () => {
+              if (!window.confirm('Alle unbeantworteten Bestandskontakte jetzt freundlich anschreiben?\n\nDanach: Erinnerung nach 7 Tagen, automatische DSGVO-Löschung nach 14 Tagen ohne Rückmeldung. Neue Einladungen laufen automatisch (Erinnerung Tag 7 und 21, Löschung Tag 28).')) return;
+              try {
+                const d = await api.post('/api/experts/invite-zyklus-start');
+                setInviteMsg({ ok: true, text: d.message + (d.fehler.length ? ` Fehler: ${d.fehler.join('; ')}` : '') });
+              } catch (err) { setInviteMsg({ ok: false, text: err.message }); }
+            }}>
+            Bestandskontakte anschreiben (Erinnerungs- und Löschzyklus starten)
+          </button>
+        </p>
       </div>
       {error && <div className="msg msg-error">{error}</div>}
       {experts && (

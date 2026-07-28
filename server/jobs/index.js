@@ -125,4 +125,65 @@ async function runSearchAgents() {
   return { agents: agents.length, notified };
 }
 
-module.exports = { runAvailabilityReminders, runConsentJobs, runSearchAgents };
+/**
+ * v1.12.0 — Einladungs-Lebenszyklus: Kontakte ohne Einwilligung werden erinnert
+ * und danach DSGVO-konform geloescht (Datenminimierung).
+ *   Zyklus 'neu':     Erinnerung Tag 7 und Tag 21, Loeschung ab Tag 28
+ *   Zyklus 'bestand': Erinnerung Tag 7, Loeschung ab Tag 14
+ * Der Zyklus endet automatisch mit Annahme der Einladung (Consent vorhanden).
+ */
+const ZYKLEN = { neu: [7, 21], bestand: [7] };
+
+async function runInviteLifecycle() {
+  const { getTemplate, render } = require('../utils/mailTemplates');
+  const { deleteExpertCascade } = require('../utils/expertDeletion');
+  const APP_URL = process.env.APP_URL ||
+    (process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : 'http://localhost:5173');
+
+  const kandidaten = await db('experts')
+    .where({ status: 'eingeladen' })
+    .whereNotNull('invite_cycle_started_at')
+    .whereNotNull('user_id');
+
+  let erinnert = 0;
+  let geloescht = 0;
+  for (const e of kandidaten) {
+    const consent = await db('consents')
+      .where({ user_id: e.user_id, zweck: 'talentpool' })
+      .whereNull('revoked_at').where('expires_at', '>', db.fn.now()).first();
+    if (consent) continue; // angenommen, Zyklus beendet
+
+    const stufen = ZYKLEN[e.invite_zyklus] || ZYKLEN.neu;
+    const tage = Math.floor((Date.now() - new Date(e.invite_cycle_started_at).getTime()) / 86400000);
+    const loeschTag = stufen[stufen.length - 1] + 7;
+
+    if (tage >= loeschTag) {
+      await deleteExpertCascade(e, {
+        tenantId: e.tenant_id,
+        grund: `Einladung nicht angenommen, automatische Loeschung nach ${loeschTag} Tagen (Datenminimierung)`,
+      });
+      geloescht++;
+      continue;
+    }
+
+    const faellig = stufen.filter((s) => tage >= s).length;
+    if (faellig > e.invite_reminders_sent && e.email) {
+      const token = signPurposeToken(e.user_id, 'expert-invite', '14d');
+      const link = `${APP_URL}/einladung?token=${encodeURIComponent(token)}`;
+      try {
+        const tpl = await getTemplate(e.tenant_id, 'einladung_erinnerung');
+        const msg = render(tpl, { vorname: e.vorname, nachname: e.nachname, link, link_label: 'Profil anlegen' });
+        await getMailProvider().send({ to: e.email, ...msg }, { tenantId: e.tenant_id, templateKey: 'einladung_erinnerung' });
+        await db('experts').where({ id: e.id }).update({ invite_reminders_sent: faellig });
+        await db('audit_log').insert({
+          tenant_id: e.tenant_id, action: 'invite.reminder_sent', resource: 'experts',
+          resource_id: e.id, new_value_json: JSON.stringify({ stufe: faellig, tage }),
+        });
+        erinnert++;
+      } catch (err) { console.error('Einladungs-Erinnerung fehlgeschlagen:', err.message); }
+    }
+  }
+  return { erinnert, geloescht };
+}
+
+module.exports = { runAvailabilityReminders, runConsentJobs, runSearchAgents, runInviteLifecycle };

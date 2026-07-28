@@ -44,6 +44,13 @@ export default function AdminFunnel() {
         </p>
       )}
 
+      {data.reached && projektFilter === 'alle' && (
+        <p className="muted" style={{ fontSize: 13, margin: '0 0 12px' }}>
+          Conversion: {['vorgeschlagen', 'beworben', 'im_gespraech', 'angeboten', 'besetzt']
+            .map((s) => `${LABEL[s]} ${data.reached[s] ?? 0}`).join(' → ')}
+          {' '}· Stagnation ab {data.stagnant_tage} Tagen ohne Bewegung
+        </p>
+      )}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 12, alignItems: 'start' }}>
         {data.stufen.map((s) => {
           const karten = zeige(data.funnel[s] || []);
@@ -60,6 +67,25 @@ export default function AdminFunnel() {
                       {k.referenz ? `${k.referenz} · ` : ''}{k.projekt}
                     </Link>
                     {k.matching_score != null && <> · {k.matching_score} %</>}
+                    {k.tage_in_stufe != null && (
+                      <> · <span style={{ color: k.stagnant ? 'var(--danger, #b23a48)' : 'inherit', fontWeight: k.stagnant ? 700 : 400 }}>
+                        {k.tage_in_stufe} T.{k.stagnant ? ' ⚠' : ''}</span></>
+                    )}
+                  </div>
+                  <div style={{ display: 'flex', gap: 6, marginTop: 6, alignItems: 'center' }}>
+                    <select value={k.status} style={{ fontSize: 11, maxWidth: 110 }}
+                      onChange={async (ev) => {
+                        await api.post(`/api/projects/funnel/${k.id}`, { status: ev.target.value });
+                        api.get('/api/projects/funnel').then(setData);
+                      }}>
+                      {data.stufen.map((st) => <option key={st} value={st}>{LABEL[st]}</option>)}
+                    </select>
+                    <input type="text" placeholder="Nächster Schritt…" defaultValue={k.next_step || ''}
+                      style={{ fontSize: 11, flex: 1, minWidth: 60, border: '1px solid var(--grey-200, #e3e6ea)', borderRadius: 4, padding: '3px 5px' }}
+                      onBlur={async (ev) => {
+                        if ((k.next_step || '') === ev.target.value) return;
+                        await api.post(`/api/projects/funnel/${k.id}`, { next_step: ev.target.value });
+                      }} />
                   </div>
                 </div>
               ))}
