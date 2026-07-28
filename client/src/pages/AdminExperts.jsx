@@ -50,9 +50,11 @@ export default function AdminExperts() {
               api.get('/api/experts').then((x) => setExperts(x.experts));
             } catch (err) { setInviteMsg({ ok: false, text: err.message }); }
           }}>
-          <div className="field" style={{ marginBottom: 0, minWidth: 140 }}><label>Vorname</label><input name="vorname" required /></div>
-          <div className="field" style={{ marginBottom: 0, minWidth: 140 }}><label>Nachname</label><input name="nachname" required /></div>
-          <div className="field" style={{ marginBottom: 0, minWidth: 220 }}><label>E-Mail</label><input name="email" type="email" required /></div>
+          <div className="field" style={{ marginBottom: 0, flex: '1 1 180px' }}><label>Vorname</label><input name="vorname" required /></div>
+          <div className="field" style={{ marginBottom: 0, flex: '1 1 180px' }}><label>Nachname</label><input name="nachname" required /></div>
+          <div className="field" style={{ marginBottom: 0, flex: '1 1 220px' }}><label>E-Mail</label><input name="email" type="email" required /></div>
+          <div className="field" style={{ marginBottom: 0, width: 120 }}><label>Sprache</label>
+            <select name="sprache" defaultValue="de"><option value="de">Deutsch</option><option value="en">Englisch</option></select></div>
           <button className="btn" style={{ width: 'auto' }}>Einladen</button>
           <label className="btn" style={{ width: 'auto', background: 'transparent', color: 'var(--navy)', border: '1px solid var(--grey-200)', cursor: 'pointer' }}>
             Liste einladen (Excel/CSV)

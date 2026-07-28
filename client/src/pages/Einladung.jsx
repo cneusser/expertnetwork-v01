@@ -10,12 +10,42 @@ import { api } from '../api/client';
 import Logo from '../components/Logo';
 import LegalFooter from '../components/LegalFooter';
 
-const SCHRITTE = ['Einwilligung', 'Zugang', 'Fertig'];
+const TEXTE = {
+  de: {
+    schritte: ['Einwilligung', 'Zugang', 'Fertig'],
+    titel: 'Willkommen im Phalanx Expert Network',
+    intro: 'Schön, dass Sie dabei sind. Bevor es losgeht, lesen Sie bitte kurz, wofür wir Ihre Daten verwenden. Ohne Ihre Einwilligung speichern wir nichts dauerhaft.',
+    consentLabel: 'Ich willige in die Aufnahme in das Phalanx Expert Network ein. Ich kann die Einwilligung jederzeit widerrufen.',
+    weiter: 'Weiter', zurueck: 'Zurück',
+    pwIntro: 'Fast geschafft. Vergeben Sie ein Passwort für Ihren Zugang.',
+    pwLabel: 'Passwort (mindestens 10 Zeichen)', pwWdh: 'Passwort wiederholen',
+    pwKurz: 'Passwort: mindestens 10 Zeichen.', pwUngleich: 'Die Passwörter stimmen nicht überein.',
+    anlegen: 'Zugang anlegen', warten: 'Bitte warten…',
+    fertig: 'Ihr Zugang ist eingerichtet und Ihre Einwilligung dokumentiert.',
+    naechste: 'So holen Sie am meisten heraus: Melden Sie sich an, vervollständigen Sie Ihr Profil (Kurzprofil, Skills, Tagessatz) und bestätigen Sie Ihre Verfügbarkeit. Das Dashboard zeigt Ihnen mit einer Checkliste, was noch fehlt, und schlägt passende Projekte vor.',
+    login: 'Jetzt anmelden', hinweisDe: null,
+  },
+  en: {
+    schritte: ['Consent', 'Access', 'Done'],
+    titel: 'Welcome to the Phalanx Expert Network',
+    intro: 'Great to have you here. Before we start, please take a moment to read what we use your data for. Nothing is stored permanently without your consent.',
+    consentLabel: 'I consent to being included in the Phalanx Expert Network. I can withdraw my consent at any time.',
+    weiter: 'Continue', zurueck: 'Back',
+    pwIntro: 'Almost there. Choose a password for your account.',
+    pwLabel: 'Password (at least 10 characters)', pwWdh: 'Repeat password',
+    pwKurz: 'Password: at least 10 characters.', pwUngleich: 'The passwords do not match.',
+    anlegen: 'Create access', warten: 'Please wait…',
+    fertig: 'Your access is set up and your consent is on record.',
+    naechste: 'To get the most out of it: log in, complete your profile (summary, skills, daily rate) and confirm your availability. The dashboard shows a checklist of what is still missing and suggests matching projects.',
+    login: 'Log in now',
+    hinweisDe: 'The consent text below is provided in German as the legally binding version.',
+  },
+};
 
-function Stepper({ aktiv }) {
+function Stepper({ aktiv, schritte }) {
   return (
     <div style={{ display: 'flex', gap: 6, margin: '14px 0 20px' }}>
-      {SCHRITTE.map((label, i) => (
+      {schritte.map((label, i) => (
         <div key={label} style={{ flex: 1, textAlign: 'center' }}>
           <div style={{
             width: 26, height: 26, lineHeight: '26px', borderRadius: '50%', margin: '0 auto 4px',
@@ -33,6 +63,8 @@ export default function Einladung() {
   const [params] = useSearchParams();
   const token = params.get('token');
   const renew = params.get('renew') === '1';
+  const [lang, setLang] = useState(params.get('lang') === 'en' ? 'en' : 'de');
+  const t = TEXTE[lang];
   const [schritt, setSchritt] = useState(0);
   const [consentText, setConsentText] = useState('');
   const [consent, setConsent] = useState(false);
@@ -47,8 +79,8 @@ export default function Einladung() {
 
   const abschliessen = async () => {
     setMsg('');
-    if (password.length < 10) { setMsg('Passwort: mindestens 10 Zeichen.'); return; }
-    if (password !== password2) { setMsg('Die Passwörter stimmen nicht überein.'); return; }
+    if (password.length < 10) { setMsg(t.pwKurz); return; }
+    if (password !== password2) { setMsg(t.pwUngleich); return; }
     setBusy(true);
     try {
       await api.post('/api/auth/accept-invite', { token, password, consent });
@@ -99,55 +131,55 @@ export default function Einladung() {
     <div className="auth-wrap">
       <div className="auth-card">
         <Logo />
-        <h1>Willkommen im Phalanx Expert Network</h1>
-        <Stepper aktiv={schritt} />
+        <div style={{ textAlign: 'right', fontSize: 12 }}>
+          {['de', 'en'].map((l) => (
+            <button key={l} type="button" onClick={() => setLang(l)}
+              style={{ border: 'none', background: 'none', cursor: 'pointer', fontWeight: lang === l ? 700 : 400, color: lang === l ? 'var(--navy)' : 'var(--grey-400, #8a93a0)' }}>
+              {l.toUpperCase()}
+            </button>
+          ))}
+        </div>
+        <h1>{t.titel}</h1>
+        <Stepper aktiv={schritt} schritte={t.schritte} />
         {msg && <div className="msg msg-error">{msg}</div>}
 
         {schritt === 0 && (
           <>
-            <p style={{ fontSize: 14, lineHeight: 1.55 }}>
-              Schön, dass Sie dabei sind. Bevor es losgeht, lesen Sie bitte kurz, wofür wir Ihre
-              Daten verwenden. Ohne Ihre Einwilligung speichern wir nichts dauerhaft.
-            </p>
+            <p style={{ fontSize: 14, lineHeight: 1.55 }}>{t.intro}</p>
+            {t.hinweisDe && <p className="muted" style={{ fontSize: 12 }}>{t.hinweisDe}</p>}
             <div style={{ maxHeight: 220, overflowY: 'auto', fontSize: 13, background: 'var(--grey-100, #f4f6f8)', padding: 12, borderRadius: 6, margin: '12px 0', whiteSpace: 'pre-wrap' }}>{consentText || 'Laden…'}</div>
             <label style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 14, margin: '10px 0 16px', cursor: 'pointer' }}>
               <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} style={{ marginTop: 3 }} />
-              <span>Ich willige in die Aufnahme in das Phalanx Expert Network ein. Ich kann die Einwilligung jederzeit widerrufen.</span>
+              <span>{t.consentLabel}</span>
             </label>
-            <button className="btn" disabled={!consent} onClick={() => { setMsg(''); setSchritt(1); }}>Weiter</button>
+            <button className="btn" disabled={!consent} onClick={() => { setMsg(''); setSchritt(1); }}>{t.weiter}</button>
           </>
         )}
 
         {schritt === 1 && (
           <>
-            <p style={{ fontSize: 14, lineHeight: 1.55 }}>
-              Fast geschafft. Vergeben Sie ein Passwort für Ihren Zugang.
-            </p>
+            <p style={{ fontSize: 14, lineHeight: 1.55 }}>{t.pwIntro}</p>
             <div className="field">
-              <label>Passwort (mindestens 10 Zeichen)</label>
+              <label>{t.pwLabel}</label>
               <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoFocus />
             </div>
             <div className="field">
-              <label>Passwort wiederholen</label>
+              <label>{t.pwWdh}</label>
               <input type="password" value={password2} onChange={(e) => setPassword2(e.target.value)} />
             </div>
             <div style={{ display: 'flex', gap: 10 }}>
               <button type="button" className="btn" style={{ background: 'transparent', color: 'var(--navy)', border: '1px solid var(--grey-200)' }}
-                onClick={() => setSchritt(0)}>Zurück</button>
-              <button className="btn" disabled={busy} onClick={abschliessen}>{busy ? 'Bitte warten…' : 'Zugang anlegen'}</button>
+                onClick={() => setSchritt(0)}>{t.zurueck}</button>
+              <button className="btn" disabled={busy} onClick={abschliessen}>{busy ? t.warten : t.anlegen}</button>
             </div>
           </>
         )}
 
         {schritt === 2 && (
           <>
-            <div className="msg msg-success">Ihr Zugang ist eingerichtet und Ihre Einwilligung dokumentiert.</div>
-            <p style={{ fontSize: 14, lineHeight: 1.55, marginTop: 12 }}>
-              So holen Sie am meisten heraus: Melden Sie sich an, vervollständigen Sie Ihr Profil
-              (Kurzprofil, Skills, Tagessatz) und bestätigen Sie Ihre Verfügbarkeit. Das Dashboard
-              zeigt Ihnen mit einer Checkliste, was noch fehlt, und schlägt passende Projekte vor.
-            </p>
-            <Link to="/login" className="btn" style={{ display: 'block', textAlign: 'center', textDecoration: 'none', marginTop: 8 }}>Jetzt anmelden</Link>
+            <div className="msg msg-success">{t.fertig}</div>
+            <p style={{ fontSize: 14, lineHeight: 1.55, marginTop: 12 }}>{t.naechste}</p>
+            <Link to="/login" className="btn" style={{ display: 'block', textAlign: 'center', textDecoration: 'none', marginTop: 8 }}>{t.login}</Link>
           </>
         )}
         <LegalFooter />

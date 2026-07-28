@@ -169,7 +169,8 @@ router.post('/:id(\\d+)/invite', requireRole('admin'), async (req, res) => {
  * die Einladung aus der editierbaren Vorlage 'einladung_neu'. Kein Consent
  * nötig, der entsteht erst, wenn die Person die Einladung annimmt.
  */
-async function inviteNewExpert(req, { vorname, nachname, email }) {
+async function inviteNewExpert(req, { vorname, nachname, email, sprache }) {
+  const lang = String(sprache || 'de').toLowerCase().startsWith('en') ? 'en' : 'de';
   const mail = String(email || '').toLowerCase().trim();
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(mail)) return { ok: false, email: mail, grund: 'Ungültige E-Mail-Adresse' };
   if (!vorname || !nachname) return { ok: false, email: mail, grund: 'Vor- und Nachname erforderlich' };
@@ -187,12 +188,12 @@ async function inviteNewExpert(req, { vorname, nachname, email }) {
   }).returning('*');
 
   const token = signPurposeToken(user.id, 'expert-invite', '14d');
-  const link = `${process.env.APP_URL || (process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : 'http://localhost:5173')}/einladung?token=${encodeURIComponent(token)}`;
+  const link = `${process.env.APP_URL || (process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : 'http://localhost:5173')}/einladung?token=${encodeURIComponent(token)}${lang === 'en' ? '&lang=en' : ''}`;
   const { getTemplate, render } = require('../utils/mailTemplates');
-  const tpl = await getTemplate(req.user.tenantId, 'einladung_neu');
-  const msg = render(tpl, { vorname: expert.vorname, nachname: expert.nachname, link, link_label: 'Profil anlegen' });
+  const tpl = await getTemplate(req.user.tenantId, lang === 'en' ? 'einladung_neu_en' : 'einladung_neu');
+  const msg = render(tpl, { vorname: expert.vorname, nachname: expert.nachname, link, link_label: lang === 'en' ? 'Create profile' : 'Profil anlegen' });
   try {
-    await getMailProvider().send({ to: mail, ...msg }, { tenantId: req.user.tenantId, templateKey: 'einladung_neu' });
+    await getMailProvider().send({ to: mail, ...msg }, { tenantId: req.user.tenantId, templateKey: lang === 'en' ? 'einladung_neu_en' : 'einladung_neu' });
   } catch (err) {
     return { ok: false, email: mail, grund: `Versand fehlgeschlagen: ${err.message}`, expertId: expert.id };
   }
@@ -235,6 +236,7 @@ router.post('/invite-bulk', requireRole('admin'), listUpload.single('file'), asy
     vorname: head.findIndex((c) => /vorname|first/.test(c)),
     nachname: head.findIndex((c) => /nachname|last|name$/.test(c)),
     email: head.findIndex((c) => /mail/.test(c)),
+    sprache: head.findIndex((c) => /sprache|language|lang/.test(c)),
   };
   const hatKopf = idx.email >= 0;
   const daten = hatKopf ? rows.slice(1) : rows;
@@ -242,7 +244,7 @@ router.post('/invite-bulk', requireRole('admin'), listUpload.single('file'), asy
 
   const ergebnis = { eingeladen: [], uebersprungen: [] };
   for (const r of daten.slice(0, 500)) {
-    const out = await inviteNewExpert(req, { vorname: r[col.vorname], nachname: r[col.nachname], email: r[col.email] });
+    const out = await inviteNewExpert(req, { vorname: r[col.vorname], nachname: r[col.nachname], email: r[col.email], sprache: col.sprache >= 0 ? r[col.sprache] : 'de' });
     if (out.ok) ergebnis.eingeladen.push(out.email);
     else ergebnis.uebersprungen.push({ email: out.email || '(leer)', grund: out.grund });
   }
