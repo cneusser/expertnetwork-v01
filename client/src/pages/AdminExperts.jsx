@@ -50,8 +50,8 @@ export default function AdminExperts() {
               api.get('/api/experts').then((x) => setExperts(x.experts));
             } catch (err) { setInviteMsg({ ok: false, text: err.message }); }
           }}>
-          <div className="field" style={{ marginBottom: 0, flex: '1 1 180px' }}><label>Vorname</label><input name="vorname" required /></div>
-          <div className="field" style={{ marginBottom: 0, flex: '1 1 180px' }}><label>Nachname</label><input name="nachname" required /></div>
+          <div className="field" style={{ marginBottom: 0, flex: '1 1 180px' }}><label>Vorname</label><input type="text" name="vorname" required /></div>
+          <div className="field" style={{ marginBottom: 0, flex: '1 1 180px' }}><label>Nachname</label><input type="text" name="nachname" required /></div>
           <div className="field" style={{ marginBottom: 0, flex: '1 1 220px' }}><label>E-Mail</label><input name="email" type="email" required /></div>
           <div className="field" style={{ marginBottom: 0, width: 120 }}><label>Sprache</label>
             <select name="sprache" defaultValue="de"><option value="de">Deutsch</option><option value="en">Englisch</option></select></div>

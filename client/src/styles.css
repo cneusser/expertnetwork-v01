@@ -56,12 +56,9 @@ a:hover { text-decoration: underline; }
 
 .field { margin-bottom: 16px; }
 .field label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; color: var(--anthracite); }
-.field input[type='email'],
-.field input[type='password'],
-.field input[type='text'],
-.field input[type='date'],
-.field input[type='number'],
-.field select {
+.field input:not([type='checkbox']):not([type='radio']):not([type='file']),
+.field select,
+.field textarea {
   width: 100%;
   padding: 11px 12px;
   border: 1px solid var(--grey-200);
