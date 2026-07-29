@@ -25,9 +25,12 @@ export default function AdminExperts() {
   const [statusFilter, setStatusFilter] = useState('alle');
   const [nurUnbestaetigt, setNurUnbestaetigt] = useState(false);
   const [inviteMsg, setInviteMsg] = useState(null);
+  const [skillVorschlaege, setSkillVorschlaege] = useState([]);
+  const ladeVorschlaege = () => api.get('/api/experts/skill-vorschlaege').then((d) => setSkillVorschlaege(d.vorschlaege)).catch(() => {});
 
   useEffect(() => {
     api.get('/api/experts').then((d) => setExperts(d.experts)).catch((e) => setError(e.message));
+    ladeVorschlaege();
   }, []);
 
   return (
@@ -94,6 +97,20 @@ export default function AdminExperts() {
         </p>
       </div>
       {error && <div className="msg msg-error">{error}</div>}
+      {skillVorschlaege.length > 0 && (
+        <div className="notice" style={{ marginBottom: 14 }}>
+          <strong>Skill-Vorschläge zur Freigabe:</strong>{' '}
+          {skillVorschlaege.map((s) => (
+            <span className="tag" key={s.id}>
+              {s.name} ({s.kategorie}, {s.verwendungen}×){' '}
+              <span style={{ cursor: 'pointer', color: 'var(--navy)', fontWeight: 700 }} title="Freigeben"
+                onClick={async () => { await api.post(`/api/experts/skill-vorschlaege/${s.id}`, { aktion: 'freigeben' }); ladeVorschlaege(); }}>✓</span>{' '}
+              <span style={{ cursor: 'pointer', color: 'var(--danger)', fontWeight: 700 }} title="Ablehnen (entfernt den Begriff überall)"
+                onClick={async () => { await api.post(`/api/experts/skill-vorschlaege/${s.id}`, { aktion: 'ablehnen' }); ladeVorschlaege(); }}>×</span>
+            </span>
+          ))}
+        </div>
+      )}
       {experts && (
         <p style={{ margin: '0 0 14px', display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
           {['alle', 'freigegeben', 'eingeladen', 'registriert', 'inaktiv'].map((st) => {

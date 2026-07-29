@@ -54,9 +54,14 @@ export default function ExpertProfil() {
                 <p className="muted">{expert.firma} · {expert.email} · {expert.mobil}</p>
               </div>
             </div>
-            <button className="btn" style={{ width: 'auto', padding: '8px 16px' }} onClick={() => { setSaved(false); setEditing(true); }}>
-              <Pencil size={14} /> {tr(lang, 'Bearbeiten', 'Edit')}
-            </button>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <a href="/api/experts/me/profil-pptx" className="btn" style={{ width: 'auto', padding: '8px 16px', textDecoration: 'none', background: 'transparent', color: 'var(--navy)', border: '1px solid var(--grey-200)' }}>
+                {tr(lang, 'Mein Profil als PPTX', 'My profile as PPTX')}
+              </a>
+              <button className="btn" style={{ width: 'auto', padding: '8px 16px' }} onClick={() => { setSaved(false); setEditing(true); }}>
+                <Pencil size={14} /> {tr(lang, 'Bearbeiten', 'Edit')}
+              </button>
+            </div>
           </div>
           <div className="detail-grid">
             <div className="card">
@@ -65,12 +70,63 @@ export default function ExpertProfil() {
             </div>
             <div className="card">
               <h3>{tr(lang, 'Meine Skills', 'My skills')}</h3>
-              <p>{skills.map((s) => <span className="tag" key={s.id}>{s.name}</span>)}</p>
-              <p className="muted" style={{ marginTop: 8 }}>{tr(lang, 'Skill-Änderungen derzeit über die Phalanx GmbH.', 'Skill changes currently via Phalanx GmbH.')}</p>
+              <p>{skills.map((s) => (
+                <span className="tag" key={s.id} title={s.is_approved === false ? tr(lang, 'Wird von Phalanx geprüft', 'Pending review by Phalanx') : undefined}
+                  style={s.is_approved === false ? { opacity: 0.6, fontStyle: 'italic' } : undefined}>
+                  {s.name}{' '}
+                  <span style={{ cursor: 'pointer', fontWeight: 700 }}
+                    onClick={async () => { await api.del(`/api/experts/me/skills/${s.id}`); load(); }}>×</span>
+                </span>
+              ))}</p>
+              <form style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  const fd = new FormData(e.target);
+                  const d = await api.post('/api/experts/me/skills', Object.fromEntries(fd));
+                  if (d.hinweis) window.alert(d.hinweis);
+                  e.target.reset(); load();
+                }}>
+                <input type="text" name="name" required placeholder={tr(lang, 'Skill hinzufügen…', 'Add a skill…')} style={{ flex: '1 1 140px', border: '1px solid var(--grey-200)', borderRadius: 6, padding: '7px 10px', fontSize: 14 }} />
+                <select name="kategorie" style={{ fontSize: 13 }}>
+                  <option value="kompetenz">{tr(lang, 'Kompetenz', 'Competence')}</option>
+                  <option value="branche">{tr(lang, 'Branche', 'Industry')}</option>
+                  <option value="rolle">{tr(lang, 'Rolle', 'Role')}</option>
+                  <option value="technologie">{tr(lang, 'Technologie', 'Technology')}</option>
+                  <option value="zertifikat">{tr(lang, 'Zertifikat', 'Certificate')}</option>
+                </select>
+                <button className="btn" style={{ width: 'auto', padding: '7px 14px' }}>+</button>
+              </form>
+              <p className="muted" style={{ marginTop: 8, fontSize: 12 }}>{tr(lang, 'Neue Begriffe prüft Phalanx kurz, bevor sie in der Suche erscheinen.', 'New terms are briefly reviewed by Phalanx before they appear in search.')}</p>
             </div>
             <div className="card">
               <h3>{tr(lang, 'Meine Dokumente', 'My documents')}</h3>
-              <p>{documents.length} {tr(lang, 'Dokument(e) im geschützten Bereich hinterlegt.', 'document(s) stored in the protected vault.')}</p>
+              {documents.map((d) => (
+                <p key={d.id} style={{ fontSize: 13, padding: '3px 0' }}>
+                  <a href={`/api/experts/${expert.id}/documents/${d.id}/view`} target="_blank" rel="noreferrer">{d.filename}</a>
+                  <span className="muted"> · {d.kategorie} · v{d.version}</span>
+                </p>
+              ))}
+              <form style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap', alignItems: 'center' }}
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  const fd = new FormData(e.target);
+                  if (!fd.get('file') || !fd.get('file').name) return;
+                  const res = await fetch('/api/experts/me/documents', { method: 'POST', body: fd, credentials: 'include' });
+                  const d = await res.json();
+                  if (!res.ok) { window.alert(d.error || 'Upload fehlgeschlagen'); return; }
+                  e.target.reset(); load();
+                }}>
+                <select name="kategorie" style={{ fontSize: 13 }}>
+                  <option value="cv">CV</option>
+                  <option value="referenz">{tr(lang, 'Referenz', 'Reference')}</option>
+                  <option value="zertifikat">{tr(lang, 'Zertifikat', 'Certificate')}</option>
+                  <option value="projektliste">{tr(lang, 'Projektliste', 'Project list')}</option>
+                  <option value="one_pager">One-Pager</option>
+                </select>
+                <input type="file" name="file" accept="application/pdf" required style={{ fontSize: 12 }} />
+                <button className="btn" style={{ width: 'auto', padding: '7px 14px' }}>{tr(lang, 'Hochladen', 'Upload')}</button>
+              </form>
+              <p className="muted" style={{ marginTop: 8, fontSize: 12 }}>{tr(lang, 'PDF, max. 10 MB. Jeder Upload erzeugt eine neue Version, nichts wird überschrieben.', 'PDF, max. 10 MB. Every upload creates a new version, nothing is overwritten.')}</p>
             </div>
           </div>
         </>

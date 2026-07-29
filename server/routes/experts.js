@@ -292,6 +292,102 @@ router.post('/invite-zyklus-start', requireRole('admin'), async (req, res) => {
     message: `${angeschrieben} Bestandskontakt(e) angeschrieben. Erinnerung folgt nach 7 Tagen, danach automatische Löschung.` });
 });
 
+/* ============================== v1.13.0 Self-Service komplett ============================== */
+
+/** Eigenes Dokument hochladen (Experte) — gleiche Versionslogik wie beim Admin. */
+router.post('/me/documents', upload.single('file'), async (req, res) => {
+  const expert = await db('experts').where({ user_id: req.user.id }).first();
+  if (!expert) return res.status(404).json({ error: 'Kein Expertenprofil vorhanden' });
+  if (!req.file) return res.status(400).json({ error: 'Datei fehlt' });
+  if (!isPdfBuffer(req.file.buffer)) return res.status(400).json({ error: 'Datei ist kein gültiges PDF' });
+  const erlaubt = ['cv', 'zertifikat', 'referenz', 'projektliste', 'one_pager'];
+  const kategorie = erlaubt.includes(String(req.body.kategorie)) ? String(req.body.kategorie) : 'referenz';
+  const last = await db('documents').where({ expert_id: expert.id, kategorie }).max('version as v').first();
+  const version = (last?.v || 0) + 1;
+  const relPath = `experts/${expert.id}/${kategorie}-v${version}-${Date.now()}.pdf`;
+  await storage.save(relPath, req.file.buffer);
+  const [doc] = await db('documents').insert({
+    tenant_id: expert.tenant_id, expert_id: expert.id, kategorie,
+    sprache: req.body.sprache || null, filename: req.file.originalname,
+    version, storage_ref: relPath, mimetype: req.file.mimetype,
+    size_bytes: req.file.size, uploaded_by: req.user.id,
+  }).returning(['id', 'kategorie', 'filename', 'version']);
+  await req.audit({ action: 'document.upload_self', resource: 'documents', resourceId: doc.id, newValue: doc });
+  res.locals.auditLogged = true;
+  res.status(201).json({ ok: true, document: doc });
+});
+
+/**
+ * Skill selbst vorschlagen (Experte). Bekannte, freigegebene Begriffe werden
+ * sofort verknüpft; neue Begriffe entstehen als Vorschlag (is_approved=false)
+ * und warten auf die Admin-Freigabe, damit die Taxonomie sauber bleibt.
+ */
+router.post('/me/skills', async (req, res) => {
+  const expert = await db('experts').where({ user_id: req.user.id }).first();
+  if (!expert) return res.status(404).json({ error: 'Kein Expertenprofil vorhanden' });
+  const name = String(req.body?.name || '').trim().slice(0, 80);
+  const kategorie = ['kompetenz', 'technologie', 'rolle', 'branche', 'zertifikat'].includes(String(req.body?.kategorie))
+    ? String(req.body.kategorie) : 'kompetenz';
+  if (name.length < 2) return res.status(400).json({ error: 'Skill-Name erforderlich' });
+  let skill = await db('skills').whereRaw('lower(name) = lower(?)', [name]).first();
+  if (!skill) [skill] = await db('skills').insert({ name, kategorie, is_approved: false }).returning('*');
+  await db('expert_skills').insert({ expert_id: expert.id, skill_id: skill.id }).onConflict(['expert_id', 'skill_id']).ignore();
+  await req.audit({ action: 'expert.skill_vorschlag', resource: 'experts', resourceId: expert.id, newValue: { skill: skill.name, neu: !skill.is_approved } });
+  res.locals.auditLogged = true;
+  res.status(201).json({ ok: true, skill, hinweis: skill.is_approved ? null : 'Neuer Begriff, wird von der Phalanx GmbH kurz geprüft.' });
+});
+
+/** Eigenen Skill entfernen (Experte). */
+router.delete('/me/skills/:skillId(\\d+)', async (req, res) => {
+  const expert = await db('experts').where({ user_id: req.user.id }).first();
+  if (!expert) return res.status(404).json({ error: 'Kein Expertenprofil vorhanden' });
+  await db('expert_skills').where({ expert_id: expert.id, skill_id: Number(req.params.skillId) }).delete();
+  await req.audit({ action: 'expert.skill_remove_self', resource: 'experts', resourceId: expert.id, newValue: { skill_id: Number(req.params.skillId) } });
+  res.locals.auditLogged = true;
+  res.json({ ok: true });
+});
+
+/** Skill-Vorschläge sichten (Admin). */
+router.get('/skill-vorschlaege', requireRole('admin'), async (_req, res) => {
+  const rows = await db('skills').where({ is_approved: false }).orderBy('name');
+  const out = [];
+  for (const s of rows) {
+    const nutzer = await db('expert_skills').where({ skill_id: s.id }).count('* as c').first();
+    out.push({ ...s, verwendungen: Number(nutzer.c) });
+  }
+  res.json({ vorschlaege: out });
+});
+
+/** Skill-Vorschlag freigeben oder ablehnen (Admin). Ablehnen entfernt Skill + Verknüpfungen. */
+router.post('/skill-vorschlaege/:skillId(\\d+)', requireRole('admin'), async (req, res) => {
+  const skill = await db('skills').where({ id: Number(req.params.skillId), is_approved: false }).first();
+  if (!skill) return res.status(404).json({ error: 'Vorschlag nicht gefunden' });
+  if (req.body?.aktion === 'freigeben') {
+    await db('skills').where({ id: skill.id }).update({ is_approved: true });
+  } else {
+    await db('expert_skills').where({ skill_id: skill.id }).delete();
+    await db('skills').where({ id: skill.id }).delete();
+  }
+  await req.audit({ action: `skill.${req.body?.aktion === 'freigeben' ? 'freigegeben' : 'abgelehnt'}`, resource: 'skills', resourceId: skill.id, newValue: { name: skill.name } });
+  res.locals.auditLogged = true;
+  res.json({ ok: true });
+});
+
+/** Eigenes Beraterprofil als PPTX (Experte). */
+router.get('/me/profil-pptx', async (req, res) => {
+  const expert = await db('experts').where({ user_id: req.user.id }).first();
+  if (!expert) return res.status(404).json({ error: 'Kein Expertenprofil vorhanden' });
+  const { expertToProfile, ANSPRECHPARTNER } = require('../utils/profileData');
+  const { buildProfilePptx } = require('../utils/profilePptx');
+  const profil = await expertToProfile(expert, { mitFoto: true });
+  const buf = await buildProfilePptx({ profiles: [profil], ansprechpartner: ANSPRECHPARTNER });
+  await req.audit({ action: 'expert.pptx_export_self', resource: 'experts', resourceId: expert.id });
+  res.locals.auditLogged = true;
+  res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.presentationml.presentation');
+  res.setHeader('Content-Disposition', `attachment; filename="Phalanx-Profil-${encodeURIComponent(expert.nachname)}.pptx"`);
+  res.send(buf);
+});
+
 /** Eigenes Profil (Experte). */
 router.get('/me', async (req, res) => {
   const expert = await db('experts').where({ user_id: req.user.id }).first();
@@ -326,7 +422,7 @@ async function detail(req, res, expert) {
     db('expert_skills')
       .join('skills', 'skills.id', 'expert_skills.skill_id')
       .where('expert_id', expert.id)
-      .select('skills.id', 'skills.name', 'skills.kategorie', 'expert_skills.level', 'expert_skills.jahre'),
+      .select('skills.id', 'skills.name', 'skills.kategorie', 'skills.is_approved', 'expert_skills.level', 'expert_skills.jahre'),
     db('documents').where({ expert_id: expert.id }).orderBy([{ column: 'kategorie' }, { column: 'version', order: 'desc' }]),
     db('availabilities').where({ expert_id: expert.id }).orderBy('ab_datum', 'asc'),
     db('rates').where({ expert_id: expert.id }).orderBy('created_at', 'desc'),

@@ -52,7 +52,7 @@ export default function ExpertDashboard() {
   const modules = [
     { icon: UserRound, title: tr(lang, 'Mein Profil', 'My profile'), desc: tr(lang, 'Persönliche Daten, Kurzprofil, Sprachen: selbst pflegen.', 'Personal data, summary, languages: maintained by you.'), link: '/profil' },
     { icon: Euro, title: tr(lang, 'Tagessätze', 'Daily rates'), desc: tr(lang, 'Sätze für Remote, vor Ort, Interim, Projektleitung, Beratung.', 'Rates for remote, on-site, interim, project lead, advisory.'), link: '/profil' },
-    { icon: FileText, title: tr(lang, 'Dokumente', 'Documents'), desc: tr(lang, 'Lebenslauf, Zertifikate und Referenzen, versioniert.', 'CV, certificates and references, versioned.'), sprint: tr(lang, 'Upload folgt', 'Upload coming') },
+    { icon: FileText, title: tr(lang, 'Dokumente', 'Documents'), desc: tr(lang, 'Lebenslauf, Zertifikate und Referenzen, versioniert und selbst hochladbar.', 'CV, certificates and references, versioned and self-uploaded.'), link: '/profil' },
     { icon: HeartHandshake, title: tr(lang, 'Assoziierte Partner', 'Associated partners'), desc: tr(lang, 'Eigenes Netzwerk? Verdienen Sie an Empfehlungen, Projekten und gemeinsamer Umsetzung mit.', 'A network of your own? Earn a share from referrals, projects and joint delivery.'), link: '/partner' },
   ];
 
