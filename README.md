@@ -43,7 +43,11 @@ Deckt ab: Registrierung inkl. Consent-Pflicht, Verifizierung, Login/Session-Cook
 2. GitHub-Repo verbinden (Auto-Deploy bei Push).
 3. **PostgreSQL-Plugin** hinzufügen; Railway setzt `DATABASE_URL` automatisch — im Service als Variable referenzieren (`${{Postgres.DATABASE_URL}}`).
 4. Service-Variablen setzen: `JWT_SECRET` (langer Zufallswert), `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `APP_URL` (öffentliche URL), `NODE_ENV=production`, optional `MAIL_PROVIDER=resend` + `RESEND_API_KEY` + `MAIL_FROM`.
-5. Optional — „Mit LinkedIn anmelden" (OIDC, nur Login/Verknüpfung bestehender Konten, kein Scraping):
+5. Optional — Zwei-Wege-Kommunikation (Antworten empfangen, v1.14):
+   Railway-Variablen `INBOUND_KEY` (langer Zufallswert) und `MAIL_REPLY_TO` (z. B. antwort@reply.phalanx.de) setzen.
+   Bei Brevo eine Inbound-Domain einrichten (MX-Record der Subdomain laut Brevo-Hilfe „Inbound parsing") und den
+   Webhook per API registrieren: URL `https://<domain>/api/mails/inbound?key=<INBOUND_KEY>`.
+6. Optional — „Mit LinkedIn anmelden" (OIDC, nur Login/Verknüpfung bestehender Konten, kein Scraping):
    LinkedIn Developer Portal → App anlegen → Produkt „Sign In with LinkedIn using OpenID Connect" →
    Redirect-URL `https://<domain>/api/auth/linkedin/callback` eintragen → Railway-Variablen
    `LINKEDIN_CLIENT_ID` und `LINKEDIN_CLIENT_SECRET` setzen. Der Button erscheint automatisch.

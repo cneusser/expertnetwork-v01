@@ -75,4 +75,91 @@ router.get('/outbox/:id(\\d+)', async (req, res) => {
   res.json({ mail: row });
 });
 
+/* ============================== v1.14.0 Posteingang + Rundmail ============================== */
+
+/** Posteingang: neueste zuerst, mit Ungelesen-Zähler. */
+router.get('/inbox', async (_req, res) => {
+  const rows = await db('mail_inbox').orderBy('created_at', 'desc').limit(200)
+    .select('id', 'from_email', 'from_name', 'subject', 'expert_id', 'gelesen', 'beantwortet_at', 'created_at');
+  const ungelesen = await db('mail_inbox').where({ gelesen: false }).count('* as c').first();
+  res.json({ inbox: rows, ungelesen: Number(ungelesen.c) });
+});
+
+/** Einzelne Mail lesen (markiert als gelesen). */
+router.get('/inbox/:id(\\d+)', async (req, res) => {
+  const row = await db('mail_inbox').where({ id: Number(req.params.id) }).first();
+  if (!row) return res.status(404).json({ error: 'Nachricht nicht gefunden' });
+  if (!row.gelesen) await db('mail_inbox').where({ id: row.id }).update({ gelesen: true });
+  res.json({ mail: row });
+});
+
+/** Antwort direkt aus der Plattform (landet beim Absender, protokolliert in der Outbox). */
+router.post('/inbox/:id(\\d+)/antwort', async (req, res) => {
+  const row = await db('mail_inbox').where({ id: Number(req.params.id) }).first();
+  if (!row) return res.status(404).json({ error: 'Nachricht nicht gefunden' });
+  const text = String(req.body?.text || '').trim();
+  if (text.length < 2) return res.status(400).json({ error: 'Antworttext erforderlich' });
+  const subject = row.subject?.startsWith('Re:') ? row.subject : `Re: ${row.subject || 'Ihre Nachricht'}`;
+  const msg = render({ subject, body_text: text }, {});
+  try {
+    await getMailProvider().send({ to: row.from_email, ...msg }, { tenantId: req.user.tenantId, templateKey: 'antwort' });
+  } catch (e) {
+    return res.status(502).json({ error: `Versand fehlgeschlagen: ${e.message}` });
+  }
+  await db('mail_inbox').where({ id: row.id }).update({ beantwortet_at: db.fn.now(), gelesen: true });
+  await req.audit({ action: 'mail.antwort', resource: 'mail_inbox', resourceId: row.id, newValue: { an: row.from_email } });
+  res.locals.auditLogged = true;
+  res.json({ ok: true, message: `Antwort an ${row.from_email} versendet.` });
+});
+
+router.delete('/inbox/:id(\\d+)', async (req, res) => {
+  await db('mail_inbox').where({ id: Number(req.params.id) }).delete();
+  res.json({ ok: true });
+});
+
+/**
+ * Rundmail an Segmente. DSGVO-Schranke: geht IMMER nur an Experten mit
+ * aktiver Einwilligung. Platzhalter {{vorname}}, {{nachname}}.
+ */
+async function rundmailEmpfaenger(tenantId, statusFilter) {
+  let q = db('experts').where({ tenant_id: tenantId }).whereNotNull('email').whereNotNull('user_id');
+  if (statusFilter && statusFilter !== 'alle') q = q.where({ status: statusFilter });
+  const experten = await q;
+  const out = [];
+  for (const e of experten) {
+    const consent = await db('consents')
+      .where({ user_id: e.user_id, zweck: 'talentpool' })
+      .whereNull('revoked_at').where('expires_at', '>', db.fn.now()).first();
+    if (consent) out.push(e);
+  }
+  return out;
+}
+
+router.get('/rundmail/empfaenger', async (req, res) => {
+  const empfaenger = await rundmailEmpfaenger(req.user.tenantId, String(req.query.status || 'freigegeben'));
+  res.json({ anzahl: empfaenger.length, emails: empfaenger.map((e) => e.email) });
+});
+
+router.post('/rundmail', async (req, res) => {
+  const subject = String(req.body?.subject || '').trim().slice(0, 200);
+  const body = String(req.body?.body_text || '').trim().slice(0, 8000);
+  if (!subject || !body) return res.status(400).json({ error: 'Betreff und Text erforderlich' });
+  const empfaenger = await rundmailEmpfaenger(req.user.tenantId, String(req.body?.status || 'freigegeben'));
+  if (!empfaenger.length) return res.status(400).json({ error: 'Keine Empfänger mit aktiver Einwilligung im gewählten Segment.' });
+  if (empfaenger.length > 500) return res.status(400).json({ error: 'Mehr als 500 Empfänger, bitte Segment verkleinern.' });
+
+  let gesendet = 0;
+  const fehler = [];
+  for (const e of empfaenger) {
+    const msg = render({ subject, body_text: body }, { vorname: e.vorname, nachname: e.nachname });
+    try {
+      await getMailProvider().send({ to: e.email, ...msg }, { tenantId: req.user.tenantId, templateKey: 'rundmail' });
+      gesendet++;
+    } catch (err) { fehler.push(`${e.email}: ${err.message}`); }
+  }
+  await req.audit({ action: 'mail.rundmail', resource: 'mail_outbox', resourceId: null, newValue: { subject, gesendet, fehler: fehler.length } });
+  res.locals.auditLogged = true;
+  res.json({ ok: true, gesendet, fehler, message: `Rundmail an ${gesendet} Empfänger versendet.` });
+});
+
 module.exports = router;

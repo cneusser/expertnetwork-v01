@@ -9,6 +9,7 @@ async function send({ to, subject, html, text }) {
     body: JSON.stringify({
       from: process.env.MAIL_FROM || 'Phalanx Expert Network <noreply@phalanx.example>',
       to: [to],
+      ...(process.env.MAIL_REPLY_TO ? { reply_to: process.env.MAIL_REPLY_TO } : {}),
       subject,
       html,
       text,

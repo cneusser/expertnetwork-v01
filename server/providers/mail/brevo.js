@@ -25,6 +25,7 @@ async function send({ to, subject, html, text }) {
     body: JSON.stringify({
       sender: parseFrom(),
       to: [{ email: to }],
+      ...(process.env.MAIL_REPLY_TO ? { replyTo: { email: process.env.MAIL_REPLY_TO } } : {}),
       subject,
       htmlContent: html,
       textContent: text,
