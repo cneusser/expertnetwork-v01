@@ -36,7 +36,7 @@ test('Einzel-Einladung: legt Konto + Profil an, Mail landet in der Outbox, Annah
   assert.strictEqual(outbox.template_key, 'einladung_neu');
   assert.ok(['gesendet', 'stub'].includes(outbox.status));
   assert.ok(!outbox.subject.includes('—') && !outbox.body_html.includes('—'), 'keine Gedankenstriche in der Mail');
-  assert.match(outbox.body_html, /Nina Neuland/);
+  assert.match(outbox.body_html, /Hallo Nina/); // v1.15.1: Du-Form, Anrede nur mit Vornamen
 
   // Dublette wird abgewiesen
   const dupe = await post('/api/experts/invite-neu', { vorname: 'Nina', nachname: 'Neuland', email: 'nina@neuland.example' }, { cookie: adminCookie });

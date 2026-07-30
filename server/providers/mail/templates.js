@@ -24,28 +24,28 @@ const button = (href, label) =>
 function verificationMail(token) {
   const url = `${APP_URL()}/verify?token=${encodeURIComponent(token)}`;
   return {
-    subject: 'Bitte bestätigen Sie Ihre E-Mail-Adresse',
+    subject: 'Bitte bestätige deine E-Mail-Adresse',
     html: layout(`
-      <p>Guten Tag,</p>
-      <p>vielen Dank für Ihre Registrierung im Phalanx Expert Network.
-      Bitte bestätigen Sie Ihre E-Mail-Adresse:</p>
+      <p>Hallo,</p>
+      <p>danke für deine Registrierung im Phalanx Expert Network. Ein Klick noch,
+      dann ist deine E-Mail-Adresse bestätigt:</p>
       <p>${button(url, 'E-Mail-Adresse bestätigen')}</p>
-      <p style="font-size:13px;color:#5a6472;">Der Link ist 7 Tage gültig.
-      Falls Sie sich nicht registriert haben, ignorieren Sie diese E-Mail.</p>`),
-    text: `Bitte bestätigen Sie Ihre E-Mail-Adresse: ${url}`,
+      <p style="font-size:13px;color:#5a6472;">Der Link ist 7 Tage gültig. Wenn du dich nicht
+      registriert hast, ignoriere diese Mail einfach.</p>`),
+    text: `E-Mail-Adresse bestätigen: ${url}`,
   };
 }
 
 function passwordResetMail(token) {
   const url = `${APP_URL()}/reset-password?token=${encodeURIComponent(token)}`;
   return {
-    subject: 'Passwort zurücksetzen — Phalanx Expert Network',
+    subject: 'Passwort zurücksetzen',
     html: layout(`
-      <p>Guten Tag,</p>
-      <p>Sie haben das Zurücksetzen Ihres Passworts angefordert:</p>
+      <p>Hallo,</p>
+      <p>du möchtest dein Passwort zurücksetzen? Hier entlang:</p>
       <p>${button(url, 'Neues Passwort vergeben')}</p>
-      <p style="font-size:13px;color:#5a6472;">Der Link ist 1 Stunde gültig.
-      Falls Sie das nicht angefordert haben, ignorieren Sie diese E-Mail.</p>`),
+      <p style="font-size:13px;color:#5a6472;">Der Link ist 1 Stunde gültig. Wenn du das nicht
+      warst, kannst du diese Mail ignorieren, dein Passwort bleibt unverändert.</p>`),
     text: `Passwort zurücksetzen: ${url}`,
   };
 }
@@ -53,68 +53,65 @@ function passwordResetMail(token) {
 function availabilityReminderMail(token, vorname) {
   const url = `${APP_URL()}/verfuegbarkeit?token=${encodeURIComponent(token)}`;
   return {
-    subject: 'Bitte bestätigen Sie Ihre aktuelle Verfügbarkeit',
+    subject: 'Bist du gerade verfügbar? Bitte kurz deine Verfügbarkeit bestätigen',
     html: layout(`
-      <p>Guten Tag ${vorname},</p>
-      <p>damit wir Sie bei passenden Mandaten berücksichtigen können, bitten wir Sie,
-      Ihre aktuelle Verfügbarkeit kurz zu bestätigen oder zu aktualisieren —
-      ein Klick genügt, keine Anmeldung nötig:</p>
+      <p>Hallo ${vorname},</p>
+      <p>damit wir dich bei passenden Mandaten auf dem Zettel haben, bestätige bitte kurz
+      deine aktuelle Verfügbarkeit. Ein Klick genügt, keine Anmeldung nötig:</p>
       <p>${button(url, 'Verfügbarkeit bestätigen')}</p>
       <p style="font-size:13px;color:#5a6472;">Der Link ist 7 Tage gültig. Ohne Rückmeldung
-      wird Ihr Profil als „nicht bestätigt" gekennzeichnet.</p>`),
-    text: `Bitte bestätigen Sie Ihre Verfügbarkeit: ${url}`,
+      erscheint dein Profil als "nicht bestätigt".</p>`),
+    text: `Verfügbarkeit bestätigen: ${url}`,
   };
 }
 
 function inviteMail(token, vorname) {
   const url = `${APP_URL()}/einladung?token=${encodeURIComponent(token)}`;
   return {
-    subject: 'Ihr Profil im Phalanx Expert Network — Zugang & Einwilligung',
+    subject: 'Dein Profil im Phalanx Expert Network',
     html: layout(`
-      <p>Guten Tag ${vorname},</p>
-      <p>die Phalanx GmbH hat auf Basis der von Ihnen zugesandten Unterlagen ein Profil
-      für Sie im <strong>Phalanx Expert Network</strong> angelegt (Stammdaten, Qualifikationen,
-      Tagessätze, Verfügbarkeit sowie Ihre Dokumente in einem geschützten Bereich).</p>
-      <p>Gemäß Art. 13/14 DSGVO informieren wir Sie darüber transparent. Über den folgenden
-      Link können Sie Ihre Einwilligung erteilen, ein Passwort vergeben und Ihr Profil
-      anschließend jederzeit selbst einsehen und pflegen:</p>
-      <p>${button(url, 'Zugang aktivieren & Einwilligung erteilen')}</p>
-      <p style="font-size:13px;color:#5a6472;">Der Link ist 14 Tage gültig. Wenn Sie keine
-      Aufnahme in das Netzwerk wünschen, genügt eine kurze Antwort — wir löschen Ihre
-      Daten dann umgehend.</p>`),
-    text: `Ihr Profil im Phalanx Expert Network — Zugang aktivieren: ${url}`,
+      <p>Hallo ${vorname},</p>
+      <p>wir haben auf Basis deiner Unterlagen ein Profil für dich im
+      <strong>Phalanx Expert Network</strong> angelegt. Darüber informieren wir dich
+      transparent, wie es Art. 13 und 14 der DSGVO verlangen.</p>
+      <p>Über den folgenden Link erteilst du deine Einwilligung, vergibst ein Passwort
+      und pflegst dein Profil danach selbst:</p>
+      <p>${button(url, 'Zugang aktivieren')}</p>
+      <p style="font-size:13px;color:#5a6472;">Der Link ist 14 Tage gültig. Keine Aufnahme
+      gewünscht? Eine kurze Antwort genügt, dann löschen wir deine Daten umgehend.</p>`),
+    text: `Zugang aktivieren: ${url}`,
   };
 }
 
 function reconsentMail(token, vorname, expiresAt) {
-  const url = `${APP_URL()}/einladung?token=${encodeURIComponent(token)}&renew=1`;
+  const url = `${APP_URL()}/einladung?renew=1&token=${encodeURIComponent(token)}`;
   return {
-    subject: 'Ihre Einwilligung läuft ab — Phalanx Expert Network',
+    subject: 'Deine Einwilligung läuft bald ab',
     html: layout(`
-      <p>Guten Tag ${vorname},</p>
-      <p>Ihre Einwilligung zur Speicherung Ihres Profils im Phalanx Expert Network läuft am
-      <strong>${new Date(expiresAt).toLocaleDateString('de-DE')}</strong> ab. Wenn Sie weiterhin
-      für Mandate berücksichtigt werden möchten, erneuern Sie die Einwilligung bitte hier:</p>
+      <p>Hallo ${vorname},</p>
+      <p>deine Einwilligung zur Speicherung deines Profils im Phalanx Expert Network läuft am
+      <strong>${new Date(expiresAt).toLocaleDateString('de-DE')}</strong> ab. Wenn du weiter
+      für Mandate berücksichtigt werden möchtest, erneuere sie bitte hier:</p>
       <p>${button(url, 'Einwilligung erneuern')}</p>
-      <p style="font-size:13px;color:#5a6472;">Ohne Erneuerung wird Ihr Profil nach Ablauf
+      <p style="font-size:13px;color:#5a6472;">Ohne Erneuerung wird dein Profil nach Ablauf
       gesperrt und anschließend gelöscht bzw. anonymisiert.</p>`),
     text: `Einwilligung erneuern: ${url}`,
   };
 }
 
-/** v1.4.0 — Suchagent meldet neue Treffer einer beobachteten Suche. */
+/** v1.4.0 — Suchagent meldet neue Treffer (interne Mail an den Admin). */
 function searchAgentMail(searchName, hits) {
   const url = `${APP_URL()}/suche`;
   const items = hits.map((h) =>
-    `<li><strong>${h.vorname} ${h.nachname}</strong>${h.berufsbezeichnung ? ` — ${h.berufsbezeichnung}` : ''}</li>`).join('');
+    `<li><strong>${h.vorname} ${h.nachname}</strong>${h.berufsbezeichnung ? ` (${h.berufsbezeichnung})` : ''}</li>`).join('');
   return {
     subject: `Suchagent "${searchName}": ${hits.length} neue${hits.length === 1 ? 'r Treffer' : ' Treffer'}`,
     html: layout(`
-      <p>Guten Tag,</p>
-      <p>Ihr Suchagent <strong>${searchName}</strong> hat neue passende Experten gefunden:</p>
+      <p>Hallo,</p>
+      <p>dein Suchagent <strong>${searchName}</strong> hat neue passende Experten gefunden:</p>
       <ul>${items}</ul>
       <p>${button(url, 'Zur Suche')}</p>`),
-    text: `Suchagent "${searchName}": ${hits.map((h) => `${h.vorname} ${h.nachname}`).join(', ')} — ${url}`,
+    text: `Suchagent "${searchName}": ${hits.map((h) => `${h.vorname} ${h.nachname}`).join(', ')}`,
   };
 }
 
