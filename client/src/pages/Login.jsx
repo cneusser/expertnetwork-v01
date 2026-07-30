@@ -21,11 +21,11 @@ export default function Login() {
     const err = params.get('error');
     if (err) {
       setError({
-        'linkedin-kein-konto': 'Zu dieser LinkedIn-E-Mail existiert kein Konto. Bitte registrieren Sie sich zuerst regulär — danach können Sie sich mit LinkedIn anmelden.',
+        'linkedin-kein-konto': 'Zu dieser LinkedIn-E-Mail existiert kein Konto. Bitte registriere dich zuerst regulär, danach kannst du dich mit LinkedIn anmelden.',
         'linkedin-state': 'LinkedIn-Anmeldung abgebrochen (Sicherheitsprüfung). Bitte erneut versuchen.',
         'linkedin-abgebrochen': 'LinkedIn-Anmeldung abgebrochen.',
         'linkedin-nicht-konfiguriert': 'LinkedIn-Anmeldung ist derzeit nicht eingerichtet.',
-        'email-nicht-bestaetigt': 'Bitte bestätigen Sie zuerst Ihre E-Mail-Adresse.',
+        'email-nicht-bestaetigt': 'Bitte bestätige zuerst deine E-Mail-Adresse.',
         'linkedin-fehler': 'LinkedIn-Anmeldung fehlgeschlagen. Bitte erneut versuchen.',
       }[err] || 'Anmeldung fehlgeschlagen.');
     }
@@ -76,7 +76,7 @@ export default function Login() {
         <div style={{ marginTop: 16, padding: '12px 14px', background: 'var(--grey-100, #f4f6f8)', borderLeft: '3px solid var(--navy)', borderRadius: 6, fontSize: 13, lineHeight: 1.5 }}>
           <strong>{tr(lang, 'Assoziierte Partner', 'Associated partners')}</strong><br />
           {tr(lang,
-            'Interim Manager mit eigenem Netzwerk? Verdienen Sie an Empfehlungen, Projekten und gemeinsamer Umsetzung mit.',
+            'Interim Manager mit eigenem Netzwerk? Verdiene an Empfehlungen, Projekten und gemeinsamer Umsetzung mit.',
             'An interim manager with a network of your own? Earn a share from referrals, projects and joint delivery.')}{' '}
           <Link to="/partner">{tr(lang, 'Mehr erfahren', 'Learn more')}</Link>
         </div>

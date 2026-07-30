@@ -38,7 +38,7 @@ export default function Register() {
           <Logo />
           <h1>Fast geschafft</h1>
           <div className="msg msg-success">
-            Wir haben Ihnen eine E-Mail geschickt. Bitte bestätigen Sie Ihre
+            Wir haben dir eine E-Mail geschickt. Bitte bestätige deine
             E-Mail-Adresse über den Link darin.
           </div>
           <div className="auth-links"><Link to="/login">Zur Anmeldung</Link></div>
@@ -52,7 +52,7 @@ export default function Register() {
       <form className="auth-card" onSubmit={submit}>
         <Logo />
         <h1>Als Experte registrieren</h1>
-        <p className="sub">Sie pflegen Ihr Profil selbst — Verfügbarkeit, Tagessätze, Dokumente.</p>
+        <p className="sub">Du pflegst dein Profil selbst: Verfügbarkeit, Tagessätze, Dokumente.</p>
         {error && <div className="msg msg-error">{error}</div>}
         <div className="field">
           <label htmlFor="email">E-Mail-Adresse</label>

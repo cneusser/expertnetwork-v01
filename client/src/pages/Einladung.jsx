@@ -14,15 +14,15 @@ const TEXTE = {
   de: {
     schritte: ['Einwilligung', 'Zugang', 'Fertig'],
     titel: 'Willkommen im Phalanx Expert Network',
-    intro: 'Schön, dass Sie dabei sind. Bevor es losgeht, lesen Sie bitte kurz, wofür wir Ihre Daten verwenden. Ohne Ihre Einwilligung speichern wir nichts dauerhaft.',
+    intro: 'Schön, dass du dabei bist. Bevor es losgeht, lies bitte kurz, wofür wir deine Daten verwenden. Ohne deine Einwilligung speichern wir nichts dauerhaft.',
     consentLabel: 'Ich willige in die Aufnahme in das Phalanx Expert Network ein. Ich kann die Einwilligung jederzeit widerrufen.',
     weiter: 'Weiter', zurueck: 'Zurück',
-    pwIntro: 'Fast geschafft. Vergeben Sie ein Passwort für Ihren Zugang.',
+    pwIntro: 'Fast geschafft. Vergib ein Passwort für deinen Zugang.',
     pwLabel: 'Passwort (mindestens 10 Zeichen)', pwWdh: 'Passwort wiederholen',
     pwKurz: 'Passwort: mindestens 10 Zeichen.', pwUngleich: 'Die Passwörter stimmen nicht überein.',
     anlegen: 'Zugang anlegen', warten: 'Bitte warten…',
-    fertig: 'Ihr Zugang ist eingerichtet und Ihre Einwilligung dokumentiert.',
-    naechste: 'So holen Sie am meisten heraus: Melden Sie sich an, vervollständigen Sie Ihr Profil (Kurzprofil, Skills, Tagessatz) und bestätigen Sie Ihre Verfügbarkeit. Das Dashboard zeigt Ihnen mit einer Checkliste, was noch fehlt, und schlägt passende Projekte vor.',
+    fertig: 'Dein Zugang ist eingerichtet und deine Einwilligung dokumentiert.',
+    naechste: 'So holst du am meisten heraus: Melde dich an, vervollständige dein Profil (Kurzprofil, Skills, Tagessatz) und bestätige deine Verfügbarkeit. Das Dashboard zeigt dir mit einer Checkliste, was noch fehlt, und schlägt passende Projekte vor.',
     login: 'Jetzt anmelden', hinweisDe: null,
   },
   en: {
@@ -116,7 +116,7 @@ export default function Einladung() {
           <h1>Einwilligung erneuern</h1>
           {schritt === 2 ? (
             <>
-              <div className="msg msg-success">{msg || 'Vielen Dank, Ihre Einwilligung wurde erneuert.'}</div>
+              <div className="msg msg-success">{msg || 'Vielen Dank, deine Einwilligung wurde erneuert.'}</div>
               <div className="auth-links"><Link to="/login">Zur Anmeldung</Link></div>
             </>
           ) : (

@@ -35,7 +35,7 @@ export default function ExpertProjekte() {
   return (
     <Layout>
       <h1><FolderKanban size={22} style={{ verticalAlign: '-3px' }} /> {tr(lang, 'Offene Projekte', 'Open projects')}</h1>
-      <p className="sub">{tr(lang, 'Aktuelle Mandate der Phalanx GmbH: bewerben Sie sich mit einem Klick.', 'Current Phalanx mandates: apply with one click.')}</p>
+      <p className="sub">{tr(lang, 'Aktuelle Mandate der Phalanx GmbH: bewirb dich mit einem Klick.', 'Current Phalanx mandates: apply with one click.')}</p>
       {msg && <div className={`msg ${msg.ok ? 'msg-success' : 'msg-error'}`}>{msg.text}</div>}
       {!projects ? <p className="sub">Laden…</p> : !projects.length ? (
         <p className="sub">{tr(lang, 'Derzeit keine offenen Projekte, wir melden uns, sobald etwas passt.', 'No open projects right now. We will reach out as soon as something fits.')}</p>

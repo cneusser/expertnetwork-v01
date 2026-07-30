@@ -61,7 +61,7 @@ export default function Verfuegbarkeit() {
         {mode === 'done' && <div className="msg msg-success">{msg}</div>}
         {ctx && mode === 'ask' && (
           <>
-            <p className="sub">Guten Tag {ctx.vorname} — stimmt Ihre hinterlegte Verfügbarkeit noch?</p>
+            <p className="sub">Hallo {ctx.vorname}, stimmt deine hinterlegte Verfügbarkeit noch?</p>
             {latest ? (
               <div className="consent-box" style={{ maxHeight: 'none' }}>
                 <strong>{AVAIL_LABEL[latest.status]}</strong>

@@ -53,25 +53,25 @@ export default function ExpertDashboard() {
     { icon: UserRound, title: tr(lang, 'Mein Profil', 'My profile'), desc: tr(lang, 'Persönliche Daten, Kurzprofil, Sprachen: selbst pflegen.', 'Personal data, summary, languages: maintained by you.'), link: '/profil' },
     { icon: Euro, title: tr(lang, 'Tagessätze', 'Daily rates'), desc: tr(lang, 'Sätze für Remote, vor Ort, Interim, Projektleitung, Beratung.', 'Rates for remote, on-site, interim, project lead, advisory.'), link: '/profil' },
     { icon: FileText, title: tr(lang, 'Dokumente', 'Documents'), desc: tr(lang, 'Lebenslauf, Zertifikate und Referenzen, versioniert und selbst hochladbar.', 'CV, certificates and references, versioned and self-uploaded.'), link: '/profil' },
-    { icon: HeartHandshake, title: tr(lang, 'Assoziierte Partner', 'Associated partners'), desc: tr(lang, 'Eigenes Netzwerk? Verdienen Sie an Empfehlungen, Projekten und gemeinsamer Umsetzung mit.', 'A network of your own? Earn a share from referrals, projects and joint delivery.'), link: '/partner' },
+    { icon: HeartHandshake, title: tr(lang, 'Assoziierte Partner', 'Associated partners'), desc: tr(lang, 'Eigenes Netzwerk? Verdiene an Empfehlungen, Projekten und gemeinsamer Umsetzung mit.', 'A network of your own? Earn a share from referrals, projects and joint delivery.'), link: '/partner' },
   ];
 
   return (
     <Layout>
       <h1>{tr(lang, 'Willkommen', 'Welcome')}</h1>
-      <p className="sub">{tr(lang, 'Ihr Bereich im Phalanx Expert Network.', 'Your area in the Phalanx Expert Network.')}</p>
+      <p className="sub">{tr(lang, 'Dein Bereich im Phalanx Expert Network.', 'Your area in the Phalanx Expert Network.')}</p>
       {dash && (
         <div className="kpi-row">
           <div className="kpi"><div className="num">{dash.vollstaendigkeit} %</div><div className="lbl">{tr(lang, 'Profil-Vollständigkeit', 'Profile completeness')}</div></div>
           <div className="kpi"><div className="num">{dash.offene_projekte}</div><div className="lbl">{tr(lang, 'Offene Projekte', 'Open projects')}</div></div>
-          <div className="kpi"><div className="num">{dash.empfohlene_projekte}</div><div className="lbl">{tr(lang, 'Für Sie empfohlen (≥ 60 % Match)', 'Recommended for you (≥ 60 % match)')}</div></div>
+          <div className="kpi"><div className="num">{dash.empfohlene_projekte}</div><div className="lbl">{tr(lang, 'Für dich empfohlen (≥ 60 % Match)', 'Recommended for you (≥ 60 % match)')}</div></div>
           <div className="kpi"><div className="num">{dash.bewerbungen}</div><div className="lbl">{tr(lang, 'Meine Bewerbungen', 'My applications')}</div></div>
           <div className="kpi"><div className="num">{dash.profil_views}</div><div className="lbl">{tr(lang, 'Profilaufrufe durch Phalanx', 'Profile views by Phalanx')}</div></div>
         </div>
       )}
       {dash && dash.vollstaendigkeit < 100 && (
         <div className="notice">
-          {tr(lang, 'Vervollständigen Sie Ihr Profil für bessere Projektvorschläge, es fehlt: ', 'Complete your profile for better project matches, still missing: ')}
+          {tr(lang, 'Vervollständige dein Profil für bessere Projektvorschläge, es fehlt: ', 'Complete your profile for better project matches, still missing: ')}
           {Object.entries(dash.checks).filter(([, ok]) => !ok).map(([k]) => ({
             kurzprofil: tr(lang, 'Kurzprofil', 'Summary'), kontakt: tr(lang, 'Telefon/Mobil', 'Phone/mobile'), adresse: tr(lang, 'Adresse', 'Address'), skills: tr(lang, 'mind. 5 Skills', 'at least 5 skills'),
             tagessatz: tr(lang, 'Tagessatz', 'Daily rate'), verfuegbarkeit: tr(lang, 'Verfügbarkeit', 'Availability'), cv_dokument: 'CV-Upload',
@@ -81,7 +81,7 @@ export default function ExpertDashboard() {
       )}
       {!user?.isApproved && (
         <div className="notice">
-          {tr(lang, 'Ihr Zugang wartet auf die Freigabe durch die Phalanx GmbH. Sie werden per E-Mail informiert, sobald Ihr Profil freigeschaltet ist.', 'Your access is awaiting approval by Phalanx GmbH. We will notify you by email as soon as your profile is activated.')}
+          {tr(lang, 'Dein Zugang wartet auf die Freigabe durch die Phalanx GmbH. Du bekommst eine E-Mail, sobald dein Profil freigeschaltet ist.', 'Your access is awaiting approval by Phalanx GmbH. We will notify you by email as soon as your profile is activated.')}
         </div>
       )}
 
@@ -110,7 +110,7 @@ export default function ExpertDashboard() {
             <button className="btn" style={{ width: 'auto' }}>{tr(lang, 'Aktualisieren', 'Update')}</button>
           </form>
           <p className="muted" style={{ marginTop: 10 }}>
-            {tr(lang, 'Alle 14 Tage erinnern wir Sie per E-Mail mit einem Ein-Klick-Bestätigungslink.', 'Every 14 days we send you an email with a one-click confirmation link.')}
+            {tr(lang, 'Alle 14 Tage erinnern wir dich per E-Mail mit einem Ein-Klick-Bestätigungslink.', 'Every 14 days we send you an email with a one-click confirmation link.')}
           </p>
         </div>
       )}

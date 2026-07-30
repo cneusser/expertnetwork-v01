@@ -201,9 +201,7 @@ export default function ExpertProfil() {
       <h2 style={{ fontSize: 18, color: 'var(--navy)', margin: '28px 0 12px' }}>{tr(lang, 'Datenschutz (DSGVO)', 'Data protection (GDPR)')}</h2>
       <div className="card">
         <p style={{ marginBottom: 14 }}>
-          Sie können jederzeit eine vollständige Kopie Ihrer gespeicherten Daten herunterladen
-          (Art. 20 DSGVO) oder Ihre Einwilligung widerrufen (Art. 7 Abs. 3 DSGVO). Nach einem
-          Widerruf wird Ihr Profil gesperrt und anschließend gelöscht bzw. anonymisiert.
+          {tr(lang, 'Du kannst jederzeit eine vollständige Kopie deiner gespeicherten Daten herunterladen (Art. 20 DSGVO) oder deine Einwilligung widerrufen (Art. 7 Abs. 3 DSGVO). Nach einem Widerruf wird dein Profil gesperrt und anschließend gelöscht bzw. anonymisiert.', 'You can download a full copy of your stored data at any time (Art. 20 GDPR) or withdraw your consent (Art. 7(3) GDPR). After a withdrawal your profile is locked and then deleted or anonymised.')}
         </p>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
           <a href="/api/experts/me/export" className="btn" style={{ width: 'auto', textDecoration: 'none' }}>
@@ -211,7 +209,7 @@ export default function ExpertProfil() {
           </a>
           <button className="btn" style={{ width: 'auto', background: 'var(--danger)' }}
             onClick={async () => {
-              if (!window.confirm('Einwilligung wirklich widerrufen? Ihr Profil wird gesperrt und Ihre Daten werden gelöscht bzw. anonymisiert.')) return;
+              if (!window.confirm(tr(lang, 'Einwilligung wirklich widerrufen? Dein Profil wird gesperrt und deine Daten werden gelöscht bzw. anonymisiert.', 'Really withdraw consent? Your profile will be locked and your data deleted or anonymised.'))) return;
               const d = await api.post('/api/auth/revoke-consent');
               window.alert(d.message);
               window.location.href = '/login';
