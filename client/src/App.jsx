@@ -9,6 +9,7 @@ import AdminMails from './pages/AdminMails';
 import PartnerWerden from './pages/PartnerWerden';
 import AdminPartner from './pages/AdminPartner';
 import Bewertung from './pages/Bewertung';
+import ProviderPortal from './pages/ProviderPortal';
 import Register from './pages/Register';
 import VerifyEmail from './pages/VerifyEmail';
 import ForgotPassword from './pages/ForgotPassword';
@@ -76,6 +77,7 @@ export default function App() {
           <Route path="/konto" element={<ProtectedRoute><Konto /></ProtectedRoute>} />
           <Route path="/admin/mandanten" element={<ProtectedRoute roles={['admin', 'tenant_owner']}><AdminMandanten /></ProtectedRoute>} />
           <Route path="/vendor" element={<ProtectedRoute roles={['vendor']}><VendorPortal /></ProtectedRoute>} />
+          <Route path="/provider" element={<ProtectedRoute roles={['provider']}><ProviderPortal /></ProtectedRoute>} />
           <Route path="/dashboard" element={<ProtectedRoute roles={['expert']}><ExpertDashboard /></ProtectedRoute>} />
           <Route path="/profil" element={<ProtectedRoute roles={['expert']}><ExpertProfil /></ProtectedRoute>} />
           <Route path="*" element={<Navigate to="/" replace />} />

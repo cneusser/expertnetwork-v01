@@ -9,10 +9,12 @@ const BADGE = { neu: 'eingeladen', in_pruefung: 'registriert', angenommen: 'frei
 
 export default function AdminPartner() {
   const [rows, setRows] = useState(null);
+  const [provider, setProvider] = useState([]);
   const [error, setError] = useState('');
+  const ladeProvider = () => api.get('/api/provider').then((d) => setProvider(d.provider)).catch(() => {});
 
   const load = () => api.get('/api/partner/bewerbungen').then((d) => setRows(d.bewerbungen)).catch((e) => setError(e.message));
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); ladeProvider(); }, []);
 
   return (
     <Layout>
@@ -46,6 +48,32 @@ export default function AdminPartner() {
           </tbody>
         </table>
       )}
+      <h2 style={{ fontSize: 17, color: 'var(--navy)', margin: '26px 0 10px' }}>Provider (Dienstleister)</h2>
+      <table className="table">
+        <thead><tr><th>Firma</th><th>Kontakt</th><th>Fokus</th><th>Tagessatz-Range</th><th>Status</th></tr></thead>
+        <tbody>
+          {provider.map((r) => {
+            const fokus = typeof r.fokus_json === 'string' ? JSON.parse(r.fokus_json || '[]') : (r.fokus_json || []);
+            return (
+              <tr key={r.id}>
+                <td><strong>{r.firmenname}</strong>{r.webseite && <><br /><span className="muted">{r.webseite}</span></>}</td>
+                <td>{r.ansprechpartner || '(kein Name)'}<br /><span className="muted">{r.email}</span></td>
+                <td>{fokus.map((f) => <span className="tag" key={f}>{f}</span>)}</td>
+                <td>{r.tagessatz_von || r.tagessatz_bis ? `${r.tagessatz_von || '?'} bis ${r.tagessatz_bis || '?'} EUR` : 'keine Angabe'}</td>
+                <td>
+                  <span className={`status status-${r.is_approved ? 'freigegeben' : 'eingeladen'}`}>
+                    {r.is_approved ? 'Freigegeben' : 'Wartet auf Freigabe'}</span><br />
+                  <button type="button" className="tab" style={{ padding: 0, marginTop: 4, color: 'var(--navy)' }}
+                    onClick={async () => { await api.post(`/api/provider/${r.user_id}/freigabe`, { freigeben: !r.is_approved }); ladeProvider(); }}>
+                    {r.is_approved ? 'Sperren' : 'Freigeben'}
+                  </button>
+                </td>
+              </tr>
+            );
+          })}
+          {!provider.length && <tr><td colSpan={5} className="muted">Noch keine Provider registriert. Registrierung läuft über die Partner-Seite.</td></tr>}
+        </tbody>
+      </table>
     </Layout>
   );
 }

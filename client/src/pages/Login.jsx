@@ -37,7 +37,7 @@ export default function Login() {
     setBusy(true);
     try {
       const user = await login(email, password);
-      navigate(user.role === 'vendor' ? '/vendor' : ['admin', 'tenant_owner'].includes(user.role) ? '/admin' : '/dashboard');
+      navigate(user.role === 'vendor' ? '/vendor' : user.role === 'provider' ? '/provider' : ['admin', 'tenant_owner'].includes(user.role) ? '/admin' : '/dashboard');
     } catch (err) {
       setError(err.message);
     } finally {

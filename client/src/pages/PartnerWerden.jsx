@@ -142,7 +142,11 @@ export default function PartnerWerden() {
         )}
       </div>
 
-      <p style={{ marginTop: 22 }}><Link to="/login">← {t.zurueck}</Link></p>
+      <p className="muted" style={{ marginTop: 18, fontSize: 13 }}>
+        {tr(lang, 'Ihr seid ein Provider (Vermittlung, Beratung, Personaldienstleistung) und wollt regelmäßig passende Profile sehen? Schreibt uns über das Formular mit dem Hinweis "Provider", wir richten euch einen Zugang ein.',
+          'You are a provider (brokering, consulting, staffing) and want to see matching profiles regularly? Use the form above and mention "provider", we will set up your access.')}
+      </p>
+      <p style={{ marginTop: 12 }}><Link to="/login">← {t.zurueck}</Link></p>
       <LegalFooter />
     </div>
   );
