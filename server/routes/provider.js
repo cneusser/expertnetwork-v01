@@ -105,4 +105,54 @@ router.post('/:userId(\\d+)/freigabe', requireAuth, requireRole('admin'), async 
   res.json({ ok: true });
 });
 
+/** v1.17.0 — Anonymisierte Profilkarten (nur freigegebene Provider, nur Opt-in-Experten). */
+router.get('/profile-karten', requireAuth, requireRole('provider'), async (req, res) => {
+  const ich = await db('users').where({ id: req.user.id }).first();
+  if (!ich?.is_approved) return res.status(403).json({ error: 'Zugang noch nicht freigegeben' });
+  const experten = await db('experts').where({ status: 'freigegeben', provider_optin: true });
+  const meine = await db('provider_interest').where({ provider_user_id: req.user.id }).pluck('expert_id');
+  const karten = [];
+  for (const e of experten) {
+    const skills = await db('expert_skills').join('skills', 'skills.id', 'expert_skills.skill_id')
+      .where('expert_id', e.id).where('skills.is_approved', true).pluck('skills.name');
+    const avail = await db('availabilities').where({ expert_id: e.id }).orderBy('created_at', 'desc').first();
+    karten.push({
+      expert_id: e.id,
+      kennung: `Profil #${e.id}`,
+      rolle: e.berufsbezeichnung || 'Interim Manager',
+      skills: skills.slice(0, 6),
+      verfuegbar: avail ? (avail.status === 'ausgebucht' ? 'auf Anfrage' : avail.ab_datum ? `ab ${new Date(avail.ab_datum).toLocaleDateString('de-DE')}` : 'kurzfristig') : 'auf Anfrage',
+      interesse_gemeldet: meine.includes(e.id),
+    });
+  }
+  res.json({ karten });
+});
+
+/** Interesse melden: landet als Anfrage bei Phalanx, Klarnamen erst nach Freigabe. */
+router.post('/interesse', requireAuth, requireRole('provider'), async (req, res) => {
+  const ich = await db('users').where({ id: req.user.id }).first();
+  if (!ich?.is_approved) return res.status(403).json({ error: 'Zugang noch nicht freigegeben' });
+  const expert = await db('experts').where({ id: Number(req.body?.expert_id), status: 'freigegeben', provider_optin: true }).first();
+  if (!expert) return res.status(404).json({ error: 'Profil nicht gefunden' });
+  const inserted = await db('provider_interest')
+    .insert({ tenant_id: expert.tenant_id, provider_user_id: req.user.id, expert_id: expert.id })
+    .onConflict(['provider_user_id', 'expert_id']).ignore().returning('id');
+  if (!inserted.length) return res.status(409).json({ error: 'Interesse bereits gemeldet' });
+  const profil = await db('provider_profiles').where({ user_id: req.user.id }).first();
+  try {
+    const admin = await db('users').where({ tenant_id: expert.tenant_id, role: 'admin' }).orderBy('id').first();
+    if (admin) {
+      await getMailProvider().send({
+        to: admin.email,
+        subject: `Provider-Interesse: ${profil?.firmenname || req.user.email} an Profil #${expert.id}`,
+        html: `<p>${profil?.firmenname || req.user.email} interessiert sich fuer Profil #${expert.id} (${expert.vorname} ${expert.nachname}, ${expert.berufsbezeichnung || ''}).</p><p>Kontakt: ${req.user.email}</p>`,
+        text: `Provider-Interesse an Profil #${expert.id} von ${req.user.email}`,
+      }, { tenantId: expert.tenant_id, templateKey: 'provider_interesse_intern' });
+    }
+  } catch (e) { console.error('Interesse-Mail:', e.message); }
+  await req.audit({ action: 'provider.interesse', resource: 'experts', resourceId: expert.id, newValue: { provider: req.user.id } });
+  res.locals.auditLogged = true;
+  res.status(201).json({ ok: true, message: 'Danke, wir melden uns persoenlich mit den Details.' });
+});
+
 module.exports = router;

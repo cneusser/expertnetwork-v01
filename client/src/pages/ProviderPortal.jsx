@@ -8,12 +8,14 @@ export default function ProviderPortal() {
   const [profil, setProfil] = useState(null);
   const [msg, setMsg] = useState(null);
   const [fokusNeu, setFokusNeu] = useState('');
+  const [karten, setKarten] = useState(null);
+  const ladeKarten = () => api.get('/api/provider/profile-karten').then((d) => setKarten(d.karten)).catch(() => setKarten([]));
 
   const load = () => api.get('/api/provider/me').then((d) => setProfil({
     ...d.profil,
     fokus: typeof d.profil.fokus_json === 'string' ? JSON.parse(d.profil.fokus_json || '[]') : (d.profil.fokus_json || []),
   })).catch((e) => setMsg({ ok: false, text: e.message }));
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); ladeKarten(); }, []);
 
   if (!profil) return <Layout><p className="sub">Laden…</p></Layout>;
 
@@ -75,8 +77,29 @@ export default function ProviderPortal() {
         </div>
         <button className="btn" style={{ width: 'auto' }} onClick={speichern}>Speichern</button>
       </div>
+      <h2 style={{ fontSize: 17, color: 'var(--navy)', margin: '26px 0 10px' }}>Profile aus dem Netzwerk</h2>
+      {karten === null ? <p className="sub">Laden…</p> : !karten.length ? (
+        <p className="muted">Aktuell keine freigegebenen Profile. Der wöchentliche Digest kommt per Mail, sobald es Neuigkeiten gibt.</p>
+      ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 12 }}>
+          {karten.map((k) => (
+            <div className="card" key={k.expert_id} style={{ padding: 14 }}>
+              <h3 style={{ fontSize: 14 }}>{k.kennung} · {k.rolle}</h3>
+              <p style={{ margin: '6px 0' }}>{k.skills.map((s) => <span className="tag" key={s}>{s}</span>)}</p>
+              <p className="muted" style={{ fontSize: 13 }}>Verfügbar: {k.verfuegbar}</p>
+              <button type="button" className="btn" style={{ width: 'auto', padding: '6px 14px' }} disabled={k.interesse_gemeldet}
+                onClick={async () => {
+                  try { const d = await api.post('/api/provider/interesse', { expert_id: k.expert_id }); setMsg({ ok: true, text: d.message }); ladeKarten(); }
+                  catch (e) { setMsg({ ok: false, text: e.message }); }
+                }}>
+                {k.interesse_gemeldet ? 'Interesse gemeldet' : 'Interesse melden'}
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
       <p className="muted" style={{ marginTop: 14, fontSize: 13 }}>
-        Bald an dieser Stelle: regelmäßige Updates zu neuen und wieder verfügbaren Profilen aus dem Netzwerk.
+        Profile sind anonymisiert. Namen und Kontaktdaten gibt Phalanx nach Rückfrage frei, montags kommt der Digest per Mail.
       </p>
     </Layout>
   );

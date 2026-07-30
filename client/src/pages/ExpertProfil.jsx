@@ -203,6 +203,13 @@ export default function ExpertProfil() {
         <p style={{ marginBottom: 14 }}>
           {tr(lang, 'Du kannst jederzeit eine vollständige Kopie deiner gespeicherten Daten herunterladen (Art. 20 DSGVO) oder deine Einwilligung widerrufen (Art. 7 Abs. 3 DSGVO). Nach einem Widerruf wird dein Profil gesperrt und anschließend gelöscht bzw. anonymisiert.', 'You can download a full copy of your stored data at any time (Art. 20 GDPR) or withdraw your consent (Art. 7(3) GDPR). After a withdrawal your profile is locked and then deleted or anonymised.')}
         </p>
+        <label style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 14, margin: '4px 0 14px', cursor: 'pointer' }}>
+          <input type="checkbox" checked={Boolean(expert.provider_optin)} style={{ marginTop: 3 }}
+            onChange={async (e) => { await api.post('/api/experts/me/provider-optin', { optin: e.target.checked }); load(); }} />
+          <span>{tr(lang,
+            'Mein Profil darf anonymisiert (ohne Namen und Kontaktdaten) an geprüfte Partnerprovider gezeigt werden, damit mehr passende Anfragen reinkommen. Jederzeit widerrufbar.',
+            'My profile may be shown anonymised (no name or contact details) to vetted partner providers so more matching requests come in. Revocable at any time.')}</span>
+        </label>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
           <a href="/api/experts/me/export" className="btn" style={{ width: 'auto', textDecoration: 'none' }}>
             {tr(lang, 'Meine Daten exportieren (ZIP)', 'Export my data (ZIP)')}

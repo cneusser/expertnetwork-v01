@@ -186,4 +186,68 @@ async function runInviteLifecycle() {
   return { erinnert, geloescht };
 }
 
-module.exports = { runAvailabilityReminders, runConsentJobs, runSearchAgents, runInviteLifecycle };
+/**
+ * v1.17.0 — Provider-Digest (montags): anonymisierte Karten fuer Experten
+ * mit Opt-in. "Neu im Netzwerk" = freigegeben + Opt-in, noch nie im Digest.
+ * "Wieder verfuegbar" = Verfuegbarkeit in den letzten 7 Tagen bestaetigt
+ * (sofort/teilweise). Empfaenger: alle freigegebenen Provider.
+ */
+async function runProviderDigest({ force = false } = {}) {
+  if (!force && new Date().getDay() !== 1) return { uebersprungen: 'nicht Montag' };
+  const { getTemplate, render } = require('../utils/mailTemplates');
+  const APP_URL = process.env.APP_URL ||
+    (process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : 'http://localhost:5173');
+
+  const basis = await db('experts').where({ status: 'freigegeben', provider_optin: true });
+  const karte = async (e) => {
+    const skills = await db('expert_skills').join('skills', 'skills.id', 'expert_skills.skill_id')
+      .where('expert_id', e.id).where('skills.is_approved', true).pluck('skills.name');
+    const avail = await db('availabilities').where({ expert_id: e.id }).orderBy('created_at', 'desc').first();
+    const verf = avail
+      ? (avail.status === 'ausgebucht' ? 'auf Anfrage' : avail.ab_datum ? `ab ${new Date(avail.ab_datum).toLocaleDateString('de-DE')}` : 'kurzfristig')
+      : 'auf Anfrage';
+    return `Profil #${e.id}: ${e.berufsbezeichnung || 'Interim Manager'} | ${skills.slice(0, 5).join(', ') || 'Profil auf Anfrage'} | verfuegbar ${verf}`;
+  };
+
+  const neue = basis.filter((e) => !e.digest_included_at);
+  const seit = new Date(Date.now() - 7 * 86400000);
+  const wieder = [];
+  for (const e of basis) {
+    if (neue.includes(e)) continue;
+    const conf = await db('availabilities').where({ expert_id: e.id })
+      .where('confirmed_at', '>', seit).whereIn('status', ['sofort', 'teilweise']).first();
+    if (conf) wieder.push(e);
+  }
+  if (!neue.length && !wieder.length) return { gesendet: 0, grund: 'keine Neuigkeiten' };
+
+  const zeilen = [];
+  if (neue.length) {
+    zeilen.push('Neu im Netzwerk:');
+    for (const e of neue) zeilen.push(await karte(e));
+  }
+  if (wieder.length) {
+    zeilen.push(neue.length ? '\nWieder verfuegbar:' : 'Wieder verfuegbar:');
+    for (const e of wieder) zeilen.push(await karte(e));
+  }
+
+  const provider = await db('users').where({ role: 'provider', is_approved: true }).whereNotNull('email_verified_at');
+  let gesendet = 0;
+  for (const p of provider) {
+    try {
+      const tpl = await getTemplate(p.tenant_id, 'provider_digest');
+      const msg = render(tpl, { inhalt: zeilen.join('\n'), link: `${APP_URL}/provider`, link_label: 'Zum Portal' });
+      await getMailProvider().send({ to: p.email, ...msg }, { tenantId: p.tenant_id, templateKey: 'provider_digest' });
+      gesendet++;
+    } catch (err) { console.error('Provider-Digest:', err.message); }
+  }
+  if (gesendet || provider.length === 0) {
+    for (const e of neue) await db('experts').where({ id: e.id }).update({ digest_included_at: db.fn.now() });
+  }
+  await db('audit_log').insert({
+    tenant_id: 1, action: 'provider.digest', resource: 'mail_outbox',
+    new_value_json: JSON.stringify({ provider: gesendet, neu: neue.length, wieder: wieder.length }),
+  }).catch(() => {});
+  return { gesendet, neu: neue.length, wieder: wieder.length };
+}
+
+module.exports = { runAvailabilityReminders, runConsentJobs, runSearchAgents, runInviteLifecycle, runProviderDigest };

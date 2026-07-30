@@ -373,6 +373,22 @@ router.post('/skill-vorschlaege/:skillId(\\d+)', requireRole('admin'), async (re
   res.json({ ok: true });
 });
 
+/**
+ * v1.17.0 — Opt-in zur anonymisierten Weitergabe an Partnerprovider
+ * (Consent-Erweiterung, jederzeit widerrufbar, auditiert).
+ */
+router.post('/me/provider-optin', async (req, res) => {
+  const expert = await db('experts').where({ user_id: req.user.id }).first();
+  if (!expert) return res.status(404).json({ error: 'Kein Expertenprofil vorhanden' });
+  const optin = req.body?.optin === true;
+  await db('experts').where({ id: expert.id }).update({
+    provider_optin: optin, provider_optin_at: optin ? db.fn.now() : null,
+  });
+  await req.audit({ action: optin ? 'expert.provider_optin' : 'expert.provider_optout', resource: 'experts', resourceId: expert.id });
+  res.locals.auditLogged = true;
+  res.json({ ok: true, optin });
+});
+
 /** Eigenes Beraterprofil als PPTX (Experte). */
 router.get('/me/profil-pptx', async (req, res) => {
   const expert = await db('experts').where({ user_id: req.user.id }).first();
