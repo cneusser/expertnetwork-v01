@@ -6,6 +6,19 @@ import { api } from '../api/client';
 
 const STATUS_LABEL = { gesendet: 'Gesendet', fehler: 'Fehler', stub: 'Testmodus (nicht versendet)' };
 
+/** v1.15.0 — Popup-Overlay für Mail-Vorschauen (Outbox + Posteingang). */
+function Modal({ onClose, children }) {
+  return (
+    <div onClick={onClose}
+      style={{ position: 'fixed', inset: 0, background: 'rgba(15,42,74,0.45)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+      <div onClick={(e) => e.stopPropagation()} className="card"
+        style={{ width: 'min(720px, 96vw)', maxHeight: '88vh', overflowY: 'auto', boxShadow: '0 12px 40px rgba(0,0,0,0.25)' }}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
 function VorlagenTab() {
   const [data, setData] = useState(null);
   const [msg, setMsg] = useState(null);
@@ -94,7 +107,7 @@ function PosteingangTab() {
         </tbody>
       </table>
       {offen && (
-        <div className="card" style={{ marginTop: 16 }}>
+        <Modal onClose={() => setOffen(null)}>
           <h3>{offen.subject || '(kein Betreff)'}
             <button className="tab" style={{ float: 'right' }} onClick={() => setOffen(null)}>Schließen</button></h3>
           <p className="muted" style={{ fontSize: 12 }}>Von {offen.from_name || ''} &lt;{offen.from_email}&gt; · {new Date(offen.created_at).toLocaleString('de-DE')}</p>
@@ -112,7 +125,7 @@ function PosteingangTab() {
                 setMsg({ ok: true, text: d.message }); setOffen(null); load();
               } catch (e) { setMsg({ ok: false, text: e.message }); }
             }}>Antwort senden</button>
-        </div>
+        </Modal>
       )}
     </>
   );
@@ -190,14 +203,14 @@ function OutboxTab() {
         </tbody>
       </table>
       {vorschau && (
-        <div className="card" style={{ marginTop: 16 }}>
+        <Modal onClose={() => setVorschau(null)}>
           <h3>Vorschau: {vorschau.subject}
             <button className="tab" style={{ float: 'right' }} onClick={() => setVorschau(null)}>Schließen</button></h3>
           <p className="muted" style={{ fontSize: 12 }}>An {vorschau.to_email} · {new Date(vorschau.created_at).toLocaleString('de-DE')}</p>
           {vorschau.body_html
             ? <iframe title="Mailvorschau" srcDoc={vorschau.body_html} style={{ width: '100%', height: 420, border: '1px solid var(--grey-200)', borderRadius: 6, background: '#fff' }} />
             : <p className="muted">Kein HTML-Inhalt protokolliert.</p>}
-        </div>
+        </Modal>
       )}
     </>
   );

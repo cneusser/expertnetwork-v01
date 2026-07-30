@@ -553,12 +553,13 @@ router.get('/me/export', async (req, res) => {
   const archiver = require('archiver');
   const expert = await db('experts').where({ user_id: req.user.id }).first();
   if (!expert) return res.status(404).json({ error: 'Kein Expertenprofil vorhanden' });
-  const [skills, documents, availabilities, rates, consents] = await Promise.all([
+  const [skills, documents, availabilities, rates, consents, ratings] = await Promise.all([
     db('expert_skills').join('skills', 'skills.id', 'expert_skills.skill_id').where('expert_id', expert.id).select('skills.name', 'skills.kategorie'),
     db('documents').where({ expert_id: expert.id }),
     db('availabilities').where({ expert_id: expert.id }),
     db('rates').where({ expert_id: expert.id }),
     db('consents').where({ user_id: req.user.id }),
+    db('ratings').where({ expert_id: expert.id }).select('typ', 'sterne', 'kriterien_json', 'kommentar', 'created_at').catch(() => []),
   ]);
   await req.audit({ action: 'expert.data_export', resource: 'experts', resourceId: expert.id });
 
@@ -576,7 +577,7 @@ router.get('/me/export', async (req, res) => {
     { storage_refs: [], docsMeta: [] }
   );
   zip.append(
-    JSON.stringify({ profil: expert, skills, verfuegbarkeiten: availabilities, tagessaetze: rates, einwilligungen: consents, dokumente: docsMeta }, null, 2),
+    JSON.stringify({ profil: expert, skills, verfuegbarkeiten: availabilities, tagessaetze: rates, einwilligungen: consents, bewertungen: ratings, dokumente: docsMeta }, null, 2),
     { name: 'meine-daten.json' }
   );
   for (const d of storage_refs) {

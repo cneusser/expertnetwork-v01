@@ -76,6 +76,7 @@ app.use('/api/experts', expertRoutes);
 app.use('/api/mails', require('./routes/inbound')); // v1.14.0: Webhook OHNE Login, eigener Schutz
 app.use('/api/mails', require('./routes/mails'));
 app.use('/api/partner', require('./routes/partner'));
+app.use('/api/ratings', require('./routes/ratings'));
 app.use('/api/availability', availabilityRoutes);
 app.use('/api/audit', auditRoutes);
 app.use('/api/search', searchRoutes);

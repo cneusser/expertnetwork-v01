@@ -8,6 +8,7 @@ import AdminFunnel from './pages/AdminFunnel';
 import AdminMails from './pages/AdminMails';
 import PartnerWerden from './pages/PartnerWerden';
 import AdminPartner from './pages/AdminPartner';
+import Bewertung from './pages/Bewertung';
 import Register from './pages/Register';
 import VerifyEmail from './pages/VerifyEmail';
 import ForgotPassword from './pages/ForgotPassword';
@@ -50,6 +51,7 @@ export default function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/datenschutz" element={<Datenschutz />} />
           <Route path="/partner" element={<PartnerWerden />} />
+          <Route path="/bewertung" element={<Bewertung />} />
           <Route path="/register" element={<Register />} />
           <Route path="/register-kunde" element={<RegisterKunde />} />
           <Route path="/verify" element={<VerifyEmail />} />

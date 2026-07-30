@@ -18,7 +18,7 @@ async function deleteExpertCascade(expert, { tenantId, actorId = null, grund, ip
 
   for (const tabelle of ['project_releases', 'applications', 'communications', 'documents',
     'availabilities', 'rates', 'expert_skills', 'educations', 'career_steps',
-    'watchlist', 'blocklist', 'match_alerts']) {
+    'watchlist', 'blocklist', 'match_alerts', 'ratings']) {
     await db(tabelle).where({ expert_id: expert.id }).delete().catch(() => {});
   }
   if (expert.email) await db('mail_outbox').where({ to_email: expert.email }).delete().catch(() => {});

@@ -23,6 +23,9 @@ export default function AdminExpertDetail() {
   const navigate = useNavigate();
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
+  const [bewertungen, setBewertungen] = useState(null);
+  const [ratingMsg, setRatingMsg] = useState(null);
+  const ladeBewertungen = () => api.get(`/api/ratings/expert/${id}`).then(setBewertungen).catch(() => {});
   const [tab, setTab] = useState('profil');
   const [uploadKat, setUploadKat] = useState('referenz');
   const [busy, setBusy] = useState(false);
@@ -33,7 +36,8 @@ export default function AdminExpertDetail() {
   const [comms, setComms] = useState(null);
 
   const load = () => api.get(`/api/experts/${id}`).then(setData).catch((e) => setError(e.message));
-  useEffect(() => { load(); }, [id]);
+  useEffect(() => { load();   ladeBewertungen();
+  }, [id]);
 
   const uploadFile = async (file) => {
     if (!file) return;
@@ -269,7 +273,63 @@ export default function AdminExpertDetail() {
             </p>
             <p className="muted">Jeder Upload erzeugt eine neue Version — nichts wird überschrieben (Audit-Prinzip).</p>
           </div>
-          <KiCvAssistent expertId={id} onApplied={load} />
+          {bewertungen && (
+        <div className="card" style={{ marginBottom: 16 }}>
+          <h3>Bewertungen
+            {bewertungen.schnitt_intern != null && <span className="badge badge-active" style={{ marginLeft: 8 }}>Intern Ø {bewertungen.schnitt_intern} ★</span>}
+            {bewertungen.schnitt_kunde != null && <span className="badge badge-active" style={{ marginLeft: 6 }}>Kunden Ø {bewertungen.schnitt_kunde} ★</span>}
+            {bewertungen.offen_kunde > 0 && <span className="badge" style={{ marginLeft: 6 }}>{bewertungen.offen_kunde} Kundenanfrage(n) offen</span>}
+          </h3>
+          {ratingMsg && <div className={`msg ${ratingMsg.ok ? 'msg-success' : 'msg-error'}`} style={{ marginTop: 8 }}>{ratingMsg.text}</div>}
+          {bewertungen.ratings.filter((r) => r.sterne != null).map((r) => (
+            <p key={r.id} style={{ fontSize: 13, padding: '4px 0', borderBottom: '1px solid var(--grey-200)' }}>
+              <span style={{ color: '#d4a017' }}>{'★'.repeat(r.sterne)}</span>{'☆'.repeat(5 - r.sterne)}
+              {' '}<strong>{r.typ === 'intern' ? 'Intern' : `Kunde${r.kunde_email ? ` (${r.kunde_email})` : ''}`}</strong>
+              {' · '}{new Date(r.created_at).toLocaleDateString('de-DE')}
+              {r.kommentar && <><br /><span className="muted">{r.kommentar}</span></>}
+            </p>
+          ))}
+          <form style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end', marginTop: 12 }}
+            onSubmit={async (e) => {
+              e.preventDefault();
+              const fd = Object.fromEntries(new FormData(e.target));
+              setRatingMsg(null);
+              try {
+                await api.post('/api/ratings/intern', { expert_id: Number(id), ...fd });
+                setRatingMsg({ ok: true, text: 'Internes Rating gespeichert.' });
+                e.target.reset(); ladeBewertungen();
+              } catch (err) { setRatingMsg({ ok: false, text: err.message }); }
+            }}>
+            {[['fachlichkeit', 'Fachlichkeit'], ['zuverlaessigkeit', 'Zuverlässigkeit'], ['kommunikation', 'Kommunikation'], ['wirkung', 'Wirkung']].map(([k, label]) => (
+              <div className="field" key={k} style={{ marginBottom: 0, width: 120 }}>
+                <label>{label}</label>
+                <select name={k} defaultValue="4">{[1, 2, 3, 4, 5].map((v) => <option key={v} value={v}>{v}</option>)}</select>
+              </div>
+            ))}
+            <div className="field" style={{ marginBottom: 0, flex: '1 1 200px' }}>
+              <label>Kommentar (intern)</label><input type="text" name="kommentar" />
+            </div>
+            <button className="btn" style={{ width: 'auto' }}>Intern bewerten</button>
+          </form>
+          <p style={{ marginTop: 10 }}>
+            <button type="button" className="btn" style={{ width: 'auto', background: 'transparent', color: 'var(--navy)', border: '1px solid var(--grey-200)' }}
+              onClick={async () => {
+                const email = window.prompt('Kunden-E-Mail für die Bewertungsanfrage:');
+                if (!email) return;
+                const projekt = window.prompt('Projektname (optional, erscheint in der Mail):') || undefined;
+                setRatingMsg(null);
+                try {
+                  const r = await api.post('/api/ratings/kunde-link', { expert_id: Number(id), email, projekt });
+                  setRatingMsg({ ok: true, text: r.message }); ladeBewertungen();
+                } catch (err) { setRatingMsg({ ok: false, text: err.message }); }
+              }}>
+              Kundenbewertung anfragen
+            </button>
+          </p>
+        </div>
+      )}
+
+      <KiCvAssistent expertId={id} onApplied={load} />
         </>
       )}
 

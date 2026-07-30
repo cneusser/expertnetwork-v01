@@ -255,4 +255,32 @@ ${row.nachricht ? `<p>${row.nachricht}</p>` : ''}
   res.status(201).json({ ok: true, message: 'Danke für Ihre Anfrage. Wir melden uns persönlich, meist innerhalb von zwei Werktagen.' });
 });
 
+/** v1.15.0 — Kundenbewertung einlösen (Token-Link, einmalig). */
+router.get('/bewertung/:token', async (req, res) => {
+  const row = await db('ratings').where({ token: String(req.params.token), typ: 'kunde' }).first();
+  if (!row) return res.status(404).json({ error: 'Link ungültig' });
+  if (row.eingeloest_at) return res.status(410).json({ error: 'Diese Bewertung wurde bereits abgegeben. Vielen Dank!' });
+  const expert = await db('experts').where({ id: row.expert_id }).first();
+  const meta = typeof row.kriterien_json === 'string' ? JSON.parse(row.kriterien_json || '{}') : (row.kriterien_json || {});
+  res.json({ experte: expert ? `${expert.vorname} ${expert.nachname}` : 'unser Experte', projekt: meta.projekt || null });
+});
+
+router.post('/bewertung/:token', async (req, res) => {
+  const row = await db('ratings').where({ token: String(req.params.token), typ: 'kunde' }).first();
+  if (!row) return res.status(404).json({ error: 'Link ungültig' });
+  if (row.eingeloest_at) return res.status(410).json({ error: 'Diese Bewertung wurde bereits abgegeben.' });
+  const sterne = Number(req.body?.sterne);
+  if (!Number.isInteger(sterne) || sterne < 1 || sterne > 5) return res.status(400).json({ error: 'Bitte 1 bis 5 Sterne vergeben' });
+  await db('ratings').where({ id: row.id }).update({
+    sterne,
+    kommentar: req.body?.kommentar ? String(req.body.kommentar).slice(0, 2000) : null,
+    eingeloest_at: db.fn.now(),
+  });
+  await db('audit_log').insert({
+    tenant_id: row.tenant_id, action: 'rating.kunde_abgegeben', resource: 'ratings',
+    resource_id: row.id, new_value_json: JSON.stringify({ sterne }), ip: req.ip,
+  });
+  res.json({ ok: true, message: 'Vielen Dank für Ihre Bewertung!' });
+});
+
 module.exports = router;
