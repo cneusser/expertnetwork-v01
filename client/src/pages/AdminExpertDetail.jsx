@@ -94,6 +94,13 @@ export default function AdminExpertDetail() {
         <a href={`/api/experts/${id}/profil-pptx`} style={{ cursor: 'pointer' }}>
           Profil als PPTX</a>
         {' · '}
+        <a style={{ cursor: 'pointer' }} onClick={async () => {
+          if (!window.confirm(`${expert.vorname} ${expert.nachname} in ein Provider-Konto umwandeln?\n\nDas Konto bleibt mit denselben Zugangsdaten bestehen und wird direkt als Provider freigegeben. Die Talentpool-Daten (Profil, Skills, Dokumente, Einwilligung) werden DSGVO-konform entfernt.`)) return;
+          const r = await api.post(`/api/experts/${id}/zu-provider`);
+          window.alert(r.message);
+          window.location.href = '/admin/experten';
+        }}>Zu Provider umwandeln</a>
+        {' · '}
         <a href="#blockieren" style={{ color: blocked ? 'var(--danger)' : undefined }} onClick={async (e) => {
           e.preventDefault();
           await api.post(`/api/experts/${id}/block`, {});

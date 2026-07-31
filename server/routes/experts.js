@@ -404,6 +404,44 @@ router.get('/me/profil-pptx', async (req, res) => {
   res.send(buf);
 });
 
+/**
+ * v1.17.1 — Experte zu Provider umwandeln: Konto bleibt bestehen (gleiche
+ * Zugangsdaten), bekommt die Rolle provider samt Provider-Profil aus den
+ * Stammdaten. Die Talentpool-Daten (Profil, Skills, Dokumente, Einwilligung)
+ * werden DSGVO-konform entfernt, denn der Zweck entfaellt.
+ */
+router.post('/:id(\\d+)/zu-provider', requireRole('admin'), async (req, res) => {
+  const expert = await db('experts').where({ id: Number(req.params.id), tenant_id: req.user.tenantId }).first();
+  if (!expert) return res.status(404).json({ error: 'Experte nicht gefunden' });
+  if (!expert.user_id) return res.status(400).json({ error: 'Kein Benutzerkonto vorhanden, bitte regulär als Provider registrieren.' });
+
+  await db('provider_profiles').insert({
+    tenant_id: req.user.tenantId,
+    user_id: expert.user_id,
+    firmenname: expert.firma || `${expert.vorname} ${expert.nachname}`,
+    ansprechpartner: `${expert.vorname} ${expert.nachname}`,
+    telefon: expert.telefon || expert.mobil || null,
+    webseite: expert.webseite || null,
+    fokus_json: JSON.stringify([]),
+  }).onConflict(['user_id']).ignore();
+
+  await db('users').where({ id: expert.user_id }).update({ role: 'provider', is_approved: true });
+  await db('consents').where({ user_id: expert.user_id, zweck: 'talentpool' }).delete();
+
+  const { deleteExpertCascade } = require('../utils/expertDeletion');
+  await deleteExpertCascade({ ...expert, user_id: null }, {
+    tenantId: req.user.tenantId, actorId: req.user.id,
+    grund: 'Umwandlung in Provider-Konto, Talentpool-Daten entfernt (Zweckfortfall)', ip: req.ip,
+  });
+
+  await db('audit_log').insert({
+    tenant_id: req.user.tenantId, actor_id: req.user.id, action: 'expert.zu_provider',
+    resource: 'users', resource_id: expert.user_id,
+    new_value_json: JSON.stringify({ email: expert.email }), ip: req.ip,
+  });
+  res.json({ ok: true, message: `${expert.vorname} ${expert.nachname} ist jetzt Provider (gleiche Zugangsdaten, direkt freigegeben). Das Firmenprofil kann er im Provider-Portal vervollständigen.` });
+});
+
 /** Eigenes Profil (Experte). */
 router.get('/me', async (req, res) => {
   const expert = await db('experts').where({ user_id: req.user.id }).first();

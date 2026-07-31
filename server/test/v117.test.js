@@ -75,3 +75,31 @@ test('Ohne Opt-in kein Digest und keine Karten; Opt-in macht das Profil sichtbar
   // Ohne Login kein Zugriff
   assert.strictEqual((await fetch(`${baseUrl}/api/provider/profile-karten`)).status, 401);
 });
+
+test('Experte zu Provider umwandeln: Konto bleibt, Talentpool-Daten weg', async () => {
+  const adminLogin = await post('/api/auth/login', {
+    email: process.env.ADMIN_EMAIL || 'admin@phalanx.example',
+    password: process.env.ADMIN_PASSWORD || 'phalanx-admin-2026',
+  });
+  const adminCookie = adminLogin.headers.get('set-cookie');
+  const [user] = await db('users').insert({
+    tenant_id: adrian.tenant_id, email: 'wandel@provider.example', role: 'expert',
+    is_approved: true, email_verified_at: db.fn.now(),
+    password_hash: await bcrypt.hash('wandel-pass-1', 10),
+  }).returning('*');
+  const [ex] = await db('experts').insert({
+    tenant_id: adrian.tenant_id, user_id: user.id, vorname: 'Willi', nachname: 'Wandel',
+    firma: 'Wandel Consulting', email: 'wandel@provider.example', status: 'freigegeben',
+  }).returning('*');
+  await db('consents').insert({ tenant_id: adrian.tenant_id, user_id: user.id, zweck: 'talentpool', text_version: 't', expires_at: new Date(Date.now() + 86400000) });
+
+  const res = await post(`/api/experts/${ex.id}/zu-provider`, {}, { cookie: adminCookie });
+  assert.strictEqual(res.status, 200);
+  const nachher = await db('users').where({ id: user.id }).first();
+  assert.strictEqual(nachher.role, 'provider');
+  assert.strictEqual(nachher.is_approved, true);
+  const profil = await db('provider_profiles').where({ user_id: user.id }).first();
+  assert.strictEqual(profil.firmenname, 'Wandel Consulting');
+  assert.strictEqual(await db('experts').where({ id: ex.id }).first(), undefined, 'Expertenprofil entfernt');
+  assert.strictEqual((await db('consents').where({ user_id: user.id })).length, 0, 'Talentpool-Consent entfernt');
+});
