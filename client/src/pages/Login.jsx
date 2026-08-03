@@ -81,7 +81,7 @@ export default function Login() {
           <Link to="/partner">{tr(lang, 'Mehr erfahren', 'Learn more')}</Link>
         </div>
         <div className="auth-links">
-          <span><Link to="/register">Als Experte</Link> · <Link to="/register-kunde">Als Kunde registrieren</Link></span>
+          <span><Link to="/mitmachen">Als Experte</Link> · <Link to="/register-kunde">Als Kunde registrieren</Link></span>
           <Link to="/forgot-password">Passwort vergessen?</Link>
         </div>
       </form>

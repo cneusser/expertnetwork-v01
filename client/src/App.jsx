@@ -10,6 +10,7 @@ import PartnerWerden from './pages/PartnerWerden';
 import AdminPartner from './pages/AdminPartner';
 import Bewertung from './pages/Bewertung';
 import ProviderPortal from './pages/ProviderPortal';
+import Mitmachen from './pages/Mitmachen';
 import Register from './pages/Register';
 import VerifyEmail from './pages/VerifyEmail';
 import ForgotPassword from './pages/ForgotPassword';
@@ -52,6 +53,7 @@ export default function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/datenschutz" element={<Datenschutz />} />
           <Route path="/partner" element={<PartnerWerden />} />
+          <Route path="/mitmachen" element={<Mitmachen />} />
           <Route path="/bewertung" element={<Bewertung />} />
           <Route path="/register" element={<Register />} />
           <Route path="/register-kunde" element={<RegisterKunde />} />

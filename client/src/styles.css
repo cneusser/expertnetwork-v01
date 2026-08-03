@@ -37,10 +37,12 @@ a:hover { text-decoration: underline; }
 .auth-wrap {
   min-height: 100vh;
   display: flex;
+  flex-direction: column; /* v1.18: Footer gehoert UNTER die Karte, nicht daneben */
   align-items: center;
   justify-content: center;
   padding: 24px;
 }
+.auth-wrap > * { width: 100%; max-width: 440px; }
 .auth-card {
   background: var(--white);
   border: 1px solid var(--grey-200);
