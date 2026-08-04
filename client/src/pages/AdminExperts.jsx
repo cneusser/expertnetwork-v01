@@ -99,7 +99,8 @@ export default function AdminExperts() {
       {error && <div className="msg msg-error">{error}</div>}
       {skillVorschlaege.length > 0 && (
         <div className="notice" style={{ marginBottom: 14 }}>
-          <strong>Skill-Vorschläge zur Freigabe:</strong>{' '}
+          <strong>Skill-Vorschläge zur Freigabe ({skillVorschlaege.length}):</strong>{' '}
+          <a href="/admin/skills" style={{ fontWeight: 600 }}>Alle in der Skill-Verwaltung bearbeiten</a>{' · '}
           {skillVorschlaege.map((s) => (
             <span className="tag" key={s.id}>
               {s.name} ({s.kategorie}, {s.verwendungen}×){' '}

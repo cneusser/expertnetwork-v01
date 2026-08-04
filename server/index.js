@@ -78,6 +78,7 @@ app.use('/api/mails', require('./routes/mails'));
 app.use('/api/partner', require('./routes/partner'));
 app.use('/api/ratings', require('./routes/ratings'));
 app.use('/api/provider', require('./routes/provider'));
+app.use('/api/skills', require('./routes/skills'));
 app.use('/api/availability', availabilityRoutes);
 app.use('/api/audit', auditRoutes);
 app.use('/api/search', searchRoutes);

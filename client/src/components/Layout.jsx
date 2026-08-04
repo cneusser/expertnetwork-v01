@@ -27,6 +27,7 @@ export default function Layout({ children }) {
             <NavLink to={home} end>Dashboard</NavLink>
             {isAdmin && <NavLink to="/admin/experten">Experten</NavLink>}
             {isAdmin && <NavLink to="/admin/suche">Suche</NavLink>}
+            {isAdmin && <NavLink to="/admin/skills">Skills</NavLink>}
             {isAdmin && <NavLink to="/admin/projekte">Projekte</NavLink>}
             {isAdmin && <NavLink to="/admin/funnel">Funnel</NavLink>}
             {isAdmin && <NavLink to="/admin/partner">Partner</NavLink>}

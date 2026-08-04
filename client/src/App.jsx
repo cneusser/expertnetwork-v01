@@ -11,6 +11,7 @@ import AdminPartner from './pages/AdminPartner';
 import Bewertung from './pages/Bewertung';
 import ProviderPortal from './pages/ProviderPortal';
 import Mitmachen from './pages/Mitmachen';
+import AdminSkills from './pages/AdminSkills';
 import Register from './pages/Register';
 import VerifyEmail from './pages/VerifyEmail';
 import ForgotPassword from './pages/ForgotPassword';
@@ -72,6 +73,7 @@ export default function App() {
           <Route path="/admin/projekte" element={<ProtectedRoute roles={['admin', 'tenant_owner']}><AdminProjects /></ProtectedRoute>} />
           <Route path="/admin/funnel" element={<ProtectedRoute roles={['admin', 'tenant_owner']}><AdminFunnel /></ProtectedRoute>} />
           <Route path="/admin/mails" element={<ProtectedRoute roles={['admin', 'tenant_owner']}><AdminMails /></ProtectedRoute>} />
+          <Route path="/admin/skills" element={<ProtectedRoute roles={['admin', 'tenant_owner']}><AdminSkills /></ProtectedRoute>} />
           <Route path="/admin/partner" element={<ProtectedRoute roles={['admin', 'tenant_owner']}><AdminPartner /></ProtectedRoute>} />
           <Route path="/admin/projekte/:id" element={<ProtectedRoute roles={['admin', 'tenant_owner']}><AdminProjectDetail /></ProtectedRoute>} />
           <Route path="/admin/kommunikation" element={<ProtectedRoute roles={['admin', 'tenant_owner']}><AdminKommunikation /></ProtectedRoute>} />
