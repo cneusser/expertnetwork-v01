@@ -22,6 +22,8 @@ const registerSchema = z.object({
   email: z.string().email('Ungültige E-Mail-Adresse'),
   password: z.string().min(10, 'Passwort: mindestens 10 Zeichen'),
   consent: z.literal(true, { errorMap: () => ({ message: 'Einwilligung erforderlich' }) }),
+  vorname: z.string().max(100).optional(),
+  nachname: z.string().max(100).optional(),
 });
 
 /** Einwilligungstext für das Registrierungsformular. */
@@ -60,6 +62,25 @@ router.post('/register', async (req, res) => {
     zweck: CONSENT_ZWECK,
     text_version: CONSENT_VERSION,
     expires_at: consentExpiry(),
+  });
+
+  // v1.19.1 — BUGFIX: Selbstregistrierte Experten brauchen auch ein Profil,
+  // sonst tauchen sie nirgends in der Expertenverwaltung auf.
+  const [vorname, ...rest] = String(parsed.data.vorname || email.split('@')[0]).trim().split(' ');
+  await db('experts').insert({
+    tenant_id: tenant.id,
+    user_id: user.id,
+    vorname: vorname.slice(0, 100),
+    nachname: (parsed.data.nachname || rest.join(' ') || '(offen)').slice(0, 100),
+    email: user.email,
+    status: 'registriert',
+  }).onConflict(['user_id']).ignore().catch(async () => {
+    await db('experts').insert({
+      tenant_id: tenant.id, user_id: user.id,
+      vorname: vorname.slice(0, 100),
+      nachname: (parsed.data.nachname || rest.join(' ') || '(offen)').slice(0, 100),
+      email: user.email, status: 'registriert',
+    });
   });
 
   await db('audit_log').insert({

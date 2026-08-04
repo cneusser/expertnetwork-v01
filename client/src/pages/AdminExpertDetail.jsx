@@ -95,6 +95,12 @@ export default function AdminExpertDetail() {
           Profil als PPTX</a>
         {' · '}
         <a style={{ cursor: 'pointer' }} onClick={async () => {
+          if (!window.confirm(`Verfügbarkeits-Erinnerung an ${expert.email} senden?`)) return;
+          try { const r = await api.post(`/api/experts/${id}/verfuegbarkeit-erinnerung`); window.alert(r.message); }
+          catch (e) { window.alert(e.message); }
+        }}>Verfügbarkeit erfragen</a>
+        {' · '}
+        <a style={{ cursor: 'pointer' }} onClick={async () => {
           if (!window.confirm(`${expert.vorname} ${expert.nachname} in ein Provider-Konto umwandeln?\n\nDas Konto bleibt mit denselben Zugangsdaten bestehen und wird direkt als Provider freigegeben. Die Talentpool-Daten (Profil, Skills, Dokumente, Einwilligung) werden DSGVO-konform entfernt.`)) return;
           const r = await api.post(`/api/experts/${id}/zu-provider`);
           window.alert(r.message);

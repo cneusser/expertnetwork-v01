@@ -68,7 +68,7 @@ test('Erinnerungs-Job: sendet bei veralteter Bestätigung, drosselt Wiederholung
   // Bestätigung künstlich altern lassen (23 Tage) — direkt per SQL, da Insert-only.
   await db.raw(`update availabilities set confirmed_at = now() - interval '23 days' where expert_id = ?`, [adrian.id]);
   const r1 = await runAvailabilityReminders();
-  assert.strictEqual(r1.sent, 1, 'Ein Reminder versendet');
+  assert.ok(r1.sent >= 1, 'Mindestens ein Reminder versendet'); // v1.19.1: auch Selbstregistrierte haben Profile
   assert.ok(outbox.some((m) => m.to === adrian.email && /Verfügbarkeit/.test(m.subject)));
   const r2 = await runAvailabilityReminders();
   assert.strictEqual(r2.sent, 0, 'Zweiter Lauf gedrosselt (14-Tage-Sperre)');

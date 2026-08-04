@@ -442,6 +442,31 @@ router.post('/:id(\\d+)/zu-provider', requireRole('admin'), async (req, res) => 
   res.json({ ok: true, message: `${expert.vorname} ${expert.nachname} ist jetzt Provider (gleiche Zugangsdaten, direkt freigegeben). Das Firmenprofil kann er im Provider-Portal vervollständigen.` });
 });
 
+/** v1.19.1 — Verfuegbarkeits-Erinnerung manuell ausloesen (Admin). */
+router.post('/:id(\\d+)/verfuegbarkeit-erinnerung', requireRole('admin'), async (req, res) => {
+  const expert = await db('experts').where({ id: Number(req.params.id), tenant_id: req.user.tenantId }).first();
+  if (!expert) return res.status(404).json({ error: 'Experte nicht gefunden' });
+  if (!expert.email) return res.status(400).json({ error: 'Keine E-Mail-Adresse hinterlegt' });
+  if (expert.user_id) {
+    const consent = await db('consents')
+      .where({ user_id: expert.user_id, zweck: 'talentpool' })
+      .whereNull('revoked_at').where('expires_at', '>', db.fn.now()).first();
+    if (!consent) return res.status(400).json({ error: 'Keine aktive Einwilligung, daher keine Erinnerung möglich. Bitte zuerst die Einladung senden.' });
+  }
+  const { availabilityReminderMail } = require('../providers/mail/templates');
+  const token = signPurposeToken(expert.id, 'confirm-availability', '7d');
+  try {
+    await getMailProvider().send({ to: expert.email, ...availabilityReminderMail(token, expert.vorname) },
+      { tenantId: req.user.tenantId, templateKey: 'verfuegbarkeit_erinnerung' });
+  } catch (err) {
+    return res.status(502).json({ error: `Versand fehlgeschlagen: ${err.message}` });
+  }
+  await db('experts').where({ id: expert.id }).update({ last_availability_reminder_at: db.fn.now() });
+  await req.audit({ action: 'reminder.availability_manuell', resource: 'experts', resourceId: expert.id });
+  res.locals.auditLogged = true;
+  res.json({ ok: true, message: `Erinnerung an ${expert.email} versendet.` });
+});
+
 /** Eigenes Profil (Experte). */
 router.get('/me', async (req, res) => {
   const expert = await db('experts').where({ user_id: req.user.id }).first();
