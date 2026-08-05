@@ -293,7 +293,26 @@ export default function AdminExpertDetail() {
             </p>
             <p className="muted">Jeder Upload erzeugt eine neue Version — nichts wird überschrieben (Audit-Prinzip).</p>
           </div>
-          {bewertungen && (
+          <div className="card" style={{ marginBottom: 16 }}>
+        <h3>Regelkommunikation</h3>
+        <p className="muted" style={{ fontSize: 13 }}>
+          Standardmails aus der Vorlagenverwaltung. Text anpassen unter Mails, jeder Versand landet in der Outbox.
+        </p>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 10 }}>
+          {[['stammdaten_pflegen', 'Stammdaten anfordern'], ['wiedervorlage', 'Freundliche Wiedervorlage'],
+            ['einladung_erinnerung', 'An Einladung erinnern']].map(([key, label]) => (
+            <button key={key} type="button" className="btn"
+              style={{ width: 'auto', padding: '8px 16px', background: 'transparent', color: 'var(--navy)', border: '1px solid var(--grey-200)' }}
+              onClick={async () => {
+                if (!window.confirm(`"${label}" an ${expert.email} senden?`)) return;
+                try { const r = await api.post(`/api/experts/${id}/standardmail`, { key }); window.alert(r.message); }
+                catch (e) { window.alert(e.message); }
+              }}>{label}</button>
+          ))}
+        </div>
+      </div>
+
+      {bewertungen && (
         <div className="card" style={{ marginBottom: 16 }}>
           <h3>Bewertungen
             {bewertungen.schnitt_intern != null && <span className="badge badge-active" style={{ marginLeft: 8 }}>Intern Ø {bewertungen.schnitt_intern} ★</span>}

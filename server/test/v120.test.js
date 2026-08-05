@@ -83,3 +83,15 @@ test('Experten freigeben und zurücksetzen (Status + Konto)', async () => {
   assert.strictEqual((await db('experts').where({ id: ex.id }).first()).status, 'registriert');
   assert.strictEqual((await post('/api/experts/freigeben', { expert_ids: [ex.id] })).status, 401);
 });
+
+test('Standardmail aus dem Profil (Regelkommunikation)', async () => {
+  const res = await post(`/api/experts/${malz.id}/standardmail`, { key: 'stammdaten_pflegen' }, { cookie: adminCookie });
+  assert.strictEqual(res.status, 200);
+  const mail = await db('mail_outbox').where({ to_email: malz.email, template_key: 'stammdaten_pflegen' }).first();
+  assert.ok(mail, 'Standardmail in der Outbox');
+  assert.match(mail.body_html, new RegExp(malz.vorname));
+  assert.ok(!mail.body_html.includes('—'), 'keine Gedankenstriche');
+  assert.ok(await db('audit_log').where({ action: 'expert.standardmail', resource_id: malz.id }).first());
+  assert.strictEqual((await post(`/api/experts/${malz.id}/standardmail`, { key: 'gibtsnicht' }, { cookie: adminCookie })).status, 400);
+  assert.strictEqual((await post(`/api/experts/${malz.id}/standardmail`, { key: 'wiedervorlage' })).status, 401);
+});

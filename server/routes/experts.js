@@ -537,6 +537,35 @@ router.post('/freigeben', requireRole('admin'), async (req, res) => {
     message: `${experten.length} Profil(e) ${freigeben ? 'freigegeben' : 'zurückgesetzt'}.` });
 });
 
+/**
+ * v1.21.0 — Regelkommunikation: Standardmail aus dem Expertenprofil senden
+ * (Vorlage aus der Mailverwaltung, Platzhalter gefuellt, Outbox + Audit).
+ */
+router.post('/:id(\\d+)/standardmail', requireRole('admin'), async (req, res) => {
+  const expert = await db('experts').where({ id: Number(req.params.id), tenant_id: req.user.tenantId }).first();
+  if (!expert) return res.status(404).json({ error: 'Experte nicht gefunden' });
+  if (!expert.email) return res.status(400).json({ error: 'Keine E-Mail-Adresse hinterlegt' });
+  const key = String(req.body?.key || '');
+  const { getTemplate, render, EDITABLE_KEYS } = require('../utils/mailTemplates');
+  if (!EDITABLE_KEYS.includes(key)) return res.status(400).json({ error: 'Unbekannte Vorlage' });
+
+  const APP_URL = process.env.APP_URL ||
+    (process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : 'http://localhost:5173');
+  const tpl = await getTemplate(req.user.tenantId, key);
+  const msg = render(tpl, {
+    vorname: expert.vorname, nachname: expert.nachname,
+    link: `${APP_URL}/profil`, link_label: 'Profil vervollständigen',
+  });
+  try {
+    await getMailProvider().send({ to: expert.email, ...msg }, { tenantId: req.user.tenantId, templateKey: key });
+  } catch (err) {
+    return res.status(502).json({ error: `Versand fehlgeschlagen: ${err.message}` });
+  }
+  await req.audit({ action: 'expert.standardmail', resource: 'experts', resourceId: expert.id, newValue: { vorlage: key } });
+  res.locals.auditLogged = true;
+  res.json({ ok: true, message: `"${tpl.name}" an ${expert.email} versendet.` });
+});
+
 /** Eigenes Profil (Experte). */
 router.get('/me', async (req, res) => {
   const expert = await db('experts').where({ user_id: req.user.id }).first();
@@ -603,8 +632,11 @@ router.get('/:id(\\d+)/documents/:docId(\\d+)/download', async (req, res) => {
     return res.status(403).json({ error: 'Keine Berechtigung' });
   }
   const doc = await db('documents').where({ id: Number(req.params.docId), expert_id: expert.id }).first();
-  if (!doc || !storage.exists(doc.storage_ref)) {
-    return res.status(404).json({ error: 'Dokument nicht gefunden' });
+  if (!doc) return res.status(404).json({ error: 'Dokument nicht gefunden' });
+  if (!storage.exists(doc.storage_ref)) {
+    return res.status(410).json({
+      error: 'Die Datei liegt nicht mehr im Speicher. Meist fehlt in Railway das Volume (STORAGE_DIR), dann gehen Uploads bei jedem Deploy verloren. Bitte Volume einrichten und die Datei erneut hochladen.',
+    });
   }
   await req.audit({ action: 'document.download', resource: 'documents', resourceId: doc.id });
   res.setHeader('Content-Type', doc.mimetype || 'application/pdf');
@@ -620,7 +652,12 @@ router.get('/:id(\\d+)/documents/:docId(\\d+)/view', async (req, res) => {
     return res.status(403).json({ error: 'Keine Berechtigung' });
   }
   const doc = await db('documents').where({ id: Number(req.params.docId), expert_id: expert.id }).first();
-  if (!doc || !storage.exists(doc.storage_ref)) return res.status(404).json({ error: 'Dokument nicht gefunden' });
+  if (!doc) return res.status(404).json({ error: 'Dokument nicht gefunden' });
+  if (!storage.exists(doc.storage_ref)) {
+    return res.status(410).json({
+      error: 'Die Datei liegt nicht mehr im Speicher. Meist fehlt in Railway das Volume (STORAGE_DIR), dann gehen Uploads bei jedem Deploy verloren. Bitte Volume einrichten und die Datei erneut hochladen.',
+    });
+  }
   await req.audit({ action: 'document.view', resource: 'documents', resourceId: doc.id });
   res.setHeader('Content-Type', doc.mimetype || 'application/pdf');
   res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(doc.filename)}"`);
