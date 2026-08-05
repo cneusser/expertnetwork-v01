@@ -145,6 +145,16 @@ export default function AdminExperts() {
           <strong>{auswahl.length} ausgewählt</strong>
           <button type="button" className="btn" style={{ width: 'auto', padding: '7px 16px' }}
             onClick={() => { setMail({ subject: '', body_text: '' }); setMailOffen(true); }}>Direktmail schreiben</button>
+          <button type="button" className="btn" style={{ width: 'auto', padding: '7px 16px', background: 'transparent', color: 'var(--navy)', border: '1px solid var(--grey-200)' }}
+            onClick={async () => {
+              if (!window.confirm(`${auswahl.length} Profil(e) freigeben? Sie erscheinen danach im Matching und in Shortlists.`)) return;
+              try {
+                const d = await api.post('/api/experts/freigeben', { expert_ids: auswahl, freigeben: true });
+                setInviteMsg({ ok: true, text: d.message });
+                setAuswahl([]);
+                api.get('/api/experts').then((x) => setExperts(x.experts));
+              } catch (err) { setInviteMsg({ ok: false, text: err.message }); }
+            }}>Freigeben</button>
           <button type="button" className="tab" style={{ padding: 0 }} onClick={() => setAuswahl([])}>Auswahl aufheben</button>
         </p>
       )}

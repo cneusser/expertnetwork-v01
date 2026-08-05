@@ -511,6 +511,32 @@ router.post('/direktmail', requireRole('admin'), async (req, res) => {
     message: `${gesendet} Mail(s) versendet${uebersprungen.length ? `, ${uebersprungen.length} übersprungen` : ''}.` });
 });
 
+/**
+ * v1.20.1 — Experten freigeben (einzeln oder mehrere). Selbstregistrierte
+ * bleiben nach der Anmeldung auf 'registriert' und warten auf die Pruefung;
+ * dieser Endpunkt schaltet sie frei (Status + Konto-Freigabe) oder setzt sie
+ * wieder zurueck.
+ */
+router.post('/freigeben', requireRole('admin'), async (req, res) => {
+  const ids = Array.isArray(req.body?.expert_ids) ? req.body.expert_ids.map(Number).filter(Boolean) : [];
+  if (!ids.length) return res.status(400).json({ error: 'Keine Auswahl' });
+  const freigeben = req.body?.freigeben !== false;
+  const experten = await db('experts').whereIn('id', ids).where({ tenant_id: req.user.tenantId });
+  for (const ex of experten) {
+    await db('experts').where({ id: ex.id }).update({ status: freigeben ? 'freigegeben' : 'registriert' });
+    if (ex.user_id) await db('users').where({ id: ex.user_id }).update({ is_approved: freigeben });
+    await db('audit_log').insert({
+      tenant_id: req.user.tenantId, actor_id: req.user.id,
+      action: freigeben ? 'expert.freigegeben' : 'expert.freigabe_zurueck',
+      resource: 'experts', resource_id: ex.id,
+      old_value_json: JSON.stringify({ status: ex.status }), ip: req.ip,
+    });
+  }
+  res.locals.auditLogged = true;
+  res.json({ ok: true, anzahl: experten.length,
+    message: `${experten.length} Profil(e) ${freigeben ? 'freigegeben' : 'zurückgesetzt'}.` });
+});
+
 /** Eigenes Profil (Experte). */
 router.get('/me', async (req, res) => {
   const expert = await db('experts').where({ user_id: req.user.id }).first();

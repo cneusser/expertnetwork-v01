@@ -94,6 +94,13 @@ export default function AdminExpertDetail() {
         <a href={`/api/experts/${id}/profil-pptx`} style={{ cursor: 'pointer' }}>
           Profil als PPTX</a>
         {' · '}
+        <a style={{ cursor: 'pointer', fontWeight: expert.status === 'freigegeben' ? 400 : 700 }} onClick={async () => {
+          const frei = expert.status !== 'freigegeben';
+          if (!window.confirm(frei ? 'Profil freigeben? Es erscheint danach im Matching und in Shortlists.' : 'Freigabe zurücknehmen?')) return;
+          const r = await api.post('/api/experts/freigeben', { expert_ids: [Number(id)], freigeben: frei });
+          window.alert(r.message); load();
+        }}>{expert.status === 'freigegeben' ? 'Freigabe zurücknehmen' : 'Freigeben'}</a>
+        {' · '}
         <a style={{ cursor: 'pointer' }} onClick={async () => {
           if (!window.confirm(`Verfügbarkeits-Erinnerung an ${expert.email} senden?`)) return;
           try { const r = await api.post(`/api/experts/${id}/verfuegbarkeit-erinnerung`); window.alert(r.message); }

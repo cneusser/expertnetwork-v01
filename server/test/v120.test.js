@@ -62,3 +62,24 @@ test('Direktmail: Platzhalter gefüllt, Outbox und Audit, Consent-Schranke bei F
   assert.strictEqual((await post('/api/experts/direktmail', { expert_ids: [adrian.id] }, { cookie: adminCookie })).status, 400);
   assert.strictEqual((await post('/api/experts/direktmail', { expert_ids: [adrian.id], subject: 'a', body_text: 'b' })).status, 401);
 });
+
+test('Experten freigeben und zurücksetzen (Status + Konto)', async () => {
+  const [ex] = await db('experts').insert({
+    tenant_id: 1, vorname: 'Frei', nachname: 'Gabe', email: 'frei@gabe.example', status: 'registriert',
+  }).returning('*');
+  const [u] = await db('users').insert({
+    tenant_id: 1, email: 'frei@gabe.example', role: 'expert', is_approved: false, password_hash: 'x',
+  }).returning('*');
+  await db('experts').where({ id: ex.id }).update({ user_id: u.id });
+
+  const frei = await post('/api/experts/freigeben', { expert_ids: [ex.id], freigeben: true }, { cookie: adminCookie });
+  assert.strictEqual(frei.status, 200);
+  assert.strictEqual((await db('experts').where({ id: ex.id }).first()).status, 'freigegeben');
+  assert.strictEqual((await db('users').where({ id: u.id }).first()).is_approved, true);
+  assert.ok(await db('audit_log').where({ action: 'expert.freigegeben', resource_id: ex.id }).first());
+
+  const zurueck = await post('/api/experts/freigeben', { expert_ids: [ex.id], freigeben: false }, { cookie: adminCookie });
+  assert.strictEqual(zurueck.status, 200);
+  assert.strictEqual((await db('experts').where({ id: ex.id }).first()).status, 'registriert');
+  assert.strictEqual((await post('/api/experts/freigeben', { expert_ids: [ex.id] })).status, 401);
+});
