@@ -1,0 +1,64 @@
+/** v1.20.0: Direktmail an ausgewählte Experten. */
+const { test, before, after } = require('node:test');
+const assert = require('node:assert');
+const { db } = require('../db/knex');
+const { seed } = require('../db/seed');
+const { importAll } = require('../db/import-experts');
+const { app } = require('../index');
+
+let server; let baseUrl; let adminCookie; let adrian; let malz;
+const post = (p, body, h = {}) =>
+  fetch(baseUrl + p, { method: 'POST', headers: { 'Content-Type': 'application/json', ...h }, body: JSON.stringify(body || {}) });
+
+before(async () => {
+  await db.migrate.latest();
+  await seed();
+  await importAll();
+  adrian = await db('experts').where({ email: 'adrian@rethink-interim.ch' }).first();
+  malz = await db('experts').where({ email: 'g.malzkorn@malzkorn-mc.de' }).first();
+  await db('experts').where({ id: adrian.id }).update({ status: 'freigegeben' });
+  server = app.listen(0);
+  baseUrl = `http://127.0.0.1:${server.address().port}`;
+  adminCookie = (await post('/api/auth/login', {
+    email: process.env.ADMIN_EMAIL || 'admin@phalanx.example',
+    password: process.env.ADMIN_PASSWORD || 'phalanx-admin-2026',
+  })).headers.get('set-cookie');
+});
+
+after(async () => { server.close(); await db.destroy(); });
+
+test('Direktmail: Platzhalter gefüllt, Outbox und Audit, Consent-Schranke bei Freigegebenen', async () => {
+  // Eingeladener Kontakt darf angeschrieben werden (Anbahnung)
+  const res = await post('/api/experts/direktmail', {
+    expert_ids: [malz.id], subject: 'Kurze Rückfrage, {{vorname}}',
+    body_text: 'Hallo {{vorname}} {{nachname}},\n\nmagst du dein Profil noch vervollständigen?',
+  }, { cookie: adminCookie });
+  assert.strictEqual(res.status, 200);
+  assert.strictEqual((await res.json()).gesendet, 1);
+  const mail = await db('mail_outbox').where({ to_email: malz.email, template_key: 'direktmail' }).first();
+  assert.match(mail.subject, /Kurze Rückfrage, /);
+  assert.match(mail.body_html, new RegExp(malz.vorname));
+  assert.ok(await db('audit_log').where({ action: 'expert.direktmail', resource_id: malz.id }).first(), 'auditiert');
+
+  // Freigegebener ohne Einwilligung wird übersprungen (Consent sicher entfernen)
+  await db('consents').where({ user_id: adrian.user_id }).delete();
+  const ohne = await post('/api/experts/direktmail', {
+    expert_ids: [adrian.id], subject: 'Test', body_text: 'Text',
+  }, { cookie: adminCookie });
+  const d = await ohne.json();
+  assert.strictEqual(d.gesendet, 0);
+  assert.match(d.uebersprungen[0], /Einwilligung/);
+
+  // Mit Einwilligung geht es
+  await db('consents').insert({
+    tenant_id: adrian.tenant_id, user_id: adrian.user_id, zweck: 'talentpool',
+    text_version: 't', expires_at: new Date(Date.now() + 86400000 * 30),
+  });
+  const mit = await post('/api/experts/direktmail', { expert_ids: [adrian.id], subject: 'Test 2', body_text: 'Text' }, { cookie: adminCookie });
+  assert.strictEqual((await mit.json()).gesendet, 1);
+
+  // Validierung und Zugriffsschutz
+  assert.strictEqual((await post('/api/experts/direktmail', { expert_ids: [], subject: 'x', body_text: 'y' }, { cookie: adminCookie })).status, 400);
+  assert.strictEqual((await post('/api/experts/direktmail', { expert_ids: [adrian.id] }, { cookie: adminCookie })).status, 400);
+  assert.strictEqual((await post('/api/experts/direktmail', { expert_ids: [adrian.id], subject: 'a', body_text: 'b' })).status, 401);
+});

@@ -467,6 +467,50 @@ router.post('/:id(\\d+)/verfuegbarkeit-erinnerung', requireRole('admin'), async 
   res.json({ ok: true, message: `Erinnerung an ${expert.email} versendet.` });
 });
 
+/**
+ * v1.20.0 — Direktmail an ausgewaehlte Experten (Admin). Freier Text mit
+ * Platzhaltern {{vorname}} und {{nachname}}, geht an die uebergebenen IDs.
+ * DSGVO: An Personen mit Konto nur mit aktiver Einwilligung; rein
+ * administrativ importierte Kontakte (noch kein Konto) duerfen im Rahmen
+ * der Anbahnung angeschrieben werden, das protokolliert die Outbox.
+ */
+router.post('/direktmail', requireRole('admin'), async (req, res) => {
+  const ids = Array.isArray(req.body?.expert_ids) ? req.body.expert_ids.map(Number).filter(Boolean) : [];
+  const subject = String(req.body?.subject || '').trim().slice(0, 200);
+  const body = String(req.body?.body_text || '').trim().slice(0, 8000);
+  if (!ids.length) return res.status(400).json({ error: 'Keine Empfänger ausgewählt' });
+  if (!subject || !body) return res.status(400).json({ error: 'Betreff und Text erforderlich' });
+  if (ids.length > 200) return res.status(400).json({ error: 'Maximal 200 Empfänger auf einmal' });
+
+  const { render } = require('../utils/mailTemplates');
+  const experten = await db('experts').whereIn('id', ids).where({ tenant_id: req.user.tenantId }).whereNotNull('email');
+  let gesendet = 0;
+  const uebersprungen = [];
+  for (const ex of experten) {
+    if (ex.user_id) {
+      const consent = await db('consents')
+        .where({ user_id: ex.user_id, zweck: 'talentpool' })
+        .whereNull('revoked_at').where('expires_at', '>', db.fn.now()).first();
+      if (!consent && ex.status !== 'eingeladen' && ex.status !== 'registriert') {
+        uebersprungen.push(`${ex.email}: keine aktive Einwilligung`);
+        continue;
+      }
+    }
+    const msg = render({ subject, body_text: body }, { vorname: ex.vorname, nachname: ex.nachname });
+    try {
+      await getMailProvider().send({ to: ex.email, ...msg }, { tenantId: req.user.tenantId, templateKey: 'direktmail' });
+      await db('audit_log').insert({
+        tenant_id: req.user.tenantId, actor_id: req.user.id, action: 'expert.direktmail',
+        resource: 'experts', resource_id: ex.id, new_value_json: JSON.stringify({ subject }), ip: req.ip,
+      });
+      gesendet++;
+    } catch (err) { uebersprungen.push(`${ex.email}: ${err.message}`); }
+  }
+  res.locals.auditLogged = true;
+  res.json({ ok: true, gesendet, uebersprungen,
+    message: `${gesendet} Mail(s) versendet${uebersprungen.length ? `, ${uebersprungen.length} übersprungen` : ''}.` });
+});
+
 /** Eigenes Profil (Experte). */
 router.get('/me', async (req, res) => {
   const expert = await db('experts').where({ user_id: req.user.id }).first();

@@ -25,6 +25,10 @@ export default function AdminExperts() {
   const [statusFilter, setStatusFilter] = useState('alle');
   const [nurUnbestaetigt, setNurUnbestaetigt] = useState(false);
   const [inviteMsg, setInviteMsg] = useState(null);
+  const [auswahl, setAuswahl] = useState([]);
+  const [mailOffen, setMailOffen] = useState(false);
+  const [mail, setMail] = useState({ subject: '', body_text: '' });
+  const [mailBusy, setMailBusy] = useState(false);
   const [skillVorschlaege, setSkillVorschlaege] = useState([]);
   const ladeVorschlaege = () => api.get('/api/experts/skill-vorschlaege').then((d) => setSkillVorschlaege(d.vorschlaege)).catch(() => {});
 
@@ -32,6 +36,10 @@ export default function AdminExperts() {
     api.get('/api/experts').then((d) => setExperts(d.experts)).catch((e) => setError(e.message));
     ladeVorschlaege();
   }, []);
+
+  const sichtbar = (experts || [])
+    .filter((e) => statusFilter === 'alle' || e.status === statusFilter)
+    .filter((e) => !nurUnbestaetigt || e.freshness?.nichtBestaetigt);
 
   return (
     <Layout>
@@ -132,17 +140,63 @@ export default function AdminExperts() {
           </label>
         </p>
       )}
+      {experts && auswahl.length > 0 && (
+        <p style={{ margin: '0 0 12px', display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+          <strong>{auswahl.length} ausgewählt</strong>
+          <button type="button" className="btn" style={{ width: 'auto', padding: '7px 16px' }}
+            onClick={() => { setMail({ subject: '', body_text: '' }); setMailOffen(true); }}>Direktmail schreiben</button>
+          <button type="button" className="tab" style={{ padding: 0 }} onClick={() => setAuswahl([])}>Auswahl aufheben</button>
+        </p>
+      )}
+
+      {mailOffen && (
+        <div onClick={() => setMailOffen(false)}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(15,42,74,0.45)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <div onClick={(e) => e.stopPropagation()} className="card" style={{ width: 'min(680px, 96vw)', maxHeight: '88vh', overflowY: 'auto' }}>
+            <h3>Direktmail an {auswahl.length} Empfänger
+              <button className="tab" style={{ float: 'right' }} onClick={() => setMailOffen(false)}>Schließen</button></h3>
+            <p className="muted" style={{ fontSize: 13 }}>
+              Platzhalter: {'{{vorname}}'} und {'{{nachname}}'}. Jede Mail geht einzeln raus und steht danach in der Outbox.
+            </p>
+            <div className="field" style={{ marginTop: 10 }}>
+              <label>Betreff</label>
+              <input type="text" value={mail.subject} onChange={(e) => setMail({ ...mail, subject: e.target.value })} />
+            </div>
+            <div className="field">
+              <label>Text</label>
+              <textarea rows={10} value={mail.body_text} style={{ width: '100%', fontFamily: 'inherit', fontSize: 14, lineHeight: 1.5 }}
+                onChange={(e) => setMail({ ...mail, body_text: e.target.value })} />
+            </div>
+            <button className="btn" style={{ width: 'auto' }} disabled={mailBusy || !mail.subject || !mail.body_text}
+              onClick={async () => {
+                setMailBusy(true);
+                try {
+                  const d = await api.post('/api/experts/direktmail', { expert_ids: auswahl, ...mail });
+                  setInviteMsg({ ok: true, text: d.message + (d.uebersprungen.length ? ` Übersprungen: ${d.uebersprungen.join('; ')}` : '') });
+                  setMailOffen(false); setAuswahl([]);
+                } catch (err) { setInviteMsg({ ok: false, text: err.message }); }
+                finally { setMailBusy(false); }
+              }}>{mailBusy ? 'Wird versendet…' : 'Jetzt senden'}</button>
+          </div>
+        </div>
+      )}
+
       {experts && (
         <table className="table">
           <thead>
-            <tr><th>Name</th><th>Rolle</th><th>Verfügbarkeit</th><th>Frische</th><th>Tagessatz</th><th>Skills</th><th>Status</th><th /></tr>
+            <tr>
+              <th style={{ width: 28 }}>
+                <input type="checkbox" title="Alle sichtbaren auswählen"
+                  checked={auswahl.length > 0 && sichtbar.length > 0 && auswahl.length === sichtbar.length}
+                  onChange={(e) => setAuswahl(e.target.checked ? sichtbar.map((x) => x.id) : [])} />
+              </th>
+              <th>Name</th><th>Rolle</th><th>Verfügbarkeit</th><th>Frische</th><th>Tagessatz</th><th>Skills</th><th>Status</th><th /></tr>
           </thead>
           <tbody>
-            {experts
-              .filter((e) => statusFilter === 'alle' || e.status === statusFilter)
-              .filter((e) => !nurUnbestaetigt || e.freshness?.nichtBestaetigt)
-              .map((e) => (
+            {sichtbar.map((e) => (
               <tr key={e.id}>
+                <td><input type="checkbox" checked={auswahl.includes(e.id)}
+                  onChange={(ev) => setAuswahl(ev.target.checked ? [...auswahl, e.id] : auswahl.filter((x) => x !== e.id))} /></td>
                 <td><Link to={`/admin/experten/${e.id}`}><strong>{e.vorname} {e.nachname}</strong></Link><br />
                   <span className="muted">{e.firma}</span></td>
                 <td>{e.berufsbezeichnung?.split('—')[0]}</td>
