@@ -25,6 +25,8 @@ export default function AdminExperts() {
   const [statusFilter, setStatusFilter] = useState('alle');
   const [nurUnbestaetigt, setNurUnbestaetigt] = useState(false);
   const [inviteMsg, setInviteMsg] = useState(null);
+  const [speicher, setSpeicher] = useState(null);
+  const ladeSpeicher = () => api.get('/api/experts/speicher-check').then(setSpeicher).catch(() => {});
   const [auswahl, setAuswahl] = useState([]);
   const [mailOffen, setMailOffen] = useState(false);
   const [mail, setMail] = useState({ subject: '', body_text: '' });
@@ -35,6 +37,7 @@ export default function AdminExperts() {
   useEffect(() => {
     api.get('/api/experts').then((d) => setExperts(d.experts)).catch((e) => setError(e.message));
     ladeVorschlaege();
+    ladeSpeicher();
   }, []);
 
   const sichtbar = (experts || [])
@@ -105,6 +108,23 @@ export default function AdminExperts() {
         </p>
       </div>
       {error && <div className="msg msg-error">{error}</div>}
+      {speicher && speicher.betroffen.length > 0 && (
+        <div className="msg msg-error" style={{ marginBottom: 14 }}>
+          <strong>{speicher.fehlend} hinterlegte Datei(en) fehlen im Speicher</strong>, betroffen sind {speicher.betroffen.length} Profil(e):{' '}
+          {speicher.betroffen.map((b) => `${b.vorname} ${b.nachname}`).join(', ')}.
+          <br /><span style={{ fontSize: 13 }}>{speicher.hinweis}</span>
+          <br />
+          <button type="button" className="btn" style={{ width: 'auto', marginTop: 8, padding: '7px 16px' }}
+            onClick={async () => {
+              if (!window.confirm(`${speicher.betroffen.length} Person(en) freundlich um erneuten Upload bitten?\n\nBitte vorher das Railway-Volume einrichten, sonst gehen die neuen Uploads wieder verloren.`)) return;
+              try {
+                const d = await api.post('/api/experts/speicher-check/anschreiben');
+                setInviteMsg({ ok: true, text: d.message + (d.fehler.length ? ` Fehler: ${d.fehler.join('; ')}` : '') });
+              } catch (err) { setInviteMsg({ ok: false, text: err.message }); }
+            }}>Betroffene anschreiben</button>
+        </div>
+      )}
+
       {skillVorschlaege.length > 0 && (
         <div className="notice" style={{ marginBottom: 14 }}>
           <strong>Skill-Vorschläge zur Freigabe ({skillVorschlaege.length}):</strong>{' '}

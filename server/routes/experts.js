@@ -566,6 +566,71 @@ router.post('/:id(\\d+)/standardmail', requireRole('admin'), async (req, res) =>
   res.json({ ok: true, message: `"${tpl.name}" an ${expert.email} versendet.` });
 });
 
+/**
+ * v1.22.0 — Speicher-Pruefung: findet Dokumente, deren Datei fehlt
+ * (typisch nach Deploys ohne Volume) und schreibt die Betroffenen an.
+ * GET liefert den Befund, POST verschickt die Bitte um erneuten Upload.
+ */
+async function fehlendeDateien(tenantId) {
+  const docs = await db('documents as d')
+    .join('experts as e', 'e.id', 'd.expert_id')
+    .where('e.tenant_id', tenantId)
+    .select('d.id', 'd.filename', 'd.kategorie', 'd.version', 'd.storage_ref', 'd.uploaded_at',
+      'e.id as expert_id', 'e.vorname', 'e.nachname', 'e.email');
+  const betroffen = new Map();
+  for (const d of docs) {
+    if (storage.exists(d.storage_ref)) continue;
+    const eintrag = betroffen.get(d.expert_id) || {
+      expert_id: d.expert_id, vorname: d.vorname, nachname: d.nachname, email: d.email, dateien: [],
+    };
+    eintrag.dateien.push({ id: d.id, filename: d.filename, kategorie: d.kategorie, version: d.version, uploaded_at: d.uploaded_at });
+    betroffen.set(d.expert_id, eintrag);
+  }
+  return { gesamt: docs.length, betroffen: [...betroffen.values()] };
+}
+
+router.get('/speicher-check', requireRole('admin'), async (req, res) => {
+  const befund = await fehlendeDateien(req.user.tenantId);
+  res.json({
+    ...befund,
+    fehlend: befund.betroffen.reduce((s, b) => s + b.dateien.length, 0),
+    hinweis: befund.betroffen.length
+      ? 'Fehlende Dateien deuten auf ein fehlendes Railway-Volume hin (STORAGE_DIR). Bitte zuerst Volume einrichten, dann die Betroffenen anschreiben.'
+      : 'Alle hinterlegten Dateien sind vorhanden.',
+  });
+});
+
+router.post('/speicher-check/anschreiben', requireRole('admin'), async (req, res) => {
+  const { betroffen } = await fehlendeDateien(req.user.tenantId);
+  const { getTemplate, render } = require('../utils/mailTemplates');
+  const APP_URL = process.env.APP_URL ||
+    (process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : 'http://localhost:5173');
+  const tpl = await getTemplate(req.user.tenantId, 'datei_erneut_hochladen');
+
+  let gesendet = 0;
+  const fehler = [];
+  for (const b of betroffen) {
+    if (!b.email) { fehler.push(`${b.vorname} ${b.nachname}: keine E-Mail`); continue; }
+    const liste = b.dateien.map((d) => `${d.filename} (${d.kategorie})`).join('\n');
+    const msg = render(tpl, {
+      vorname: b.vorname, nachname: b.nachname, dateien: liste,
+      link: `${APP_URL}/profil`, link_label: 'Datei erneut hochladen',
+    });
+    try {
+      await getMailProvider().send({ to: b.email, ...msg }, { tenantId: req.user.tenantId, templateKey: 'datei_erneut_hochladen' });
+      await db('audit_log').insert({
+        tenant_id: req.user.tenantId, actor_id: req.user.id, action: 'expert.datei_nachforderung',
+        resource: 'experts', resource_id: b.expert_id,
+        new_value_json: JSON.stringify({ dateien: b.dateien.map((d) => d.filename) }), ip: req.ip,
+      });
+      gesendet++;
+    } catch (err) { fehler.push(`${b.email}: ${err.message}`); }
+  }
+  res.locals.auditLogged = true;
+  res.json({ ok: true, gesendet, fehler,
+    message: `${gesendet} Person(en) um erneuten Upload gebeten${fehler.length ? `, ${fehler.length} Fehler` : ''}.` });
+});
+
 /** Eigenes Profil (Experte). */
 router.get('/me', async (req, res) => {
   const expert = await db('experts').where({ user_id: req.user.id }).first();

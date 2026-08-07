@@ -198,6 +198,26 @@ Wenn gerade der falsche Zeitpunkt ist oder du kein Interesse mehr hast, sag einf
 Herzliche Grüße
 Christian`,
   },
+  datei_erneut_hochladen: {
+    name: 'Bitte Datei erneut hochladen (nach Speicherpanne)',
+    subject: 'Kleine Panne bei uns: bitte deinen Upload wiederholen',
+    body_text: `Hallo {{vorname}},
+
+kurze offene Info: Bei einem Update unserer Plattform sind hochgeladene Dateien verloren gegangen, darunter deine. Der Fehler lag bei uns, nicht bei dir, und er ist behoben.
+
+Betroffen ist bei dir:
+
+{{dateien}}
+
+Magst du das nochmal hochladen? Es geht direkt in deinem Profil:
+
+{{link}}
+
+Tut mir leid für den Umstand. Ohne die Unterlagen können wir dich Kunden leider nicht vorschlagen, deshalb die Bitte.
+
+Herzliche Grüße
+Christian`,
+  },
 };
 
 const EDITABLE_KEYS = Object.keys(DEFAULTS);
