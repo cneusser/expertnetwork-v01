@@ -1,5 +1,5 @@
 /** Resend-Implementierung des MailProvider-Interface (HTTP-API, kein SDK nötig). */
-async function send({ to, subject, html, text }) {
+async function send({ to, subject, html, text, attachments }) {
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: {
@@ -13,6 +13,9 @@ async function send({ to, subject, html, text }) {
       subject,
       html,
       text,
+      ...(attachments?.length
+        ? { attachments: attachments.map((a) => ({ filename: a.filename, content: Buffer.from(a.content).toString('base64') })) }
+        : {}),
     }),
   });
   if (!res.ok) {

@@ -218,6 +218,35 @@ Tut mir leid für den Umstand. Ohne die Unterlagen können wir dich Kunden leide
 Herzliche Grüße
 Christian`,
   },
+  gutschrift_versand: {
+    name: 'Gutschrift an Interim Manager',
+    subject: 'Deine Abrechnung für {{periode}}',
+    body_text: `Hallo {{vorname}},
+
+danke für deinen Einsatz im Mandat {{mandat}}. Anbei findest du die Gutschrift {{beleg_nr}} über {{betrag}} brutto für {{periode}}.
+
+Das ist eine Gutschrift nach Paragraf 14 Absatz 2 UStG, du musst uns also keine eigene Rechnung schicken. Wir überweisen den Betrag auf die hinterlegte Bankverbindung.
+
+Falls etwas nicht stimmt, schreib mir einfach kurz, dann korrigieren wir das.
+
+Herzliche Grüße
+Christian`,
+  },
+  rechnung_versand: {
+    name: 'Rechnung an Kunden',
+    subject: 'Rechnung {{beleg_nr}} für {{periode}}',
+    body_text: `Sehr geehrte Damen und Herren,
+
+anbei erhalten Sie die Rechnung {{beleg_nr}} über {{betrag}} brutto für den Leistungszeitraum {{periode}} im Mandat {{mandat}}.
+
+Der Betrag ist ohne Abzug innerhalb von 14 Tagen fällig. Die Einzelheiten zu den abgerechneten Tagen finden Sie auf dem Beleg.
+
+Bei Rückfragen melden Sie sich gerne jederzeit bei mir.
+
+Mit freundlichen Grüßen
+Christian Neusser
+Phalanx GmbH`,
+  },
 };
 
 const EDITABLE_KEYS = Object.keys(DEFAULTS);

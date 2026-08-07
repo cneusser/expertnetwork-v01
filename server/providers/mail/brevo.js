@@ -9,7 +9,7 @@ function parseFrom() {
   return m ? { name: m[1].trim(), email: m[2].trim() } : { name: 'Phalanx Expert Network', email: raw.trim() };
 }
 
-async function send({ to, subject, html, text }) {
+async function send({ to, subject, html, text, attachments }) {
   if (!process.env.MAIL_FROM) {
     throw new Error(
       'MAIL_FROM ist nicht gesetzt. Format: "Phalanx Expert Network <adresse@verifizierte-domain>" — die Adresse muss in Brevo als Absender verifiziert sein.'
@@ -29,6 +29,10 @@ async function send({ to, subject, html, text }) {
       subject,
       htmlContent: html,
       textContent: text,
+      // v1.23.0: Anhänge (Belege) als Base64, wie von der Brevo-API erwartet
+      ...(attachments?.length
+        ? { attachment: attachments.map((a) => ({ name: a.filename, content: Buffer.from(a.content).toString('base64') })) }
+        : {}),
     }),
   });
   if (!res.ok) {

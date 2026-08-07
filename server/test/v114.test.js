@@ -17,6 +17,10 @@ before(async () => {
   await importAll();
   adrian = await db('experts').where({ email: 'adrian@rethink-interim.ch' }).first();
   await db('experts').where({ id: adrian.id }).update({ status: 'freigegeben' });
+  // Die Test-Datenbank ist geteilt: Einwilligungen aus vorherigen Testdateien
+  // wegräumen, sonst zählt die Rundmail Empfänger mit, die hier nichts zu suchen haben.
+  await db('consents').whereNot({ user_id: adrian.user_id }).delete();
+  await db('consents').where({ user_id: adrian.user_id }).delete();
   await db('consents').insert({
     tenant_id: adrian.tenant_id, user_id: adrian.user_id, zweck: 'talentpool',
     text_version: 'test', expires_at: new Date(Date.now() + 86400000 * 100),
