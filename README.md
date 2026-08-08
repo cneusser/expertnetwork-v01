@@ -71,6 +71,15 @@ Deckt ab: Registrierung inkl. Consent-Pflicht, Verifizierung, Login/Session-Cook
 - **Fehler:** zentraler Handler — keine Stacktraces an Clients.
 - Offen (organisatorisch): juristische Prüfung von Einwilligungstext/AVV, Backup-Strategie für Postgres + Volume, Content-Security-Policy-Feintuning.
 
+### Abhängigkeiten (Stand v1.24.1)
+
+- **multer 2.x** statt 1.x (1.x ist abgekündigt und hat offene Meldungen). API unverändert, wir nutzen nur `memoryStorage` und `single()`.
+- **node-cron 4.x** statt 3.x (zieht kein verwundbares `uuid` mehr nach).
+- **xlsx 0.20.3 vom SheetJS-CDN**, nicht aus der npm-Registry. SheetJS veröffentlicht seit 0.19 nicht mehr auf npm, dort liegt nur noch das alte 0.18.5 mit Prototype Pollution und ReDoS. Deshalb steht in `server/package.json` eine Tarball-URL statt einer Versionsnummer. Wenn ein Build daran scheitert, ist `cdn.sheetjs.com` nicht erreichbar, nicht der Code kaputt.
+- **overrides** in `server/package.json` heben `brace-expansion` und `image-size` auf die jeweils neueste Fassung an, auch wenn eine Abhängigkeit älter pinnt.
+- **Bewusst offen:** `image-size` (über pptxgenjs) hat Meldungen zu Endlosschleifen in den ICNS-, JXL- und HEIF-Parsern, für die es noch keine korrigierte Fassung gibt. Wir sind nicht angreifbar, weil Bild-Uploads über die Magic Bytes hart auf PNG und JPEG begrenzt sind und nur diese Dateien je in eine PPTX wandern. Sobald image-size nachzieht, greift das Override automatisch.
+- `npm warn config production Use --omit=dev instead` im Railway-Log ist keine Störung: npm leitet die Warnung aus `NODE_ENV=production` ab und schreibt sie nach stderr, Railway färbt stderr rot ein.
+
 ## Roadmap
 
 Sprint 1 Expert Directory → 2 Verfügbarkeit + Erinnerungs-Loop → 3 Tagessätze → 4 Audit-Trail-UI → 5 Suche → 6 Projekte/Matching → 7 Kommunikation → 8 Vendor-Portal/Multi-Tenant → 9 KI (CV-Extraktion, Matching-Begründung). Details: `Rechercheberichte/Expertnetwork-Fable5-Bauprompt-2026-07-11.md`.
