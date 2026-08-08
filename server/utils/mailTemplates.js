@@ -218,6 +218,26 @@ Tut mir leid für den Umstand. Ohne die Unterlagen können wir dich Kunden leide
 Herzliche Grüße
 Christian`,
   },
+  profil_check: {
+    name: 'Quartalscheck: Profil noch aktuell?',
+    subject: 'Kurze Frage: stimmt dein Profil noch?',
+    body_text: `Hallo {{vorname}},
+
+wir melden uns alle drei Monate kurz bei allen im Netzwerk, damit die Profile nicht veralten. Deshalb die eine Frage: Passt bei dir noch alles?
+
+Interessant sind vor allem drei Dinge:
+
+Deine Verfügbarkeit, dein Tagessatz und dein aktueller Lebenslauf.
+
+Hier kommst du direkt in dein Profil:
+
+{{link}}
+
+Wenn sich nichts geändert hat, brauchst du nichts zu tun. Ein aktuelles Profil hilft aber sehr, weil wir dich bei passenden Mandaten nur vorschlagen können, wenn wir wissen, dass du verfügbar bist.
+
+Herzliche Grüße
+Christian`,
+  },
   gutschrift_versand: {
     name: 'Gutschrift an Interim Manager',
     subject: 'Deine Abrechnung für {{periode}}',

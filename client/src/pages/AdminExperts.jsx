@@ -109,20 +109,18 @@ export default function AdminExperts() {
       </div>
       {error && <div className="msg msg-error">{error}</div>}
       {speicher && speicher.betroffen.length > 0 && (
-        <div className="msg msg-error" style={{ marginBottom: 14 }}>
-          <strong>{speicher.fehlend} hinterlegte Datei(en) fehlen im Speicher</strong>, betroffen sind {speicher.betroffen.length} Profil(e):{' '}
-          {speicher.betroffen.map((b) => `${b.vorname} ${b.nachname}`).join(', ')}.
-          <br /><span style={{ fontSize: 13 }}>{speicher.hinweis}</span>
-          <br />
-          <button type="button" className="btn" style={{ width: 'auto', marginTop: 8, padding: '7px 16px' }}
+        <p className="muted" style={{ fontSize: 13, marginBottom: 12 }}>
+          Speicher-Check: zu {speicher.fehlend} Eintrag/Einträgen bei {speicher.betroffen.length} Profil(en) gibt es keine Datei mehr.{' '}
+          <button type="button" className="tab" style={{ padding: 0, color: 'var(--navy)' }}
             onClick={async () => {
-              if (!window.confirm(`${speicher.betroffen.length} Person(en) freundlich um erneuten Upload bitten?\n\nBitte vorher das Railway-Volume einrichten, sonst gehen die neuen Uploads wieder verloren.`)) return;
+              if (!window.confirm(`${speicher.fehlend} verwaiste Einträge löschen? Die Dateien selbst sind ohnehin nicht mehr da.`)) return;
               try {
-                const d = await api.post('/api/experts/speicher-check/anschreiben');
-                setInviteMsg({ ok: true, text: d.message + (d.fehler.length ? ` Fehler: ${d.fehler.join('; ')}` : '') });
+                const d = await api.post('/api/experts/speicher-check/aufraeumen');
+                setInviteMsg({ ok: true, text: d.message });
+                ladeSpeicher();
               } catch (err) { setInviteMsg({ ok: false, text: err.message }); }
-            }}>Betroffene anschreiben</button>
-        </div>
+            }}>Verwaiste Einträge aufräumen</button>
+        </p>
       )}
 
       {skillVorschlaege.length > 0 && (

@@ -103,7 +103,13 @@ export default function ExpertProfil() {
               {documents.map((d) => (
                 <p key={d.id} style={{ fontSize: 13, padding: '3px 0' }}>
                   <a href={`/api/experts/${expert.id}/documents/${d.id}/view`} target="_blank" rel="noreferrer">{d.filename}</a>
-                  <span className="muted"> · {d.kategorie} · v{d.version}</span>
+                  <span className="muted"> · {d.kategorie} · v{d.version}</span>{' '}
+                  <button type="button" className="tab" style={{ padding: 0, color: '#b23a48', fontSize: 13 }}
+                    onClick={async () => {
+                      if (!window.confirm(tr(lang, `${d.filename} wirklich löschen?`, `Really delete ${d.filename}?`))) return;
+                      try { await api.del(`/api/experts/me/documents/${d.id}`); load(); }
+                      catch (err) { window.alert(err.message); }
+                    }}>{tr(lang, 'Löschen', 'Delete')}</button>
                 </p>
               ))}
               <form style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap', alignItems: 'center' }}

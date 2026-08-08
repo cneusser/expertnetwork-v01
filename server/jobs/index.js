@@ -250,4 +250,47 @@ async function runProviderDigest({ force = false } = {}) {
   return { gesendet, neu: neue.length, wieder: wieder.length };
 }
 
-module.exports = { runAvailabilityReminders, runConsentJobs, runSearchAgents, runInviteLifecycle, runProviderDigest };
+/**
+ * v1.24.0 — Quartalscheck: alle 90 Tage einmal freundlich nachfragen, ob das
+ * Profil noch stimmt. Nur an Experten mit aktiver Einwilligung, gedrosselt auf
+ * 50 Mails je Lauf, damit an einem Tag kein Schwall rausgeht.
+ */
+async function runProfilCheck({ tage = 90, maxProLauf = 50 } = {}) {
+  const { getTemplate, render } = require('../utils/mailTemplates');
+  const APP_URL = process.env.APP_URL ||
+    (process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : 'http://localhost:5173');
+  const kandidaten = await db('experts')
+    .whereIn('status', ['freigegeben', 'registriert'])
+    .whereNotNull('email').whereNotNull('user_id')
+    .where(function where() {
+      this.whereNull('letzter_profilcheck_at').orWhere('letzter_profilcheck_at', '<', DAYS(tage));
+    })
+    .orderBy('letzter_profilcheck_at', 'asc')
+    .limit(maxProLauf);
+
+  let gesendet = 0;
+  for (const expert of kandidaten) {
+    const consent = await db('consents')
+      .where({ user_id: expert.user_id, zweck: 'talentpool' })
+      .whereNull('revoked_at').where('expires_at', '>', db.fn.now()).first();
+    if (!consent) continue; // DSGVO-Schranke, wie bei allen Regelmails
+    try {
+      const tpl = await getTemplate(expert.tenant_id, 'profil_check');
+      const msg = render(tpl, {
+        vorname: expert.vorname, nachname: expert.nachname,
+        link: `${APP_URL}/profil`, link_label: 'Profil ansehen',
+      });
+      await getMailProvider().send({ to: expert.email, ...msg },
+        { tenantId: expert.tenant_id, templateKey: 'profil_check' });
+      await db('experts').where({ id: expert.id }).update({ letzter_profilcheck_at: db.fn.now() });
+      await db('audit_log').insert({
+        tenant_id: expert.tenant_id, action: 'reminder.profil_check',
+        resource: 'experts', resource_id: expert.id,
+      });
+      gesendet++;
+    } catch (err) { console.error('Profilcheck:', expert.email, err.message); }
+  }
+  return { gesendet, geprueft: kandidaten.length };
+}
+
+module.exports = { runAvailabilityReminders, runConsentJobs, runSearchAgents, runInviteLifecycle, runProviderDigest, runProfilCheck };

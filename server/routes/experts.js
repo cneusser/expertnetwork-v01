@@ -317,6 +317,19 @@ router.post('/me/documents', upload.single('file'), async (req, res) => {
   res.status(201).json({ ok: true, document: doc });
 });
 
+/** v1.24.0 — Eigenes Dokument löschen (Experte). Datei und Eintrag verschwinden zusammen. */
+router.delete('/me/documents/:docId(\\d+)', async (req, res) => {
+  const expert = await db('experts').where({ user_id: req.user.id }).first();
+  if (!expert) return res.status(404).json({ error: 'Kein Expertenprofil vorhanden' });
+  const doc = await db('documents').where({ id: Number(req.params.docId), expert_id: expert.id }).first();
+  if (!doc) return res.status(404).json({ error: 'Dokument nicht gefunden' });
+  await storage.remove(doc.storage_ref).catch(() => {});
+  await db('documents').where({ id: doc.id }).delete();
+  await req.audit({ action: 'document.delete_self', resource: 'documents', resourceId: doc.id, oldValue: doc });
+  res.locals.auditLogged = true;
+  res.json({ ok: true, message: `${doc.filename} gelöscht.` });
+});
+
 /**
  * Skill selbst vorschlagen (Experte). Bekannte, freigegebene Begriffe werden
  * sofort verknüpft; neue Begriffe entstehen als Vorschlag (is_approved=false)
@@ -631,6 +644,33 @@ router.post('/speicher-check/anschreiben', requireRole('admin'), async (req, res
     message: `${gesendet} Person(en) um erneuten Upload gebeten${fehler.length ? `, ${fehler.length} Fehler` : ''}.` });
 });
 
+/**
+ * v1.24.0 — Verwaiste Einträge aufräumen: Dokumente, deren Datei im Speicher
+ * fehlt, werden gelöscht. Sie sind für niemanden mehr nutzbar und blockieren
+ * nur die Ansicht. Jede Löschung landet im Audit-Log.
+ */
+router.post('/speicher-check/aufraeumen', requireRole('admin'), async (req, res) => {
+  const { betroffen } = await fehlendeDateien(req.user.tenantId);
+  let geloescht = 0;
+  for (const b of betroffen) {
+    const ids = b.dateien.map((d) => d.id);
+    await db('documents').whereIn('id', ids).delete();
+    geloescht += ids.length;
+    await db('audit_log').insert({
+      tenant_id: req.user.tenantId, actor_id: req.user.id, action: 'document.delete_verwaist',
+      resource: 'experts', resource_id: b.expert_id,
+      old_value_json: JSON.stringify({ dateien: b.dateien.map((d) => d.filename) }), ip: req.ip,
+    });
+  }
+  res.locals.auditLogged = true;
+  res.json({
+    ok: true, geloescht, profile: betroffen.length,
+    message: geloescht
+      ? `${geloescht} verwaiste Einträge bei ${betroffen.length} Profil(en) gelöscht.`
+      : 'Es gab nichts aufzuräumen.',
+  });
+});
+
 /** Eigenes Profil (Experte). */
 router.get('/me', async (req, res) => {
   const expert = await db('experts').where({ user_id: req.user.id }).first();
@@ -680,7 +720,8 @@ async function detail(req, res, expert) {
     watch: watch ? { notiz: watch.notiz } : null,
     blocked: Boolean(block),
     skills,
-    documents: documents.map(({ storage_ref, ...d }) => d), // interne Pfade nicht leaken
+    // interne Pfade nicht leaken, aber sichtbar machen, wenn die Datei im Speicher fehlt
+    documents: documents.map(({ storage_ref, ...d }) => ({ ...d, datei_fehlt: !storage.exists(storage_ref) })),
     availabilities,
     rates,
     consent: consent
@@ -771,6 +812,19 @@ router.post('/:id(\\d+)/documents', requireRole('admin'), upload.single('file'),
     .returning(['id', 'kategorie', 'filename', 'version']);
   await req.audit({ action: 'document.upload', resource: 'documents', resourceId: doc.id, newValue: doc });
   res.status(201).json({ ok: true, document: doc });
+});
+
+/** v1.24.0 — Dokument löschen (Admin). Auch möglich, wenn die Datei fehlt. */
+router.delete('/:id(\\d+)/documents/:docId(\\d+)', requireRole('admin'), async (req, res) => {
+  const expert = await db('experts').where({ id: Number(req.params.id), tenant_id: req.user.tenantId }).first();
+  if (!expert) return res.status(404).json({ error: 'Experte nicht gefunden' });
+  const doc = await db('documents').where({ id: Number(req.params.docId), expert_id: expert.id }).first();
+  if (!doc) return res.status(404).json({ error: 'Dokument nicht gefunden' });
+  await storage.remove(doc.storage_ref).catch(() => {});
+  await db('documents').where({ id: doc.id }).delete();
+  await req.audit({ action: 'document.delete', resource: 'documents', resourceId: doc.id, oldValue: doc });
+  res.locals.auditLogged = true;
+  res.json({ ok: true, message: `${doc.filename} gelöscht.` });
 });
 
 /* ============================== Sprint 4: Audit & DSGVO ============================== */

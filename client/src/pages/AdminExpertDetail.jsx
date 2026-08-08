@@ -267,16 +267,29 @@ export default function AdminExpertDetail() {
               {documents.map((d) => (
                 <tr key={d.id}>
                   <td><Lock size={13} style={{ verticalAlign: '-2px' }} /> {KAT_LABEL[d.kategorie] || d.kategorie}</td>
-                  <td>{d.filename}</td>
+                  <td>{d.filename}{d.datei_fehlt && <><br /><span className="muted" style={{ fontSize: 12 }}>verwaister Eintrag</span></>}</td>
                   <td>{d.sprache?.toUpperCase() || '—'}</td>
                   <td>v{d.version}</td>
                   <td>{fmtDate(d.uploaded_at)}</td>
                   <td>
-                    <a href={`/api/experts/${id}/documents/${d.id}/view`} target="_blank" rel="noreferrer"
-                      style={{ marginRight: 12 }}>
-                      <Eye size={14} style={{ verticalAlign: '-2px' }} /> Ansehen</a>
-                    <a href={`/api/experts/${id}/documents/${d.id}/download`}>
-                      <Download size={14} style={{ verticalAlign: '-2px' }} /> Download</a>
+                    {d.datei_fehlt ? (
+                      <span className="muted">Datei fehlt im Speicher</span>
+                    ) : (
+                      <>
+                        <a href={`/api/experts/${id}/documents/${d.id}/view`} target="_blank" rel="noreferrer"
+                          style={{ marginRight: 12 }}>
+                          <Eye size={14} style={{ verticalAlign: '-2px' }} /> Ansehen</a>
+                        <a href={`/api/experts/${id}/documents/${d.id}/download`} style={{ marginRight: 12 }}>
+                          <Download size={14} style={{ verticalAlign: '-2px' }} /> Download</a>
+                      </>
+                    )}
+                    <button type="button" className="tab" style={{ padding: 0, color: '#b23a48' }}
+                      onClick={async () => {
+                        if (!window.confirm(`${d.filename} wirklich löschen?`)) return;
+                        try { await api.del(`/api/experts/${id}/documents/${d.id}`); load(); }
+                        catch (err) { window.alert(err.message); }
+                      }}>
+                      <Trash2 size={14} style={{ verticalAlign: '-2px' }} /> Löschen</button>
                   </td>
                 </tr>
               ))}
