@@ -57,7 +57,7 @@ export default function AdminExpertDetail() {
 
   if (error) return <Layout><div className="msg msg-error">{error}</div></Layout>;
   if (!data) return <Layout><p className="sub">Laden…</p></Layout>;
-  const { expert, skills, documents, availabilities, rates, consent, watch, blocked } = data;
+  const { expert, konto, skills, documents, availabilities, rates, consent, watch, blocked } = data;
   const adresse = typeof expert.adresse_json === 'string' ? JSON.parse(expert.adresse_json || '{}') : (expert.adresse_json || {});
   const sprachen = typeof expert.sprachen_json === 'string' ? JSON.parse(expert.sprachen_json || '[]') : (expert.sprachen_json || []);
 
@@ -155,6 +155,26 @@ export default function AdminExpertDetail() {
         <p className="muted" style={{ marginBottom: 18 }}>
           Einwilligung erteilt am {fmtDate(consent.granted_at)} (Version {consent.text_version}),
           gültig bis {fmtDate(consent.expires_at)}.
+        </p>
+      )}
+
+      {konto && (
+        <p className="muted" style={{ marginBottom: 18, fontSize: 13 }}>
+          Konto: {konto.email}
+          {konto.email_weicht_ab && <span style={{ color: '#b23a48' }}> (Profil führt {expert.email})</span>}
+          {' · '}{konto.email_bestaetigt ? 'E-Mail bestätigt' : 'E-Mail noch nicht bestätigt'}
+          {' · '}{konto.passwort_gesetzt ? 'Passwort gesetzt' : 'noch kein eigenes Passwort'}
+          {' · '}{konto.letzter_login ? `zuletzt angemeldet ${fmtDate(konto.letzter_login)}` : 'noch nie angemeldet'}
+          {' · '}
+          <button type="button" className="tab" style={{ padding: 0, color: 'var(--navy)' }}
+            onClick={async () => {
+              const ziel = window.prompt('Zugangslink senden an:', konto.email);
+              if (!ziel) return;
+              try {
+                const d = await api.post(`/api/experts/${id}/konto/zugang-link`, { email: ziel });
+                setInfo(d.message); load();
+              } catch (err) { window.alert(err.message); }
+            }}>Zugangslink senden</button>
         </p>
       )}
 

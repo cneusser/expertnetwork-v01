@@ -42,7 +42,7 @@ router.post('/register', async (req, res) => {
   const tenant = await db('tenants').where({ slug: DEFAULT_TENANT_SLUG }).first();
   if (!tenant) return res.status(500).json({ error: 'Tenant fehlt (Seed ausführen)' });
 
-  const existing = await db('users').where({ email: email.toLowerCase() }).first();
+  const existing = await db('users').whereRaw('lower(trim(email)) = ?', [email.trim().toLowerCase()]).first();
   if (existing) return res.status(409).json({ error: 'E-Mail-Adresse bereits registriert' });
 
   const passwordHash = await bcrypt.hash(password, 10);
@@ -188,7 +188,9 @@ router.post('/login', async (req, res) => {
   const { email, password } = req.body || {};
   if (!email || !password) return res.status(400).json({ error: 'E-Mail und Passwort erforderlich' });
 
-  const user = await db('users').where({ email: String(email).toLowerCase() }).first();
+  // v1.24.2: gegen die gespeicherte Adresse ohne Ruecksicht auf Gross- und
+  // Kleinschreibung vergleichen, sonst sperren importierte Konten aus.
+  const user = await db('users').whereRaw('lower(trim(email)) = ?', [String(email).trim().toLowerCase()]).first();
   const valid = user && (await bcrypt.compare(password, user.password_hash));
   if (!valid) return res.status(401).json({ error: 'E-Mail oder Passwort falsch' });
   if (!user.email_verified_at) {
@@ -326,8 +328,8 @@ router.post('/stop-impersonate', requireAuth, async (req, res) => {
 
 /** Passwort vergessen — antwortet immer gleich (kein User-Enumeration-Leak). */
 router.post('/forgot-password', async (req, res) => {
-  const email = String(req.body?.email || '').toLowerCase();
-  const user = email ? await db('users').where({ email }).first() : null;
+  const email = String(req.body?.email || '').trim().toLowerCase();
+  const user = email ? await db('users').whereRaw('lower(trim(email)) = ?', [email]).first() : null;
   if (user) {
     try {
       const token = signPurposeToken(user.id, 'reset-password', '1h');
@@ -351,6 +353,9 @@ router.post('/reset-password', async (req, res) => {
     await db('users').where({ id: user.id }).update({
       password_hash: await bcrypt.hash(password, 10),
       token_version: (user.token_version || 0) + 1, // alle Sessions invalidieren
+      // v1.24.2: Wer den Link aus der Mail anklickt, hat die Adresse nachweislich.
+      // Ohne das bleiben administrativ angelegte Konten nach dem Reset ausgesperrt.
+      ...(user.email_verified_at ? {} : { email_verified_at: db.fn.now() }),
     });
     await db('audit_log').insert({
       tenant_id: user.tenant_id,

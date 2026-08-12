@@ -700,6 +700,21 @@ async function detail(req, res, expert) {
     db('career_steps').where({ expert_id: expert.id }).orderBy('id'),
   ]);
   const watch = await db('watchlist').where({ user_id: req.user.id, expert_id: expert.id }).first();
+  // v1.24.2: Zustand des Logins sichtbar machen. Ohne das sieht man von außen
+  // nicht, warum jemand nicht hereinkommt.
+  const kontoUser = expert.user_id ? await db('users').where({ id: expert.user_id }).first() : null;
+  const letzterLogin = kontoUser
+    ? await db('audit_log').where({ action: 'auth.login', actor_id: kontoUser.id }).orderBy('id', 'desc').first()
+    : null;
+  const konto = kontoUser ? {
+    email: kontoUser.email,
+    email_bestaetigt: Boolean(kontoUser.email_verified_at),
+    passwort_gesetzt: Boolean(await db('audit_log')
+      .whereIn('action', ['auth.reset_password', 'auth.accept_invite']).andWhere('actor_id', kontoUser.id).first()),
+    letzter_login: letzterLogin?.created_at || null,
+    email_weicht_ab: expert.email && String(expert.email).trim().toLowerCase() !== String(kontoUser.email).trim().toLowerCase()
+      ? kontoUser.email : null,
+  } : null;
   const block = await db('blocklist').where({ user_id: req.user.id, expert_id: expert.id }).first();
   const [skills, documents, availabilities, rates, consent] = await Promise.all([
     db('expert_skills')
@@ -715,6 +730,7 @@ async function detail(req, res, expert) {
   ]);
   res.json({
     expert,
+    konto,
     educations,
     career_steps: careerSteps,
     watch: watch ? { notiz: watch.notiz } : null,
@@ -812,6 +828,53 @@ router.post('/:id(\\d+)/documents', requireRole('admin'), upload.single('file'),
     .returning(['id', 'kategorie', 'filename', 'version']);
   await req.audit({ action: 'document.upload', resource: 'documents', resourceId: doc.id, newValue: doc });
   res.status(201).json({ ok: true, document: doc });
+});
+
+/**
+ * v1.24.2 — Zugang einrichten: schickt dem Experten einen Link, mit dem er sich
+ * ein Passwort setzen kann. Gedacht für administrativ importierte Konten, die nie
+ * ein Passwort bekommen haben, und als Nothilfe, wenn jemand nicht hereinkommt.
+ * Der Link gilt sieben Tage, das Setzen bestätigt zugleich die Adresse.
+ */
+router.post('/:id(\\d+)/konto/zugang-link', requireRole('admin'), async (req, res) => {
+  const expert = await db('experts').where({ id: Number(req.params.id), tenant_id: req.user.tenantId }).first();
+  if (!expert) return res.status(404).json({ error: 'Experte nicht gefunden' });
+  if (!expert.user_id) return res.status(400).json({ error: 'Zu diesem Profil gehört kein Benutzerkonto' });
+  const user = await db('users').where({ id: expert.user_id }).first();
+  if (!user) return res.status(404).json({ error: 'Benutzerkonto nicht gefunden' });
+
+  const ziel = String(req.body?.email || user.email || expert.email || '').trim().toLowerCase();
+  if (!ziel) return res.status(400).json({ error: 'Keine E-Mail-Adresse hinterlegt' });
+  if (ziel !== String(user.email).trim().toLowerCase()) {
+    const belegt = await db('users').whereRaw('lower(trim(email)) = ?', [ziel]).whereNot('id', user.id).first();
+    if (belegt) return res.status(409).json({ error: 'Diese Adresse gehört bereits zu einem anderen Konto' });
+    await db('users').where({ id: user.id }).update({ email: ziel });
+  }
+
+  const APP_URL = process.env.APP_URL ||
+    (process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : 'http://localhost:5173');
+  const token = signPurposeToken(user.id, 'reset-password', '7d');
+  const link = `${APP_URL}/reset-password?token=${encodeURIComponent(token)}`;
+  const text = `Hallo ${expert.vorname},
+
+hier ist dein Zugang zum Phalanx Expert Network. Über diesen Link vergibst du dir ein eigenes Passwort:
+
+${link}
+
+Der Link gilt sieben Tage. Danach meldest du dich mit ${ziel} und deinem neuen Passwort an.
+
+Herzliche Grüße
+Christian`;
+  await getMailProvider().send({
+    to: ziel,
+    subject: 'Dein Zugang zum Phalanx Expert Network',
+    text,
+    html: text.split(/\n{2,}/).map((abs) => `<p>${abs.replace(/\n/g, '<br />')}</p>`).join('\n'),
+  }, { tenantId: req.user.tenantId, templateKey: 'zugang_link' });
+
+  await req.audit({ action: 'expert.zugang_link', resource: 'experts', resourceId: expert.id, newValue: { an: ziel } });
+  res.locals.auditLogged = true;
+  res.json({ ok: true, message: `Zugangslink an ${ziel} verschickt, gültig für sieben Tage.` });
 });
 
 /** v1.24.0 — Dokument löschen (Admin). Auch möglich, wenn die Datei fehlt. */
