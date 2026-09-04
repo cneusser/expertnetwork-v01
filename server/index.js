@@ -21,7 +21,7 @@ const vendorRoutes = require('./routes/vendor');
 const tenantRoutes = require('./routes/tenants');
 const aiRoutes = require('./routes/ai');
 const publicRoutes = require('./routes/public');
-const { runAvailabilityReminders, runConsentJobs, runSearchAgents, runInviteLifecycle, runProviderDigest, runProfilCheck } = require('./jobs');
+const { runAvailabilityReminders, runConsentJobs, runSearchAgents, runInviteLifecycle, runProviderDigest, runProfilCheck, runVorregLoeschfrist } = require('./jobs');
 const { startScheduler } = require('./scheduler');
 
 // Ein fehlgeschlagener Mail-Versand o. ä. darf den Server nie mitreißen.
@@ -142,6 +142,7 @@ async function start() {
   registerJob('invite-lifecycle', runInviteLifecycle);
   registerJob('provider-digest', runProviderDigest);
   registerJob('profil-check', runProfilCheck); // quartalsweise Nachfrage, ob das Profil noch stimmt
+  registerJob('vorreg-loeschfrist', runVorregLoeschfrist); // Aufbewahrungsfrist fuer vorbereitete Kontakte
   startScheduler();
   app.listen(PORT, () => console.log(`Phalanx Expert Network Server auf Port ${PORT}`));
 }

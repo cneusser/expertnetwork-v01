@@ -5,6 +5,9 @@ import Logo from '../components/Logo';
 import LegalFooter from '../components/LegalFooter';
 
 export default function Register() {
+  const [vorname, setVorname] = useState('');
+  const [nachname, setNachname] = useState('');
+  const [linkedin, setLinkedin] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [consentText, setConsentText] = useState('');
@@ -22,7 +25,7 @@ export default function Register() {
     setError('');
     setBusy(true);
     try {
-      await api.post('/api/auth/register', { email, password, consent });
+      await api.post('/api/auth/register', { email, password, consent, vorname, nachname, linkedin });
       setDone(true);
     } catch (err) {
       setError(err.message);
@@ -54,9 +57,25 @@ export default function Register() {
         <h1>Als Experte registrieren</h1>
         <p className="sub">Du pflegst dein Profil selbst: Verfügbarkeit, Tagessätze, Dokumente.</p>
         {error && <div className="msg msg-error">{error}</div>}
+        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+          <div className="field" style={{ flex: '1 1 140px' }}>
+            <label htmlFor="vorname">Vorname</label>
+            <input id="vorname" type="text" value={vorname} onChange={(e) => setVorname(e.target.value)} required autoFocus />
+          </div>
+          <div className="field" style={{ flex: '1 1 140px' }}>
+            <label htmlFor="nachname">Nachname</label>
+            <input id="nachname" type="text" value={nachname} onChange={(e) => setNachname(e.target.value)} required />
+          </div>
+        </div>
         <div className="field">
           <label htmlFor="email">E-Mail-Adresse</label>
-          <input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoFocus />
+          <input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+        </div>
+        <div className="field">
+          <label htmlFor="linkedin">LinkedIn-Profil (optional)</label>
+          <input id="linkedin" type="text" placeholder="https://www.linkedin.com/in/..." value={linkedin}
+            onChange={(e) => setLinkedin(e.target.value)} />
+          <span className="muted" style={{ fontSize: 12 }}>Hilft uns, dein vorbereitetes Profil zuzuordnen.</span>
         </div>
         <div className="field">
           <label htmlFor="password">Passwort (mind. 10 Zeichen)</label>

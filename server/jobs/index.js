@@ -8,6 +8,7 @@
  * sondern in der API dynamisch berechnet (utils/freshness.js).
  */
 const { db } = require('../db/knex');
+const { VORREG } = require('../utils/vorregistrierung');
 const { signPurposeToken } = require('../utils/tokens');
 const { getMailProvider } = require('../providers/mail');
 const { availabilityReminderMail, reconsentMail, searchAgentMail } = require('../providers/mail/templates');
@@ -18,6 +19,7 @@ const IN_DAYS = (n) => new Date(Date.now() + n * 24 * 60 * 60 * 1000);
 async function runAvailabilityReminders() {
   const experts = await db('experts')
     .whereIn('status', ['freigegeben', 'registriert'])
+    .whereNot('status', VORREG) // v1.25.0: Vorregistrierte bekommen nie automatische Post
     .whereNotNull('email');
   let sent = 0;
   for (const expert of experts) {
@@ -51,7 +53,8 @@ async function runAvailabilityReminders() {
 }
 
 async function runConsentJobs() {
-  const experts = await db('experts').whereNotNull('user_id').whereNot('status', 'inaktiv');
+  const experts = await db('experts').whereNotNull('user_id')
+    .whereNot('status', 'inaktiv').whereNot('status', VORREG);
   let reminded = 0;
   let locked = 0;
   for (const expert of experts) {
@@ -141,7 +144,7 @@ async function runInviteLifecycle() {
     (process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : 'http://localhost:5173');
 
   const kandidaten = await db('experts')
-    .where({ status: 'eingeladen' })
+    .where({ status: 'eingeladen' }) // Vorregistrierte sind hier per Definition nicht dabei
     .whereNotNull('invite_cycle_started_at')
     .whereNotNull('user_id');
 
@@ -261,6 +264,7 @@ async function runProfilCheck({ tage = 90, maxProLauf = 50 } = {}) {
     (process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : 'http://localhost:5173');
   const kandidaten = await db('experts')
     .whereIn('status', ['freigegeben', 'registriert'])
+    .whereNot('status', VORREG)
     .whereNotNull('email').whereNotNull('user_id')
     .where(function where() {
       this.whereNull('letzter_profilcheck_at').orWhere('letzter_profilcheck_at', '<', DAYS(tage));
@@ -293,4 +297,45 @@ async function runProfilCheck({ tage = 90, maxProLauf = 50 } = {}) {
   return { gesendet, geprueft: kandidaten.length };
 }
 
-module.exports = { runAvailabilityReminders, runConsentJobs, runSearchAgents, runInviteLifecycle, runProviderDigest, runProfilCheck };
+/**
+ * v1.25.0 — Aufbewahrungsfrist für Vorregistrierte.
+ *
+ * Vorbereitete Kontaktdaten stammen aus bestehenden Geschäftsbeziehungen und
+ * stehen auf berechtigtem Interesse (Art. 6 Abs. 1 lit. f DSGVO). Wer sich nach
+ * der Frist nicht registriert hat, wird gelöscht, ohne dass jemand daran denken
+ * muss. Frist über VORREG_LOESCHFRIST_TAGE einstellbar, Standard 120 Tage.
+ *
+ * Nebenbei wird der Namensschlüssel nachgezogen, falls ein Datensatz über einen
+ * Weg entstanden ist, der ihn noch nicht setzt. Billig und hält die Zuordnung sauber.
+ */
+async function runVorregLoeschfrist() {
+  const { nameKey } = require('../utils/normalisieren');
+  const tage = Number(process.env.VORREG_LOESCHFRIST_TAGE || 120);
+
+  const ohneSchluessel = await db('experts').whereNull('name_key').select('id', 'vorname', 'nachname').limit(500);
+  for (const e of ohneSchluessel) {
+    const key = nameKey(e.vorname, e.nachname);
+    if (key) await db('experts').where({ id: e.id }).update({ name_key: key });
+  }
+
+  const faellig = await db('experts')
+    .where({ status: VORREG }).whereNull('user_id')
+    .whereNotNull('vorreg_importiert_am')
+    .where('vorreg_importiert_am', '<', DAYS(tage))
+    .select('id', 'tenant_id', 'vorname', 'nachname', 'vorreg_quelle');
+
+  for (const e of faellig) {
+    await db('experts').where({ id: e.id }).delete();
+    await db('audit_log').insert({
+      tenant_id: e.tenant_id, action: 'expert.vorregistrierung_frist_geloescht',
+      resource: 'experts', resource_id: e.id,
+      old_value_json: JSON.stringify({ quelle: e.vorreg_quelle, tage }),
+    }).catch(() => {});
+  }
+  return { geloescht: faellig.length, tage, schluessel_nachgezogen: ohneSchluessel.length };
+}
+
+module.exports = {
+  runAvailabilityReminders, runConsentJobs, runSearchAgents, runInviteLifecycle,
+  runProviderDigest, runProfilCheck, runVorregLoeschfrist,
+};

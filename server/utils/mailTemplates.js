@@ -218,6 +218,26 @@ Tut mir leid für den Umstand. Ohne die Unterlagen können wir dich Kunden leide
 Herzliche Grüße
 Christian`,
   },
+  profil_ergaenzen: {
+    name: 'Willkommen, bitte Profil vervollständigen (nach Vorregistrierung)',
+    subject: 'Willkommen im Netzwerk, {{vorname}}',
+    body_text: `Hallo {{vorname}},
+
+schön, dass du dabei bist. Dein Profil war bei uns schon vorbereitet, weil wir uns aus dem Netzwerk kennen. Deine Anmeldung haben wir damit zusammengeführt, du musst also nichts doppelt eintragen.
+
+Damit wir dich bei passenden Mandaten vorschlagen können, fehlen noch drei Dinge:
+
+Deine Schwerpunkte als Skills, dein Tagessatz und deine aktuelle Verfügbarkeit.
+
+Hier geht es direkt in dein Profil:
+
+{{link}}
+
+Das dauert keine fünf Minuten. Danach melden wir uns nur noch, wenn wirklich etwas passt.
+
+Herzliche Grüße
+Christian`,
+  },
   profil_check: {
     name: 'Quartalscheck: Profil noch aktuell?',
     subject: 'Kurze Frage: stimmt dein Profil noch?',

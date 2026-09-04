@@ -24,6 +24,8 @@ const registerSchema = z.object({
   consent: z.literal(true, { errorMap: () => ({ message: 'Einwilligung erforderlich' }) }),
   vorname: z.string().max(100).optional(),
   nachname: z.string().max(100).optional(),
+  // v1.25.0: freiwillig, hilft beim Zuordnen eines vorbereiteten Profils
+  linkedin: z.string().max(300).optional(),
 });
 
 /** Einwilligungstext für das Registrierungsformular. */
@@ -32,6 +34,64 @@ router.get('/consent-text', (_req, res) => {
 });
 
 /** Registrierung (Rolle expert) + Consent-Record + Verifizierungs-Mail. */
+/**
+ * v1.25.0 — Einmalige Bitte, das übernommene Profil zu vervollständigen.
+ * Läuft nur nach einer Zusammenführung, deshalb genau einmal je Person.
+ * Ein Fehler beim Versand darf die Registrierung nie scheitern lassen.
+ */
+async function bitteProfilErgaenzen(expert, tenantId) {
+  try {
+    const { getTemplate, render } = require('../utils/mailTemplates');
+    const { getMailProvider } = require('../providers/mail');
+    const APP_URL = process.env.APP_URL ||
+      (process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : 'http://localhost:5173');
+    const tpl = await getTemplate(tenantId, 'profil_ergaenzen');
+    const msg = render(tpl, {
+      vorname: expert.vorname, nachname: expert.nachname,
+      link: `${APP_URL}/profil`, link_label: 'Profil vervollständigen',
+    });
+    await getMailProvider().send({ to: expert.email, ...msg }, { tenantId, templateKey: 'profil_ergaenzen' });
+  } catch (e) {
+    console.error('Mail "Profil ergänzen" fehlgeschlagen:', e.message);
+  }
+}
+
+/**
+ * v1.25.0 — Zuordnung bei der Selbstregistrierung.
+ *
+ * Sucht einen vorbereiteten Datensatz über E-Mail, LinkedIn und Namensschlüssel.
+ * Genau ein Treffer: übernehmen. Mehrere Namenstreffer: nicht raten, stattdessen
+ * ein normales Profil anlegen; der Fall landet in der Admin-Warteliste
+ * "Zuordnung prüfen". Kein Treffer: normale Selbstregistrierung.
+ * Liefert { expert, zusammengefuehrt, mehrdeutig }.
+ */
+async function zuordnenOderAnlegen(user, { tenantId, vorname, nachname, linkedin, minimalprofilId = null }) {
+  const { findePerson, uebernehmen } = require('../utils/vorregistrierung');
+  const { nameKey, linkedinKey } = require('../utils/normalisieren');
+
+  const fund = await findePerson(tenantId, { email: user.email, linkedin, vorname, nachname }, { nurVorregistriert: true });
+  if (fund.treffer && !fund.mehrdeutig) {
+    const expert = await uebernehmen(fund.treffer.id, user, { vorname, nachname, linkedin, minimalprofilId });
+    await bitteProfilErgaenzen(expert, tenantId);
+    return { expert, zusammengefuehrt: true, mehrdeutig: false, weg: fund.weg };
+  }
+
+  const vorhanden = await db('experts').where({ user_id: user.id }).first();
+  if (vorhanden) return { expert: vorhanden, zusammengefuehrt: false, mehrdeutig: fund.mehrdeutig };
+
+  const [expert] = await db('experts').insert({
+    tenant_id: tenantId,
+    user_id: user.id,
+    vorname,
+    nachname,
+    email: user.email,
+    linkedin: linkedinKey(linkedin),
+    name_key: nameKey(vorname, nachname),
+    status: 'registriert',
+  }).returning('*');
+  return { expert, zusammengefuehrt: false, mehrdeutig: fund.mehrdeutig };
+}
+
 router.post('/register', async (req, res) => {
   const parsed = registerSchema.safeParse(req.body);
   if (!parsed.success) {
@@ -66,21 +126,15 @@ router.post('/register', async (req, res) => {
 
   // v1.19.1 — BUGFIX: Selbstregistrierte Experten brauchen auch ein Profil,
   // sonst tauchen sie nirgends in der Expertenverwaltung auf.
+  // v1.25.0 — Vorher prüfen, ob wir diese Person schon vorbereitet haben. Wenn ja,
+  // wird der vorbereitete Datensatz übernommen, statt einen zweiten anzulegen.
   const [vorname, ...rest] = String(parsed.data.vorname || email.split('@')[0]).trim().split(' ');
-  await db('experts').insert({
-    tenant_id: tenant.id,
-    user_id: user.id,
+  const nachname = (parsed.data.nachname || rest.join(' ') || '(offen)').slice(0, 100);
+  const zugeordnet = await zuordnenOderAnlegen(user, {
+    tenantId: tenant.id,
     vorname: vorname.slice(0, 100),
-    nachname: (parsed.data.nachname || rest.join(' ') || '(offen)').slice(0, 100),
-    email: user.email,
-    status: 'registriert',
-  }).onConflict(['user_id']).ignore().catch(async () => {
-    await db('experts').insert({
-      tenant_id: tenant.id, user_id: user.id,
-      vorname: vorname.slice(0, 100),
-      nachname: (parsed.data.nachname || rest.join(' ') || '(offen)').slice(0, 100),
-      email: user.email, status: 'registriert',
-    });
+    nachname,
+    linkedin: parsed.data.linkedin,
   });
 
   await db('audit_log').insert({
@@ -175,6 +229,18 @@ router.post('/verify', async (req, res) => {
         resource: 'users',
         resource_id: user.id,
         ip: req.ip,
+      });
+    }
+    // v1.25.0 — Zweiter Versuch der Zuordnung: bei der Registrierung war die
+    // Adresse noch unbestätigt, und manche tragen LinkedIn erst später nach.
+    const profil = await db('experts').where({ user_id: user.id }).first();
+    if (profil && !profil.vorreg_zusammengefuehrt_am) {
+      await zuordnenOderAnlegen(user, {
+        tenantId: user.tenant_id,
+        vorname: profil.vorname,
+        nachname: profil.nachname,
+        linkedin: profil.linkedin,
+        minimalprofilId: profil.id,
       });
     }
     res.json({ ok: true, message: 'E-Mail-Adresse bestätigt.' });

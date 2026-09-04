@@ -32,17 +32,25 @@ export default function AdminExperts() {
   const [mail, setMail] = useState({ subject: '', body_text: '' });
   const [mailBusy, setMailBusy] = useState(false);
   const [skillVorschlaege, setSkillVorschlaege] = useState([]);
+  const [vorregErgebnis, setVorregErgebnis] = useState(null);
+  const [vorregBusy, setVorregBusy] = useState(false);
+  const [zuordnung, setZuordnung] = useState([]);
+  const ladeZuordnung = () => api.get('/api/experts/vorregistrierung/zuordnung-pruefen')
+    .then((d) => setZuordnung(d.faelle)).catch(() => {});
   const ladeVorschlaege = () => api.get('/api/experts/skill-vorschlaege').then((d) => setSkillVorschlaege(d.vorschlaege)).catch(() => {});
 
   useEffect(() => {
     api.get('/api/experts').then((d) => setExperts(d.experts)).catch((e) => setError(e.message));
     ladeVorschlaege();
     ladeSpeicher();
+    ladeZuordnung();
   }, []);
 
   const sichtbar = (experts || [])
     .filter((e) => statusFilter === 'alle' || e.status === statusFilter)
     .filter((e) => !nurUnbestaetigt || e.freshness?.nichtBestaetigt);
+  // Vorregistrierte haben weder Verfügbarkeit noch Tagessatz, dafür Prio und Kanal.
+  const vorregAnsicht = statusFilter === 'vorregistriert';
 
   return (
     <Layout>
@@ -94,6 +102,52 @@ export default function AdminExperts() {
         <p className="muted" style={{ marginTop: 8, fontSize: 12 }}>
           Erwartete Spalten: Vorname, Nachname, E-Mail. Die Einladungsmail sehen und ändern Sie unter „Mails“.
         </p>
+
+        <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--grey-200, #e3e6ea)' }}>
+          <strong style={{ color: 'var(--navy)' }}>Liste vorregistrieren</strong>
+          <p className="muted" style={{ fontSize: 12, margin: '4px 0 8px' }}>
+            Für Kontakte, die Sie selbst über LinkedIn ansprechen. Legt vorbereitete Profile ohne Konto an,
+            es geht keine Mail raus. Spalten: Vorname, Nachname, E-Mail (optional), Sprache, LinkedIn, Firma,
+            Berufsbezeichnung, Quelle, Prio, Kanal, Letzter Kontakt. Mehrfach hochladbar, Dubletten werden erkannt.
+          </p>
+          <label className="btn" style={{ width: 'auto', background: 'transparent', color: 'var(--navy)', border: '1px solid var(--grey-200)', cursor: 'pointer' }}>
+            {vorregBusy ? 'Wird verarbeitet…' : 'Datei wählen (Excel/CSV)'}
+            <input type="file" accept=".xlsx,.xls,.csv" style={{ display: 'none' }} disabled={vorregBusy}
+              onChange={async (ev3) => {
+                const file = ev3.target.files[0];
+                if (!file) return;
+                const fd3 = new FormData();
+                fd3.append('file', file);
+                setVorregErgebnis(null); setInviteMsg(null); setVorregBusy(true);
+                try {
+                  const res = await fetch('/api/experts/vorregistrierung-import', { method: 'POST', body: fd3, credentials: 'include' });
+                  const d = await res.json();
+                  if (!res.ok) { setInviteMsg({ ok: false, text: d.error || 'Import fehlgeschlagen' }); return; }
+                  setVorregErgebnis(d);
+                  api.get('/api/experts').then((x) => setExperts(x.experts));
+                  ladeZuordnung();
+                } finally { setVorregBusy(false); ev3.target.value = ''; }
+              }} />
+          </label>
+          {vorregErgebnis && (
+            <div className="msg msg-success" style={{ marginTop: 10 }}>
+              {vorregErgebnis.message}
+              {Object.keys(vorregErgebnis.vorhanden_nach_status || {}).length > 0 && (
+                <><br />Vorhanden nach Status: {Object.entries(vorregErgebnis.vorhanden_nach_status).map(([s, n]) => `${s}: ${n}`).join(', ')}</>
+              )}
+              <br />
+              <button type="button" className="tab" style={{ padding: 0, color: 'var(--navy)' }}
+                onClick={() => {
+                  const blob = new Blob([vorregErgebnis.csv], { type: 'text/csv;charset=utf-8' });
+                  const a2 = document.createElement('a');
+                  a2.href = URL.createObjectURL(blob);
+                  a2.download = 'vorregistrierung-ergebnis.csv';
+                  a2.click();
+                  URL.revokeObjectURL(a2.href);
+                }}>Ergebnis als CSV herunterladen</button>
+            </div>
+          )}
+        </div>
         <p style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--grey-200, #e3e6ea)' }}>
           <button type="button" className="btn" style={{ width: 'auto', background: 'transparent', color: 'var(--navy)', border: '1px solid var(--grey-200)' }}
             onClick={async () => {
@@ -138,9 +192,41 @@ export default function AdminExperts() {
           ))}
         </div>
       )}
+      {zuordnung.length > 0 && (
+        <div className="card" style={{ marginBottom: 14, borderLeft: '3px solid var(--navy)' }}>
+          <h3>Zuordnung prüfen ({zuordnung.length})</h3>
+          <p className="muted" style={{ fontSize: 13 }}>
+            Diese Personen haben sich registriert, und zu ihrem Namen gibt es vorbereitete Datensätze.
+            Eindeutige Fälle führt die Plattform selbst zusammen, hier war der Name mehrdeutig.
+          </p>
+          {zuordnung.map(({ person, kandidaten }) => (
+            <div key={person.id} style={{ borderTop: '1px solid var(--grey-200, #e3e6ea)', paddingTop: 8, marginTop: 8 }}>
+              <strong>{person.vorname} {person.nachname}</strong> <span className="muted">{person.email}</span>
+              <div style={{ marginTop: 4 }}>
+                {kandidaten.map((k) => (
+                  <div key={k.id} style={{ fontSize: 13, padding: '2px 0' }}>
+                    {k.firma || '(keine Firma)'} · {k.berufsbezeichnung || '(keine Position)'} · {k.linkedin || 'kein LinkedIn'}{' '}
+                    <button type="button" className="tab" style={{ padding: 0, color: 'var(--navy)' }}
+                      onClick={async () => {
+                        if (!window.confirm(`${person.vorname} ${person.nachname} mit diesem vorbereiteten Datensatz zusammenführen?`)) return;
+                        try {
+                          const d = await api.post(`/api/experts/${person.id}/vorregistrierung-zusammenfuehren`, { vorreg_id: k.id });
+                          setInviteMsg({ ok: true, text: d.message });
+                          ladeZuordnung();
+                          api.get('/api/experts').then((x) => setExperts(x.experts));
+                        } catch (err) { setInviteMsg({ ok: false, text: err.message }); }
+                      }}>zusammenführen mit diesem</button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
       {experts && (
         <p style={{ margin: '0 0 14px', display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-          {['alle', 'freigegeben', 'eingeladen', 'registriert', 'inaktiv'].map((st) => {
+          {['alle', 'freigegeben', 'eingeladen', 'registriert', 'vorregistriert', 'inaktiv'].map((st) => {
             const n = st === 'alle' ? experts.length : experts.filter((e) => e.status === st).length;
             if (st !== 'alle' && n === 0) return null;
             const aktiv = statusFilter === st;
@@ -218,7 +304,13 @@ export default function AdminExperts() {
                   checked={auswahl.length > 0 && sichtbar.length > 0 && auswahl.length === sichtbar.length}
                   onChange={(e) => setAuswahl(e.target.checked ? sichtbar.map((x) => x.id) : [])} />
               </th>
-              <th>Name</th><th>Rolle</th><th>Verfügbarkeit</th><th>Frische</th><th>Tagessatz</th><th>Skills</th><th>Status</th><th /></tr>
+              <th>Name</th><th>Rolle</th>
+              {vorregAnsicht ? (
+                <><th>Prio</th><th>Kanal</th><th>Angeschrieben am</th><th>Letzter Kontakt</th></>
+              ) : (
+                <><th>Verfügbarkeit</th><th>Frische</th><th>Tagessatz</th><th>Skills</th></>
+              )}
+              <th>Status</th><th /></tr>
           </thead>
           <tbody>
             {sichtbar.map((e) => (
@@ -228,15 +320,40 @@ export default function AdminExperts() {
                 <td><Link to={`/admin/experten/${e.id}`}><strong>{e.vorname} {e.nachname}</strong></Link><br />
                   <span className="muted">{e.firma}</span></td>
                 <td>{e.berufsbezeichnung?.split('—')[0]}</td>
-                <td>{currentAvailability(e.availabilities)}
-                  {e.freshness?.nichtBestaetigt && <><br /><span className="status status-eingeladen">nicht bestätigt</span></>}</td>
-                <td><span className={`ampel ampel-${e.freshness?.ampel || 'rot'}`} />{e.freshness?.score ?? 0}</td>
-                <td>{e.rates?.length
-                  ? e.rates.map((r) => `${r.satz_von_eur}${r.satz_bis_eur ? '–' + r.satz_bis_eur : ''} €`).join(', ')
-                  : '—'}</td>
-                <td>{(e.skills || []).filter((s) => s.kategorie === 'kompetenz').slice(0, 3).map((s) => (
-                  <span className="tag" key={s.name}>{s.name}</span>
-                ))}</td>
+                {vorregAnsicht ? (
+                  <>
+                    <td>{e.vorreg_prio || ''}</td>
+                    <td>{e.vorreg_kanal || ''}</td>
+                    <td>
+                      <button type="button" className="tab" style={{ padding: 0, color: 'var(--navy)' }}
+                        title="Datum setzen, sobald die LinkedIn-Nachricht raus ist"
+                        onClick={async () => {
+                          const vorgabe = e.vorreg_angeschrieben_am
+                            ? String(e.vorreg_angeschrieben_am).slice(0, 10)
+                            : new Date().toISOString().slice(0, 10);
+                          const wert = window.prompt('Angeschrieben am (JJJJ-MM-TT, leer entfernt das Datum):', vorgabe);
+                          if (wert === null) return;
+                          try {
+                            await api.put(`/api/experts/${e.id}/vorreg`, { vorreg_angeschrieben_am: wert });
+                            api.get('/api/experts').then((x) => setExperts(x.experts));
+                          } catch (err) { setInviteMsg({ ok: false, text: err.message }); }
+                        }}>{e.vorreg_angeschrieben_am ? fmtDate(e.vorreg_angeschrieben_am) : 'setzen'}</button>
+                    </td>
+                    <td>{fmtDate(e.vorreg_letzter_kontakt)}</td>
+                  </>
+                ) : (
+                  <>
+                    <td>{currentAvailability(e.availabilities)}
+                      {e.freshness?.nichtBestaetigt && <><br /><span className="status status-eingeladen">nicht bestätigt</span></>}</td>
+                    <td><span className={`ampel ampel-${e.freshness?.ampel || 'rot'}`} />{e.freshness?.score ?? 0}</td>
+                    <td>{e.rates?.length
+                      ? e.rates.map((r) => `${r.satz_von_eur}${r.satz_bis_eur ? '–' + r.satz_bis_eur : ''} €`).join(', ')
+                      : '—'}</td>
+                    <td>{(e.skills || []).filter((s) => s.kategorie === 'kompetenz').slice(0, 3).map((s) => (
+                      <span className="tag" key={s.name}>{s.name}</span>
+                    ))}</td>
+                  </>
+                )}
                 <td><span className={`status status-${e.status}`}>{e.status}</span></td>
                 <td>
                   <button type="button" title="Profil endgültig löschen (Art. 17 DSGVO)"

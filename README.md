@@ -80,6 +80,26 @@ Deckt ab: Registrierung inkl. Consent-Pflicht, Verifizierung, Login/Session-Cook
 - **Bewusst offen:** `image-size` (über pptxgenjs) hat Meldungen zu Endlosschleifen in den ICNS-, JXL- und HEIF-Parsern, für die es noch keine korrigierte Fassung gibt. Wir sind nicht angreifbar, weil Bild-Uploads über die Magic Bytes hart auf PNG und JPEG begrenzt sind und nur diese Dateien je in eine PPTX wandern. Sobald image-size nachzieht, greift das Override automatisch.
 - `npm warn config production Use --omit=dev instead` im Railway-Log ist keine Störung: npm leitet die Warnung aus `NODE_ENV=production` ab und schreibt sie nach stderr, Railway färbt stderr rot ein.
 
+## Vorregistrierung aus Listen (v1.25.0)
+
+Für Kontakte aus dem eigenen Netzwerk, die persönlich über LinkedIn angesprochen werden und keinen individuellen Einladungslink bekommen.
+
+**Ablauf.** Liste als XLSX oder CSV unter Experten → „Liste vorregistrieren" hochladen. Erwartete Spalten, Reihenfolge egal, E-Mail optional: Vorname, Nachname, E-Mail, Sprache, LinkedIn, Firma, Berufsbezeichnung, Quelle, Prio, Kanal, Letzter Kontakt. Die Plattform legt Datensätze mit Status `vorregistriert` an, ohne Konto und ohne Einwilligung. **Es geht keine Mail raus.** Anschließend schreiben Sie die Personen selbst an und schicken allen denselben Link `/mitmachen`.
+
+**Dublettenprüfung** in dieser Reihenfolge: E-Mail gegen Konten und Profile, dann normalisierte LinkedIn-URL, dann Namensschlüssel. Ein Treffer wird nicht angelegt, sondern mit dem Status des vorhandenen Datensatzes gemeldet. Der Import ist beliebig oft wiederholbar. Das Ergebnis gibt es als CSV mit Vorname, Nachname, LinkedIn, Ergebnis, vorhandenem Status und Experten-ID.
+
+**Zuordnung bei der Registrierung.** Meldet sich jemand über den allgemeinen Link an, sucht die Plattform den vorbereiteten Datensatz über dieselben drei Wege und übernimmt ihn, statt ein zweites Profil anzulegen. Bei mehreren Namenstreffern wird nicht geraten: Der Fall landet in der Warteliste „Zuordnung prüfen", wo Sie ihn mit einem Klick auflösen. Nach der Übernahme geht einmalig die Vorlage `profil_ergaenzen` raus, und im Dashboard steht ein Banner, bis drei Skills, ein Tagessatz und eine Verfügbarkeit hinterlegt sind.
+
+**Kommandozeile** für große Listen oder den Lauf gegen die Produktion:
+
+```
+node server/scripts/vorregistrierung-import.js <datei.xlsx> [--ergebnis pfad.csv] [--probe]
+```
+
+`--probe` liest und prüft, schreibt aber nichts. Auf Railway über `railway run` starten, dann kommt die Datenbankverbindung aus der Umgebung und niemand muss Zugangsdaten weiterreichen.
+
+**Datenschutz.** Vorbereitete Kontaktdaten stammen aus bestehenden geschäftlichen Verbindungen und stützen sich auf Art. 6 Abs. 1 lit. f DSGVO. Sie erhalten keine automatische Post: Verfügbarkeits-Erinnerung, Quartalscheck, Einladungszyklus und Consent-Job schließen den Status ausdrücklich aus. Ohne Registrierung werden die Datensätze nach 120 Tagen automatisch gelöscht (`VORREG_LOESCHFRIST_TAGE`, Job `vorreg-loeschfrist`, mit Audit-Eintrag). Der Einwilligungstext (Version `2026-09-v2`) nennt die Zusammenführung ausdrücklich; die juristische Prüfung steht aus. Auskunft nach Art. 15 und Löschung nach Art. 17 umfassen die Vorreg-Felder, weil beide auf dem vollständigen Datensatz arbeiten.
+
 ## Roadmap
 
 Sprint 1 Expert Directory → 2 Verfügbarkeit + Erinnerungs-Loop → 3 Tagessätze → 4 Audit-Trail-UI → 5 Suche → 6 Projekte/Matching → 7 Kommunikation → 8 Vendor-Portal/Multi-Tenant → 9 KI (CV-Extraktion, Matching-Begründung). Details: `Rechercheberichte/Expertnetwork-Fable5-Bauprompt-2026-07-11.md`.

@@ -253,6 +253,115 @@ router.post('/invite-bulk', requireRole('admin'), listUpload.single('file'), asy
   res.json({ ok: true, ...ergebnis, message: `${ergebnis.eingeladen.length} Einladung(en) versendet, ${ergebnis.uebersprungen.length} übersprungen.` });
 });
 
+/* ====================== v1.25.0: Vorregistrierung aus Listen ====================== */
+
+/**
+ * Liste vorregistrieren. Legt Kontakte ohne Konto und ohne Einwilligung an, damit
+ * sie beim Anschreiben über LinkedIn schon vorbereitet sind. Es geht ausdrücklich
+ * keine Mail raus. Wer schon im Bestand ist, wird nicht angelegt, sondern mit
+ * seinem Status gemeldet. Mehrfach aufrufbar.
+ */
+router.post('/vorregistrierung-import', requireRole('admin'), listUpload.single('file'), async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'Keine Datei übertragen' });
+  const { leseDatei, importiereListe, ergebnisCsv } = require('../utils/vorregistrierung');
+
+  let gelesen;
+  try {
+    gelesen = leseDatei(req.file.buffer);
+  } catch {
+    return res.status(400).json({ error: 'Datei konnte nicht gelesen werden (XLSX oder CSV erwartet)' });
+  }
+  if (gelesen.fehlend.length) {
+    return res.status(400).json({ error: `Spalten fehlen: ${gelesen.fehlend.join(', ')}. Erwartet werden mindestens Vorname und Nachname.` });
+  }
+  if (!gelesen.zeilen.length) return res.status(400).json({ error: 'Die Datei enthält keine Datenzeilen' });
+  if (gelesen.zeilen.length > 2000) return res.status(400).json({ error: 'Mehr als 2000 Zeilen, bitte aufteilen' });
+
+  const ergebnis = await importiereListe(gelesen.zeilen, {
+    tenantId: req.user.tenantId, actorId: req.user.id, ip: req.ip,
+  });
+  res.locals.auditLogged = true;
+
+  if (String(req.query.format).toLowerCase() === 'csv') {
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename="vorregistrierung-ergebnis.csv"');
+    return res.send(ergebnisCsv(ergebnis));
+  }
+  const nachStatus = {};
+  for (const v of ergebnis.vorhanden) nachStatus[v.status] = (nachStatus[v.status] || 0) + 1;
+  return res.json({
+    ok: true,
+    gelesen: gelesen.zeilen.length,
+    angelegt: ergebnis.angelegt.length,
+    vorhanden: ergebnis.vorhanden.length,
+    vorhanden_nach_status: nachStatus,
+    fehler: ergebnis.fehler.length,
+    details: ergebnis,
+    csv: ergebnisCsv(ergebnis),
+    message: `${ergebnis.angelegt.length} neu vorregistriert, ${ergebnis.vorhanden.length} schon vorhanden, ${ergebnis.fehler.length} fehlerhaft.`,
+  });
+});
+
+/** Vorreg-Felder pflegen, vor allem "angeschrieben am" nach der LinkedIn-Nachricht. */
+router.put('/:id(\\d+)/vorreg', requireRole('admin'), async (req, res) => {
+  const expert = await db('experts').where({ id: Number(req.params.id), tenant_id: req.user.tenantId }).first();
+  if (!expert) return res.status(404).json({ error: 'Experte nicht gefunden' });
+  const { datumOderNull } = require('../utils/vorregistrierung');
+  const patch = {};
+  if (req.body.vorreg_angeschrieben_am !== undefined) {
+    patch.vorreg_angeschrieben_am = datumOderNull(req.body.vorreg_angeschrieben_am);
+  }
+  if (req.body.vorreg_prio !== undefined) patch.vorreg_prio = String(req.body.vorreg_prio || '').toUpperCase().slice(0, 1) || null;
+  if (req.body.vorreg_kanal !== undefined) patch.vorreg_kanal = /mail/i.test(req.body.vorreg_kanal || '') ? 'email' : 'linkedin';
+  if (!Object.keys(patch).length) return res.status(400).json({ error: 'Nichts zu ändern' });
+  await db('experts').where({ id: expert.id }).update(patch);
+  await req.audit({ action: 'expert.vorreg_update', resource: 'experts', resourceId: expert.id, newValue: patch });
+  res.locals.auditLogged = true;
+  res.json({ ok: true, message: 'Gespeichert.' });
+});
+
+/**
+ * Warteliste "Zuordnung prüfen": frisch registrierte Personen, die noch nicht
+ * zusammengeführt sind, zu deren Namen es aber vorbereitete Datensätze gibt.
+ * Das trifft die Fälle, in denen der Name mehrdeutig war und wir nicht raten.
+ */
+router.get('/vorregistrierung/zuordnung-pruefen', requireRole('admin'), async (req, res) => {
+  const offen = await db('experts')
+    .where({ tenant_id: req.user.tenantId })
+    .whereNotNull('user_id').whereNotNull('name_key')
+    .whereNull('vorreg_zusammengefuehrt_am')
+    .whereIn('status', ['registriert', 'freigegeben'])
+    .select('id', 'vorname', 'nachname', 'email', 'name_key', 'created_at');
+
+  const faelle = [];
+  for (const person of offen) {
+    const kandidaten = await db('experts')
+      .where({ tenant_id: req.user.tenantId, status: 'vorregistriert', name_key: person.name_key })
+      .whereNull('user_id')
+      .select('id', 'vorname', 'nachname', 'firma', 'berufsbezeichnung', 'linkedin', 'vorreg_quelle', 'vorreg_prio');
+    if (kandidaten.length) faelle.push({ person, kandidaten });
+  }
+  res.json({ faelle });
+});
+
+/** Zuordnung von Hand bestätigen: vorbereiteter Datensatz gewinnt, Minimalprofil geht. */
+router.post('/:id(\\d+)/vorregistrierung-zusammenfuehren', requireRole('admin'), async (req, res) => {
+  const { uebernehmen } = require('../utils/vorregistrierung');
+  const person = await db('experts').where({ id: Number(req.params.id), tenant_id: req.user.tenantId }).first();
+  if (!person || !person.user_id) return res.status(404).json({ error: 'Registriertes Profil nicht gefunden' });
+  const vorreg = await db('experts')
+    .where({ id: Number(req.body?.vorreg_id), tenant_id: req.user.tenantId, status: 'vorregistriert' })
+    .whereNull('user_id').first();
+  if (!vorreg) return res.status(404).json({ error: 'Vorregistrierter Datensatz nicht gefunden' });
+
+  const user = await db('users').where({ id: person.user_id }).first();
+  const neu = await uebernehmen(vorreg.id, user, {
+    vorname: person.vorname, nachname: person.nachname, linkedin: person.linkedin, minimalprofilId: person.id,
+  });
+  res.locals.auditLogged = true;
+  res.json({ ok: true, expert_id: neu.id, message: `${neu.vorname} ${neu.nachname} zusammengeführt.` });
+});
+
 /**
  * v1.12.0 — Bestandskontakte: freundlicher Nachfass an alle 'eingeladenen'
  * ohne Einwilligung, startet den Lebenszyklus 'bestand' (Erinnerung nach
@@ -1146,6 +1255,11 @@ router.get('/me/dashboard', async (req, res) => {
   };
   const vollstaendigkeit = Math.round((Object.values(checks).filter(Boolean).length / 10) * 100);
 
+  // v1.25.0 — Willkommensbanner für übernommene Profile. Es verschwindet, sobald
+  // die drei Angaben stehen, die wir für eine Vermittlung wirklich brauchen.
+  const vorregBanner = Boolean(expert.vorreg_zusammengefuehrt_am)
+    && !(Number(skillCount.c) >= 3 && Number(rateCount.c) > 0 && Number(availCount.c) > 0);
+
   // Offene + empfohlene Projekte (deterministisches Matching >= 60)
   const projects = await db('projects').where({ tenant_id: expert.tenant_id, status: 'offen' });
   const { computeMatch } = require('../utils/matching');
@@ -1162,6 +1276,7 @@ router.get('/me/dashboard', async (req, res) => {
 
   res.json({
     vollstaendigkeit,
+    vorreg_banner: vorregBanner,
     checks,
     offene_projekte: projects.length,
     empfohlene_projekte: empfohlen,

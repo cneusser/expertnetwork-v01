@@ -65,11 +65,11 @@ export default function ExpertProfil() {
           </div>
           <div className="detail-grid">
             <div className="card">
-              <h3>{tr(lang, 'Kurzprofil', 'Summary')}</h3>
+              <h3 id="kurzprofil">{tr(lang, 'Kurzprofil', 'Summary')}</h3>
               <p>{expert.kurzprofil || '—'}</p>
             </div>
             <div className="card">
-              <h3>{tr(lang, 'Meine Skills', 'My skills')}</h3>
+              <h3 id="skills">{tr(lang, 'Meine Skills', 'My skills')}</h3>
               <p>{skills.map((s) => (
                 <span className="tag" key={s.id} title={s.is_approved === false ? tr(lang, 'Wird von Phalanx geprüft', 'Pending review by Phalanx') : undefined}
                   style={s.is_approved === false ? { opacity: 0.6, fontStyle: 'italic' } : undefined}>
@@ -188,7 +188,7 @@ export default function ExpertProfil() {
         </form>
       </div>
 
-      <h2 style={{ fontSize: 18, color: 'var(--navy)', margin: '28px 0 12px' }}>{tr(lang, 'Meine Tagessätze', 'My daily rates')}</h2>
+      <h2 id="tagessaetze" style={{ fontSize: 18, color: 'var(--navy)', margin: '28px 0 12px' }}>{tr(lang, 'Meine Tagessätze', 'My daily rates')}</h2>
       <table className="table">
         <thead><tr><th>{tr(lang, 'Kategorie', 'Category')}</th><th>{tr(lang, 'Satz', 'Rate')}</th><th>{tr(lang, 'Gültig ab', 'Valid from')}</th><th>{tr(lang, 'Erfasst', 'Recorded')}</th></tr></thead>
         <tbody>

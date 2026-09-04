@@ -89,7 +89,7 @@ export default function ExpertDashboard() {
 
       {me && (
         <div className="card" style={{ marginBottom: 20 }}>
-          <h3><CalendarClock size={17} /> {tr(lang, 'Meine Verfügbarkeit', 'My availability')}</h3>
+          <h3 id="verfuegbarkeit"><CalendarClock size={17} /> {tr(lang, 'Meine Verfügbarkeit', 'My availability')}</h3>
           {msg && <div className={`msg ${msg.ok ? 'msg-success' : 'msg-error'}`} style={{ marginTop: 10 }}>{msg.text}</div>}
           <form onSubmit={saveAvailability} style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'flex-end', marginTop: 12 }}>
             <div className="field" style={{ marginBottom: 0, minWidth: 180 }}>
@@ -113,6 +113,27 @@ export default function ExpertDashboard() {
           </form>
           <p className="muted" style={{ marginTop: 10 }}>
             {tr(lang, 'Alle 14 Tage erinnern wir dich per E-Mail mit einem Ein-Klick-Bestätigungslink.', 'Every 14 days we send you an email with a one-click confirmation link.')}
+          </p>
+        </div>
+      )}
+
+      {dash?.vorreg_banner && (
+        <div className="card" style={{ marginBottom: 16, borderLeft: '3px solid var(--navy)' }}>
+          <h3>{tr(lang, 'Willkommen im Netzwerk', 'Welcome to the network')}</h3>
+          <p style={{ fontSize: 14, lineHeight: 1.55 }}>
+            {tr(lang,
+              'Wir haben dein Profil aus unserem Netzwerk vorbereitet und mit deiner Anmeldung zusammengeführt. Bitte prüfe kurz, ob alles stimmt, und ergänze die drei Angaben, die wir für eine Vermittlung brauchen.',
+              'We prepared your profile from our network and merged it with your registration. Please check that everything is correct and add the three details we need in order to propose you.')}
+          </p>
+          <p style={{ display: 'flex', gap: 14, flexWrap: 'wrap', fontSize: 14 }}>
+            <Link to="/profil#skills">{tr(lang, 'Skills ergänzen', 'Add skills')}</Link>
+            <Link to="/profil#tagessaetze">{tr(lang, 'Tagessatz hinterlegen', 'Set daily rate')}</Link>
+            <a href="#verfuegbarkeit">{tr(lang, 'Verfügbarkeit setzen', 'Set availability')}</a>
+            <Link to="/profil#kurzprofil">{tr(lang, 'Kurzprofil schreiben', 'Write summary')}</Link>
+          </p>
+          <p className="muted" style={{ fontSize: 13 }}>
+            {tr(lang, 'Der Hinweis verschwindet, sobald drei Skills, ein Tagessatz und eine Verfügbarkeit hinterlegt sind.',
+              'This note disappears once three skills, one daily rate and one availability are on file.')}
           </p>
         </div>
       )}

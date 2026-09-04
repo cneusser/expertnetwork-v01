@@ -1,6 +1,6 @@
 {
   "name": "expertnetwork-v01",
-  "version": "1.24.2",
+  "version": "1.25.0",
   "private": true,
   "scripts": {
     "install:all": "npm --prefix server install && npm --prefix client install",
