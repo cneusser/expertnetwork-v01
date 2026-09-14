@@ -5,7 +5,7 @@
  */
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Send, RotateCcw, Download, ExternalLink, UserMinus } from 'lucide-react';
+import { Send, RotateCcw, Download, ExternalLink, UserMinus, ArrowRightLeft, Copy } from 'lucide-react';
 import Layout from '../components/Layout';
 import { api } from '../api/client';
 
@@ -21,16 +21,18 @@ export default function AdminAnsprache() {
   const [filter, setFilter] = useState({ prio: '', kanal: '', pensum: 20, wiedervorlage_tage: 10 });
   const [auswahl, setAuswahl] = useState([]);
   const [ausschluss, setAusschluss] = useState(null);
+  const [uebergaben, setUebergaben] = useState(null);
 
   const laden = async () => {
     try {
       const p = new URLSearchParams(Object.entries(filter).filter(([, v]) => v !== '' && v != null));
-      const [a, t, x] = await Promise.all([
+      const [a, t, x, u] = await Promise.all([
         api.get(`/api/ansprache/arbeitsliste?${p}`),
         api.get('/api/ansprache/trichter'),
         api.get('/api/ansprache/ausschluss'),
+        api.get('/api/ansprache/uebergaben'),
       ]);
-      setDaten(a); setTrichter(t); setAusschluss(x);
+      setDaten(a); setTrichter(t); setAusschluss(x); setUebergaben(u);
     } catch (e) { setMsg({ ok: false, text: e.message }); }
   };
   useEffect(() => { laden(); }, [filter.prio, filter.kanal, filter.pensum, filter.wiedervorlage_tage]);
@@ -101,7 +103,8 @@ export default function AdminAnsprache() {
         {[['faellig', `Heute dran (${daten?.faellig.length || 0})`],
           ['wiedervorlage', `Wiedervorlage (${daten?.wiedervorlage.length || 0})`],
           ['trichter', 'Auswertung'],
-          ['ausschluss', `Nicht ansprechen (${ausschluss?.eintraege.length || 0})`]].map(([k, l]) => (
+          ['ausschluss', `Nicht ansprechen (${ausschluss?.eintraege.length || 0})`],
+          ['uebergaben', `Capitalmatch (${uebergaben?.zahlen.gesamt || 0})`]].map(([k, l]) => (
             <button key={k} type="button" className={`tab ${tab === k ? 'tab-active' : ''}`}
               onClick={() => { setTab(k); setAuswahl([]); }}>{l}</button>
           ))}
@@ -145,7 +148,67 @@ export default function AdminAnsprache() {
         </>
       )}
 
-      {tab !== 'trichter' && tab !== 'ausschluss' && liste && (
+      {tab === 'uebergaben' && uebergaben && (
+        <>
+          {!uebergaben.eingerichtet && (
+            <div className="msg msg-error">
+              Die Übergabe ist noch nicht scharf geschaltet. In Railway fehlen die Variablen
+              <strong> HANDOVER_KEY</strong> (langer Zufallswert, in beiden Projekten identisch) und
+              <strong> CAPITALMATCH_URL</strong>. Links lassen sich schon erzeugen, Capitalmatch kann die
+              Vorbelegung aber noch nicht abholen.
+            </div>
+          )}
+          <p className="muted" style={{ fontSize: 13 }}>
+            Für Unternehmensnachfolger. Der Link enthält nur eine Zufallskennung, Capitalmatch holt Name,
+            Firma und Position server-zu-server ab. Gültig sieben Tage, danach erzeugst Du einen neuen.
+          </p>
+          <p style={{ fontSize: 13 }}>
+            {uebergaben.zahlen.gesamt} erzeugt · {uebergaben.zahlen.abgerufen} von Capitalmatch abgeholt ·{' '}
+            {uebergaben.zahlen.eingeloest} dort registriert · {uebergaben.zahlen.abgelaufen} abgelaufen
+          </p>
+          <table className="table">
+            <thead><tr><th>Name</th><th>Firma</th><th>Erzeugt</th><th>Gültig bis</th><th>Stand</th><th /></tr></thead>
+            <tbody>
+              {uebergaben.uebergaben.map((u) => (
+                <tr key={u.id}>
+                  <td><Link to={`/admin/experten/${u.expert_id}`}><strong>{u.vorname} {u.nachname}</strong></Link></td>
+                  <td style={{ fontSize: 13 }}>{u.firma}</td>
+                  <td>{fmt(u.created_at)}</td>
+                  <td>{fmt(u.expires_at)}</td>
+                  <td>
+                    {u.eingeloest_at
+                      ? <span className="status status-freigegeben">registriert {fmt(u.eingeloest_at)}</span>
+                      : u.abgerufen_at
+                        ? <span className="status status-registriert">geöffnet {fmt(u.abgerufen_at)}</span>
+                        : new Date(u.expires_at) < new Date()
+                          ? <span className="status status-inaktiv">abgelaufen</span>
+                          : <span className="status status-eingeladen">verschickt</span>}
+                  </td>
+                  <td>
+                    <button type="button" className="tab" style={{ padding: 0, color: 'var(--navy)' }}
+                      onClick={async () => {
+                        try {
+                          const d = await api.post(`/api/ansprache/${u.expert_id}/uebergabe`, {});
+                          try { await navigator.clipboard.writeText(d.link); } catch { /* ohne Zwischenablage */ }
+                          window.prompt(`${d.message}\n\nLink:`, d.link);
+                          await laden();
+                        } catch (err) { setMsg({ ok: false, text: err.message }); }
+                      }}>Link holen</button>
+                  </td>
+                </tr>
+              ))}
+              {!uebergaben.uebergaben.length && (
+                <tr><td colSpan={6} className="muted">
+                  Noch keine Übergabe. Setz in der Arbeitsliste die Zielgruppe auf „Nachfolger", dann erscheint
+                  dort der Knopf für den Link.
+                </td></tr>
+              )}
+            </tbody>
+          </table>
+        </>
+      )}
+
+      {tab !== 'trichter' && tab !== 'ausschluss' && tab !== 'uebergaben' && liste && (
         <>
           {auswahl.length > 0 && (
             <p style={{ marginBottom: 10 }}>
@@ -167,7 +230,7 @@ export default function AdminAnsprache() {
                     checked={liste.length > 0 && auswahl.length === liste.length}
                     onChange={(e) => setAuswahl(e.target.checked ? liste.map((x) => x.id) : [])} />
                 </th>
-                <th>Name</th><th>Position</th><th>Prio</th><th>Letzter Kontakt</th>
+                <th>Name</th><th>Position</th><th>Zielgruppe</th><th>Prio</th><th>Letzter Kontakt</th>
                 <th>Angeschrieben</th><th>Reaktion</th><th>Notiz</th><th />
               </tr>
             </thead>
@@ -185,6 +248,35 @@ export default function AdminAnsprache() {
                     <br /><span className="muted" style={{ fontSize: 12 }}>{p.firma}</span>
                   </td>
                   <td style={{ fontSize: 13, maxWidth: 260 }}>{(p.berufsbezeichnung || '').slice(0, 90)}</td>
+                  <td style={{ whiteSpace: 'nowrap' }}>
+                    <select value={p.zielgruppe || ''} style={{ fontSize: 12 }}
+                      onChange={async (e) => {
+                        try {
+                          await api.put(`/api/ansprache/${p.id}/zielgruppe`, { zielgruppe: e.target.value });
+                          await laden();
+                        } catch (err) { setMsg({ ok: false, text: err.message }); }
+                      }}>
+                      <option value="">offen</option>
+                      <option value="interim">Interim</option>
+                      <option value="cfo">CFO</option>
+                      <option value="nachfolger">Nachfolger</option>
+                    </select>
+                    {p.zielgruppe === 'nachfolger' && (
+                      <><br />
+                        <button type="button" className="tab" style={{ padding: 0, color: 'var(--navy)', fontSize: 12 }}
+                          title="Übergabelink für Capitalmatch erzeugen und kopieren"
+                          onClick={async () => {
+                            try {
+                              const d = await api.post(`/api/ansprache/${p.id}/uebergabe`, {});
+                              try { await navigator.clipboard.writeText(d.link); } catch { /* ohne Zwischenablage */ }
+                              window.prompt(`${d.message}\n\nLink (liegt auch in der Zwischenablage):`, d.link);
+                              setMsg({ ok: true, text: d.message });
+                              await laden();
+                            } catch (err) { setMsg({ ok: false, text: err.message }); }
+                          }}><Copy size={12} style={{ verticalAlign: '-1px' }} /> CM-Link</button>
+                      </>
+                    )}
+                  </td>
                   <td>{p.vorreg_prio}</td>
                   <td style={{ fontSize: 13 }}>{fmt(p.vorreg_letzter_kontakt)}</td>
                   <td style={{ whiteSpace: 'nowrap' }}>
@@ -237,7 +329,7 @@ export default function AdminAnsprache() {
                 </tr>
               ))}
               {!liste.length && (
-                <tr><td colSpan={9} className="muted">
+                <tr><td colSpan={10} className="muted">
                   {tab === 'faellig'
                     ? 'Für heute ist die Liste leer. Entweder alle angeschrieben oder die Filter greifen zu eng.'
                     : 'Niemand fällig. Wiedervorlagen erscheinen hier, sobald die Frist abgelaufen ist.'}

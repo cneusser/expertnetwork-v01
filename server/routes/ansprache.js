@@ -27,7 +27,7 @@ const FELDER = [
   'vorreg_prio', 'vorreg_kanal', 'vorreg_quelle', 'vorreg_letzter_kontakt',
   'vorreg_angeschrieben_am', 'vorreg_reaktion', 'vorreg_reaktion_am', 'vorreg_wiedervorlage',
   'vorreg_notiz', 'vorreg_importiert_am', 'vorreg_zusammengefuehrt_am',
-  'vorreg_ausgeschlossen_am', 'vorreg_ausschluss_grund',
+  'vorreg_ausgeschlossen_am', 'vorreg_ausschluss_grund', 'zielgruppe', 'anrede',
 ];
 
 /**
