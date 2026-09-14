@@ -103,7 +103,34 @@ router.post('/register', async (req, res) => {
   if (!tenant) return res.status(500).json({ error: 'Tenant fehlt (Seed ausführen)' });
 
   const existing = await db('users').whereRaw('lower(trim(email)) = ?', [email.trim().toLowerCase()]).first();
-  if (existing) return res.status(409).json({ error: 'E-Mail-Adresse bereits registriert' });
+  if (existing) {
+    // v1.25.2 — Wer schon eingeladen wurde, landet über den allgemeinen Link sonst
+    // vor einer Wand ("bereits registriert"), obwohl er nie ein Passwort hatte.
+    // In dem Fall schicken wir die Einladung noch einmal, statt abzuweisen.
+    const offen = await db('experts').where({ user_id: existing.id, status: 'eingeladen' }).first();
+    const consent = await db('consents').where({ user_id: existing.id, zweck: CONSENT_ZWECK })
+      .whereNull('revoked_at').first();
+    if (offen && !consent) {
+      try {
+        const { getTemplate, render } = require('../utils/mailTemplates');
+        const APP_URL = process.env.APP_URL ||
+          (process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : 'http://localhost:5173');
+        const token = signPurposeToken(existing.id, 'expert-invite', '14d');
+        const tpl = await getTemplate(existing.tenant_id, 'einladung_neu');
+        const msg = render(tpl, {
+          vorname: offen.vorname, nachname: offen.nachname,
+          link: `${APP_URL}/einladung?token=${encodeURIComponent(token)}`, link_label: 'Profil anlegen',
+        });
+        await getMailProvider().send({ to: existing.email, ...msg },
+          { tenantId: existing.tenant_id, templateKey: 'einladung_neu' });
+      } catch (e) { console.error('Einladung erneut senden fehlgeschlagen:', e.message); }
+      return res.status(200).json({
+        ok: true, einladung_erneut: true,
+        message: 'Für diese Adresse liegt schon eine Einladung von uns vor. Wir haben dir den Link gerade noch einmal geschickt, schau bitte in dein Postfach. Darüber vergibst du dein Passwort.',
+      });
+    }
+    return res.status(409).json({ error: 'E-Mail-Adresse bereits registriert' });
+  }
 
   const passwordHash = await bcrypt.hash(password, 10);
   const [user] = await db('users')

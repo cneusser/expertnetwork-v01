@@ -14,6 +14,7 @@ export default function Register() {
   const [consent, setConsent] = useState(false);
   const [error, setError] = useState('');
   const [done, setDone] = useState(false);
+  const [hinweis, setHinweis] = useState('');
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -25,7 +26,8 @@ export default function Register() {
     setError('');
     setBusy(true);
     try {
-      await api.post('/api/auth/register', { email, password, consent, vorname, nachname, linkedin });
+      const d = await api.post('/api/auth/register', { email, password, consent, vorname, nachname, linkedin });
+      if (d.einladung_erneut) { setHinweis(d.message); setDone(true); return; }
       setDone(true);
     } catch (err) {
       setError(err.message);
@@ -41,8 +43,7 @@ export default function Register() {
           <Logo />
           <h1>Fast geschafft</h1>
           <div className="msg msg-success">
-            Wir haben dir eine E-Mail geschickt. Bitte bestätige deine
-            E-Mail-Adresse über den Link darin.
+            {hinweis || 'Wir haben dir eine E-Mail geschickt. Bitte bestätige deine E-Mail-Adresse über den Link darin.'}
           </div>
           <div className="auth-links"><Link to="/login">Zur Anmeldung</Link></div>
         </div>

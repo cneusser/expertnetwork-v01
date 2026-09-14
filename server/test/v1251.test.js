@@ -137,3 +137,42 @@ test('Reparatur über die Route inklusive CSV und Rechteschutz', async () => {
   const ohneLogin = await fetch(`${baseUrl}/api/experts/import-reparatur`, { method: 'POST', body: new FormData() });
   assert.strictEqual(ohneLogin.status, 401);
 });
+
+test('Wer schon eingeladen ist, bekommt über den allgemeinen Link die Einladung erneut', async () => {
+  const bcrypt = require('bcryptjs');
+  const [user] = await db('users').insert({
+    tenant_id: tenantId, email: 'elfriede@bergmiller.example', role: 'expert', is_approved: false,
+    password_hash: await bcrypt.hash('zufall', 10),
+  }).returning('*');
+  await db('experts').insert({
+    tenant_id: tenantId, user_id: user.id, vorname: 'Elfriede', nachname: 'Bergmiller',
+    email: 'elfriede@bergmiller.example', status: 'eingeladen', name_key: 'elfriede|bergmiller',
+  });
+
+  const res = await post('/api/auth/register', {
+    email: 'elfriede@bergmiller.example', password: 'ein-gutes-passwort', consent: true,
+    vorname: 'Elfriede', nachname: 'Bergmiller',
+  });
+  assert.strictEqual(res.status, 200, 'keine Wand, sondern ein Weg');
+  const d = await res.json();
+  assert.strictEqual(d.einladung_erneut, true);
+  assert.match(d.message, /Postfach/);
+
+  const mail = await db('mail_outbox').where({ to_email: 'elfriede@bergmiller.example', template_key: 'einladung_neu' })
+    .orderBy('id', 'desc').first();
+  assert.ok(mail, 'Einladung ist erneut raus');
+  assert.match(mail.body_html, /einladung\?token=/);
+  assert.strictEqual(await db('users').where({ email: 'elfriede@bergmiller.example' }).count('* as c').first().then((x) => Number(x.c)), 1,
+    'kein zweites Konto');
+
+  // Wer die Einladung angenommen hat, bekommt weiterhin die klare Abfuhr
+  await db('consents').insert({
+    tenant_id: tenantId, user_id: user.id, zweck: 'talentpool', text_version: 'test',
+    expires_at: new Date(Date.now() + 86400000 * 100),
+  });
+  const zweiter = await post('/api/auth/register', {
+    email: 'elfriede@bergmiller.example', password: 'ein-gutes-passwort', consent: true,
+    vorname: 'Elfriede', nachname: 'Bergmiller',
+  });
+  assert.strictEqual(zweiter.status, 409);
+});
