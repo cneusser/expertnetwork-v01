@@ -89,6 +89,7 @@ app.use('/api/tenants', tenantRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/public', publicRoutes);
 app.use('/api/billing', require('./routes/billing'));
+app.use('/api/ansprache', require('./routes/ansprache'));
 
 // Produktion: gebauten Client ausliefern (ein Railway-Service für beides).
 const clientDist = path.join(__dirname, '..', 'client', 'dist');

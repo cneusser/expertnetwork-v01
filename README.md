@@ -100,6 +100,19 @@ node server/scripts/vorregistrierung-import.js <datei.xlsx> [--ergebnis pfad.csv
 
 **Datenschutz.** Vorbereitete Kontaktdaten stammen aus bestehenden geschäftlichen Verbindungen und stützen sich auf Art. 6 Abs. 1 lit. f DSGVO. Sie erhalten keine automatische Post: Verfügbarkeits-Erinnerung, Quartalscheck, Einladungszyklus und Consent-Job schließen den Status ausdrücklich aus. Ohne Registrierung werden die Datensätze nach 120 Tagen automatisch gelöscht (`VORREG_LOESCHFRIST_TAGE`, Job `vorreg-loeschfrist`, mit Audit-Eintrag). Der Einwilligungstext (Version `2026-09-v2`) nennt die Zusammenführung ausdrücklich; die juristische Prüfung steht aus. Auskunft nach Art. 15 und Löschung nach Art. 17 umfassen die Vorreg-Felder, weil beide auf dem vollständigen Datensatz arbeiten.
 
+## Ansprache-Cockpit (v1.26.0)
+
+Arbeitsfläche für die persönliche Ansprache über LinkedIn, erreichbar unter Ansprache. Von dort geht **keine** Mail raus, das ist Absicht.
+
+- **Heute dran:** vorbereitete Kontakte, die noch nie angeschrieben wurden, sortiert nach Priorität und letztem Kontakt, begrenzt auf ein einstellbares Tagespensum. Ein Klick auf „heute" notiert das Datum, der LinkedIn-Link öffnet das Profil im neuen Tab.
+- **Wiedervorlage:** angeschrieben, keine Reaktion, Frist abgelaufen (einstellbar, Standard zehn Tage). Wer reagiert hat, verschwindet.
+- **Reaktion** je Kontakt in einem Schritt: offen, Interesse, später, Absage, keine Reaktion. „Später" setzt automatisch eine Wiedervorlage in 60 Tagen. Dazu eine interne Notizzeile.
+- **Sammelaktion** für den Feierabend-Nachtrag: mehrere auswählen und mit einem Klick als angeschrieben notieren, wahlweise rückdatiert.
+- **Auswertung:** Trichter von vorbereitet über angeschrieben, reagiert, registriert bis freigegeben, mit Antwort- und Registrierungsquote, aufgeschlüsselt nach Priorität, Kanal und Herkunftsliste.
+- **Export** des gesamten Standes als CSV, passend zur eigenen Outreach-Liste.
+
+Migration 0029, Route `/api/ansprache`, Test `v126.test.js`.
+
 ## Roadmap
 
 Sprint 1 Expert Directory → 2 Verfügbarkeit + Erinnerungs-Loop → 3 Tagessätze → 4 Audit-Trail-UI → 5 Suche → 6 Projekte/Matching → 7 Kommunikation → 8 Vendor-Portal/Multi-Tenant → 9 KI (CV-Extraktion, Matching-Begründung). Details: `Rechercheberichte/Expertnetwork-Fable5-Bauprompt-2026-07-11.md`.

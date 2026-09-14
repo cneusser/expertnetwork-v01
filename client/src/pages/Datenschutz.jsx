@@ -47,6 +47,25 @@ export default function Datenschutz() {
         an Personen mit aktiver Einwilligung.
       </p>
       <p>
+        <strong>Vorbereitete Kontaktdaten (Vorregistrierung):</strong> Aus bestehenden
+        geschäftlichen Verbindungen, insbesondere aus dem beruflichen Netzwerk unseres
+        Geschäftsführers, bereiten wir Kontaktdatensätze vor, bevor die betroffene Person
+        angesprochen wird. Verarbeitet werden dabei Vor- und Nachname, Unternehmen, berufliche
+        Position, die Adresse des öffentlichen LinkedIn-Profils sowie, sofern uns bekannt, eine
+        geschäftliche E-Mail-Adresse und der Zeitpunkt des letzten Kontakts. Rechtsgrundlage ist
+        unser berechtigtes Interesse an der Anbahnung geschäftlicher Zusammenarbeit
+        (Art. 6 Abs. 1 lit. f DSGVO). Diese Datensätze erhalten <strong>keine</strong>
+        automatisierten E-Mails von uns. Die Ansprache erfolgt persönlich, in der Regel über
+        LinkedIn. Über die Verarbeitung informieren wir gemäß Art. 14 DSGVO spätestens bei der
+        ersten Kontaktaufnahme. Registrieren Sie sich anschließend selbst, wird der vorbereitete
+        Datensatz mit Ihrem Konto zusammengeführt, damit keine zwei Profile zu Ihrer Person
+        entstehen; ab diesem Zeitpunkt gilt Ihre Einwilligung als Rechtsgrundlage. Ohne
+        Registrierung löschen wir den Datensatz spätestens 120 Tage nach seiner Anlage
+        automatisch. Sie können der Verarbeitung jederzeit widersprechen (Art. 21 DSGVO), eine
+        formlose Nachricht an die unten genannte Adresse genügt; wir löschen den Datensatz dann
+        umgehend.
+      </p>
+      <p>
         <strong>Kunden- und Projektdaten:</strong> Firmen-, Ansprechpartner- und Projektangaben
         zur Anbahnung und Durchführung von Vermittlungen (Art. 6 Abs. 1 lit. b DSGVO).
       </p>
@@ -78,6 +97,12 @@ export default function Datenschutz() {
         oder Ablauf wird das Profil gesperrt und anschließend gelöscht bzw. anonymisiert;
         gesetzliche Aufbewahrungspflichten bleiben unberührt. Audit-Einträge werden bei Löschung
         personenbezogen anonymisiert.
+      </p>
+      <p>
+        Vorbereitete Kontaktdaten ohne Registrierung: 120 Tage ab Anlage, danach automatische
+        Löschung. Eingeladene Kontakte, die die Einladung nicht annehmen: Löschung nach Ablauf des
+        Einladungszyklus, spätestens 28 Tage nach der Einladung. Abrechnungsbelege: zehn Jahre
+        gemäß den handels- und steuerrechtlichen Aufbewahrungspflichten.
       </p>
 
       <H>6. Ihre Rechte</H>
