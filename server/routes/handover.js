@@ -29,7 +29,7 @@ const ZIELGRUPPEN = ['interim', 'cfo', 'nachfolger'];
 const GUELTIG_TAGE = Number(process.env.HANDOVER_GUELTIG_TAGE || 7);
 
 function capitalmatchBasis() {
-  return (process.env.CAPITALMATCH_URL || 'https://capitalmatch.phalanx.de').replace(/\/+$/, '');
+  return (process.env.CAPITALMATCH_URL || 'https://www.capitalmatch.de').replace(/\/+$/, '');
 }
 
 /** Gleich langer Vergleich, damit der Schlüssel nicht Zeichen für Zeichen erraten werden kann. */

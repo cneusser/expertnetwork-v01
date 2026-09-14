@@ -2,6 +2,10 @@
 
 Versionsschema: v\<Major>.\<Sprint>.\<Patch>. Sprintabschluss endet auf .0, Korrekturen zählen den Patch hoch.
 
+## v1.27.1 — Capitalmatch-Domain bestätigt
+
+- `CAPITALMATCH_URL` steht jetzt standardmäßig auf `https://www.capitalmatch.de`, die Adresse ist geprüft und gehört zur Phalanx GmbH. Die Variable überschreibt den Standard weiterhin.
+
 ## v1.27.0 — Übergabe an Capitalmatch
 
 - Zielgruppe je Kontakt (Interim, CFO, Nachfolger) direkt in der Arbeitsliste.
