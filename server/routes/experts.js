@@ -231,14 +231,27 @@ router.post('/invite-bulk', requireRole('admin'), listUpload.single('file'), asy
   }
   if (!rows.length) return res.status(400).json({ error: 'Datei ist leer' });
 
-  // Spalten erkennen
-  const head = rows[0].map((c) => c.toLowerCase());
+  // Spalten erkennen.
+  // v1.25.1 — BUGFIX: Die Muster sind jetzt verankert. Vorher traf "name$" auch
+  // auf "vorname" zu, dadurch lasen Vor- und Nachname dieselbe Spalte, und in der
+  // Liste standen Leute als "Achim Achim".
+  const head = rows[0].map((c) => c.toLowerCase().trim());
   const idx = {
-    vorname: head.findIndex((c) => /vorname|first/.test(c)),
-    nachname: head.findIndex((c) => /nachname|last|name$/.test(c)),
-    email: head.findIndex((c) => /mail/.test(c)),
-    sprache: head.findIndex((c) => /sprache|language|lang/.test(c)),
+    vorname: head.findIndex((c) => /^(vorname|first ?name|given ?name)$/.test(c)),
+    nachname: head.findIndex((c) => /^(nachname|last ?name|surname|family ?name)$/.test(c)),
+    email: head.findIndex((c) => /^(e-?mail|mail|email(adresse)?)$/.test(c)),
+    sprache: head.findIndex((c) => /^(sprache|language|lang)$/.test(c)),
   };
+
+  // v1.25.1 — Schutz vor Verwechslung: Wer eine Vorregistrierungsliste hier
+  // hochlaedt, loest sonst ungewollt echte Einladungsmails aus.
+  const vorregSpalten = head.filter((c) => /^(linkedin|prio|kanal|quelle)$/.test(c));
+  if (vorregSpalten.length >= 2) {
+    return res.status(409).json({
+      error: `Diese Datei sieht nach einer Vorregistrierungsliste aus (Spalten ${vorregSpalten.join(', ')}). `
+        + 'Hier wuerden sofort Einladungsmails rausgehen. Bitte "Liste vorregistrieren" verwenden.',
+    });
+  }
   const hatKopf = idx.email >= 0;
   const daten = hatKopf ? rows.slice(1) : rows;
   const col = hatKopf ? idx : { vorname: 0, nachname: 1, email: 2 };
@@ -299,6 +312,45 @@ router.post('/vorregistrierung-import', requireRole('admin'), listUpload.single(
     details: ergebnis,
     csv: ergebnisCsv(ergebnis),
     message: `${ergebnis.angelegt.length} neu vorregistriert, ${ergebnis.vorhanden.length} schon vorhanden, ${ergebnis.fehler.length} fehlerhaft.`,
+  });
+});
+
+/**
+ * v1.25.1 — Reparatur nach einem Fehlimport über den Einladungs-Upload.
+ * Dieselbe Datei noch einmal hochladen: Namen werden richtiggestellt, Firma,
+ * Position und LinkedIn nachgetragen. Optional wird der Einladungszyklus
+ * gestoppt (?zyklus_stoppen=1), dann gehen keine Erinnerungen mehr raus und
+ * nichts wird nach 28 Tagen automatisch gelöscht. Es geht keine Mail raus.
+ */
+router.post('/import-reparatur', requireRole('admin'), listUpload.single('file'), async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'Keine Datei übertragen' });
+  const { leseDatei, repariereAusListe, reparaturCsv } = require('../utils/vorregistrierung');
+
+  let gelesen;
+  try {
+    gelesen = leseDatei(req.file.buffer);
+  } catch {
+    return res.status(400).json({ error: 'Datei konnte nicht gelesen werden (XLSX oder CSV erwartet)' });
+  }
+  if (gelesen.fehlend.length) return res.status(400).json({ error: `Spalten fehlen: ${gelesen.fehlend.join(', ')}` });
+
+  const zyklusStoppen = ['1', 'true', 'ja'].includes(String(req.query.zyklus_stoppen || req.body?.zyklus_stoppen || '').toLowerCase());
+  const ergebnis = await repariereAusListe(gelesen.zeilen, {
+    tenantId: req.user.tenantId, actorId: req.user.id, zyklusStoppen, ip: req.ip,
+  });
+  res.locals.auditLogged = true;
+  res.json({
+    ok: true,
+    gelesen: gelesen.zeilen.length,
+    repariert: ergebnis.repariert.length,
+    namen_korrigiert: ergebnis.repariert.filter((r) => r.name_korrigiert).length,
+    zyklus_gestoppt: ergebnis.repariert.filter((r) => r.zyklus_gestoppt).length,
+    unveraendert: ergebnis.unveraendert.length,
+    nicht_gefunden: ergebnis.nicht_gefunden.length,
+    details: ergebnis,
+    csv: reparaturCsv(ergebnis),
+    message: `${ergebnis.repariert.length} Profil(e) berichtigt, davon ${ergebnis.repariert.filter((r) => r.name_korrigiert).length} Namen. `
+      + `${ergebnis.nicht_gefunden.length} Zeile(n) ohne Treffer.`,
   });
 });
 

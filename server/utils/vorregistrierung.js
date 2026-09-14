@@ -169,6 +169,95 @@ async function uebernehmen(vorregId, user, { vorname, nachname, linkedin, minima
 }
 
 /**
+ * v1.25.1 — Reparatur nach einem Fehlimport.
+ *
+ * Der alte Einladungs-Upload hat Vor- und Nachname aus derselben Spalte gelesen
+ * ("Achim Achim") und Firma, Position und LinkedIn gar nicht erst übernommen.
+ * Diese Funktion liest dieselbe Datei noch einmal, findet die Betroffenen über
+ * die E-Mail-Adresse und zieht die richtigen Werte nach. Angefasst wird nur, was
+ * nachweislich falsch oder leer ist, vorhandene Angaben bleiben stehen.
+ *
+ * zyklusStoppen setzt den Einladungszyklus zurück: keine Erinnerung an Tag 7 und
+ * 21, keine automatische Löschung an Tag 28. Sinnvoll, wenn die Einladung
+ * ungewollt rausging und die Ansprache in Ruhe von Hand laufen soll.
+ */
+async function repariereAusListe(zeilen, { tenantId, actorId = null, zyklusStoppen = false, ip = null } = {}) {
+  const ergebnis = { repariert: [], unveraendert: [], nicht_gefunden: [] };
+
+  for (const zeile of zeilen) {
+    const mail = emailKey(zeile.email);
+    const vorname = String(zeile.vorname || '').trim();
+    const nachname = String(zeile.nachname || '').trim();
+    if (!mail || !vorname || !nachname) {
+      ergebnis.nicht_gefunden.push({ vorname, nachname, grund: 'ohne E-Mail nicht zuzuordnen' });
+      continue;
+    }
+    const expert = await db('experts').where('tenant_id', tenantId)
+      .whereRaw('lower(trim(email)) = ?', [mail]).first();
+    if (!expert) {
+      ergebnis.nicht_gefunden.push({ vorname, nachname, email: mail, grund: 'kein Profil zu dieser Adresse' });
+      continue;
+    }
+
+    const patch = {};
+    const doppelt = String(expert.nachname || '').trim().toLowerCase() === String(expert.vorname || '').trim().toLowerCase();
+    if (doppelt || !expert.nachname) { patch.vorname = vorname.slice(0, 100); patch.nachname = nachname.slice(0, 100); }
+    if (!expert.firma && zeile.firma) patch.firma = String(zeile.firma).trim().slice(0, 150);
+    if (!expert.berufsbezeichnung && zeile.berufsbezeichnung) patch.berufsbezeichnung = String(zeile.berufsbezeichnung).trim().slice(0, 200);
+    if (!expert.linkedin && linkedinKey(zeile.linkedin)) patch.linkedin = linkedinKey(zeile.linkedin);
+    if (!expert.vorreg_quelle && zeile.quelle) patch.vorreg_quelle = String(zeile.quelle).trim().slice(0, 150);
+    if (!expert.vorreg_prio && zeile.prio) patch.vorreg_prio = String(zeile.prio).trim().toUpperCase().slice(0, 1);
+    if (!expert.vorreg_kanal && zeile.kanal) patch.vorreg_kanal = /mail/i.test(zeile.kanal) ? 'email' : 'linkedin';
+    if (!expert.vorreg_letzter_kontakt && zeile.letzter_kontakt) patch.vorreg_letzter_kontakt = datumOderNull(zeile.letzter_kontakt);
+    const key = nameKey(patch.vorname || expert.vorname, patch.nachname || expert.nachname);
+    if (key && key !== expert.name_key) patch.name_key = key;
+    if (zyklusStoppen && expert.invite_cycle_started_at) {
+      patch.invite_cycle_started_at = null;
+      patch.invite_zyklus = null;
+    }
+
+    if (!Object.keys(patch).length) {
+      ergebnis.unveraendert.push({ vorname, nachname, email: mail, expert_id: expert.id, status: expert.status });
+      continue;
+    }
+    await db('experts').where({ id: expert.id }).update(patch);
+    ergebnis.repariert.push({
+      expert_id: expert.id, vorname: patch.vorname || expert.vorname, nachname: patch.nachname || expert.nachname,
+      email: mail, status: expert.status, name_korrigiert: Boolean(patch.nachname),
+      zyklus_gestoppt: Boolean(patch.invite_cycle_started_at === null),
+      felder: Object.keys(patch),
+    });
+  }
+
+  await db('audit_log').insert({
+    tenant_id: tenantId, actor_id: actorId, action: 'expert.import_reparatur',
+    resource: 'experts',
+    new_value_json: JSON.stringify({
+      repariert: ergebnis.repariert.length,
+      unveraendert: ergebnis.unveraendert.length,
+      nicht_gefunden: ergebnis.nicht_gefunden.length,
+      zyklus_gestoppt: zyklusStoppen,
+    }),
+    ip,
+  }).catch(() => {});
+
+  return ergebnis;
+}
+
+/** Ergebnis der Reparatur als CSV. */
+function reparaturCsv(ergebnis) {
+  const kopf = ['Vorname', 'Nachname', 'E-Mail', 'Ergebnis', 'Status', 'Experten-ID', 'Geaenderte Felder'];
+  const q = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  const zeilen = [
+    ...ergebnis.repariert.map((r) => [r.vorname, r.nachname, r.email,
+      r.name_korrigiert ? 'Name korrigiert' : 'ergaenzt', r.status, r.expert_id, r.felder.join(' ')]),
+    ...ergebnis.unveraendert.map((r) => [r.vorname, r.nachname, r.email, 'war schon in Ordnung', r.status, r.expert_id, '']),
+    ...ergebnis.nicht_gefunden.map((r) => [r.vorname, r.nachname, r.email || '', r.grund, '', '', '']),
+  ];
+  return `﻿${kopf.join(';')}\n${zeilen.map((z) => z.map(q).join(';')).join('\n')}\n`;
+}
+
+/**
  * Kopfzeile einer Liste deuten. Reihenfolge der Spalten ist egal, E-Mail optional.
  * Die Muster sind absichtlich großzügig, damit auch Exporte mit englischen
  * Überschriften oder kleinen Abweichungen durchgehen.
@@ -230,5 +319,6 @@ function ergebnisCsv(ergebnis) {
 }
 
 module.exports = {
-  VORREG, findePerson, importiereListe, uebernehmen, baueDatensatz, datumOderNull, leseDatei, ergebnisCsv,
+  VORREG, findePerson, importiereListe, uebernehmen, baueDatensatz, datumOderNull,
+  leseDatei, ergebnisCsv, repariereAusListe, reparaturCsv,
 };

@@ -129,6 +129,36 @@ export default function AdminExperts() {
                 } finally { setVorregBusy(false); ev3.target.value = ''; }
               }} />
           </label>
+          <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px dashed var(--grey-200, #e3e6ea)' }}>
+            <span className="muted" style={{ fontSize: 12 }}>
+              Verunglückter Import über „Liste einladen"? Dieselbe Datei hier hochladen: Namen werden
+              richtiggestellt, Firma, Position und LinkedIn nachgetragen. Es geht keine Mail raus.
+            </span>
+            <br />
+            <label className="tab" style={{ padding: 0, color: 'var(--navy)', cursor: 'pointer' }}>
+              Import reparieren
+              <input type="file" accept=".xlsx,.xls,.csv" style={{ display: 'none' }}
+                onChange={async (ev4) => {
+                  const file = ev4.target.files[0];
+                  if (!file) return;
+                  const stoppen = window.confirm(
+                    'Einladungszyklus für die betroffenen Profile stoppen?\n\n'
+                    + 'OK: keine Erinnerungen an Tag 7 und 21, keine automatische Löschung an Tag 28.\n'
+                    + 'Abbrechen: nur Namen und Angaben berichtigen, Zyklus läuft weiter.');
+                  const fd4 = new FormData();
+                  fd4.append('file', file);
+                  setVorregErgebnis(null); setInviteMsg(null); setVorregBusy(true);
+                  try {
+                    const res = await fetch(`/api/experts/import-reparatur?zyklus_stoppen=${stoppen ? 1 : 0}`,
+                      { method: 'POST', body: fd4, credentials: 'include' });
+                    const d = await res.json();
+                    if (!res.ok) { setInviteMsg({ ok: false, text: d.error || 'Reparatur fehlgeschlagen' }); return; }
+                    setVorregErgebnis(d);
+                    api.get('/api/experts').then((x) => setExperts(x.experts));
+                  } finally { setVorregBusy(false); ev4.target.value = ''; }
+                }} />
+            </label>
+          </div>
           {vorregErgebnis && (
             <div className="msg msg-success" style={{ marginTop: 10 }}>
               {vorregErgebnis.message}
