@@ -111,7 +111,9 @@ Arbeitsfläche für die persönliche Ansprache über LinkedIn, erreichbar unter 
 - **Auswertung:** Trichter von vorbereitet über angeschrieben, reagiert, registriert bis freigegeben, mit Antwort- und Registrierungsquote, aufgeschlüsselt nach Priorität, Kanal und Herkunftsliste.
 - **Export** des gesamten Standes als CSV, passend zur eigenen Outreach-Liste.
 
-Migration 0029, Route `/api/ansprache`, Test `v126.test.js`.
+- **Nicht ansprechen (v1.26.1):** Wer im Netzwerk wertvoll ist, aber nie auf ein Mandat geht, wird mit einem Klick aus der Ansprache genommen. Der Datensatz bleibt, die Person verschwindet aus allen Arbeitslisten, und eine schlanke Merkliste sorgt dafür, dass sie bei künftigen Importen übersprungen wird. Die Merkliste überlebt das Löschen des Profils und ist jederzeit zurücknehmbar.
+
+Migration 0029 und 0030, Route `/api/ansprache`, Test `v126.test.js`.
 
 ## Roadmap
 

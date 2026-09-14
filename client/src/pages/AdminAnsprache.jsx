@@ -5,7 +5,7 @@
  */
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Send, RotateCcw, Download, ExternalLink } from 'lucide-react';
+import { Send, RotateCcw, Download, ExternalLink, UserMinus } from 'lucide-react';
 import Layout from '../components/Layout';
 import { api } from '../api/client';
 
@@ -20,15 +20,17 @@ export default function AdminAnsprache() {
   const [tab, setTab] = useState('faellig');
   const [filter, setFilter] = useState({ prio: '', kanal: '', pensum: 20, wiedervorlage_tage: 10 });
   const [auswahl, setAuswahl] = useState([]);
+  const [ausschluss, setAusschluss] = useState(null);
 
   const laden = async () => {
     try {
       const p = new URLSearchParams(Object.entries(filter).filter(([, v]) => v !== '' && v != null));
-      const [a, t] = await Promise.all([
+      const [a, t, x] = await Promise.all([
         api.get(`/api/ansprache/arbeitsliste?${p}`),
         api.get('/api/ansprache/trichter'),
+        api.get('/api/ansprache/ausschluss'),
       ]);
-      setDaten(a); setTrichter(t);
+      setDaten(a); setTrichter(t); setAusschluss(x);
     } catch (e) { setMsg({ ok: false, text: e.message }); }
   };
   useEffect(() => { laden(); }, [filter.prio, filter.kanal, filter.pensum, filter.wiedervorlage_tage]);
@@ -57,7 +59,8 @@ export default function AdminAnsprache() {
           {[['Vorbereitet', trichter.gesamt.vorbereitet], ['Angeschrieben', trichter.gesamt.angeschrieben],
             ['Reagiert', `${trichter.gesamt.reagiert} (${trichter.gesamt.quote_reaktion} %)`],
             ['Registriert', `${trichter.gesamt.registriert} (${trichter.gesamt.quote_registrierung} %)`],
-            ['Freigegeben', trichter.gesamt.freigegeben]].map(([label, wert]) => (
+            ['Freigegeben', trichter.gesamt.freigegeben],
+            ['Nicht ansprechen', trichter.gesamt.ausgeschlossen || 0]].map(([label, wert]) => (
               <div className="card" key={label} style={{ padding: 14 }}>
                 <div className="muted" style={{ fontSize: 12 }}>{label}</div>
                 <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--navy)', marginTop: 4 }}>{wert}</div>
@@ -97,13 +100,52 @@ export default function AdminAnsprache() {
       <div className="tabs" style={{ margin: '10px 0 14px' }}>
         {[['faellig', `Heute dran (${daten?.faellig.length || 0})`],
           ['wiedervorlage', `Wiedervorlage (${daten?.wiedervorlage.length || 0})`],
-          ['trichter', 'Auswertung']].map(([k, l]) => (
+          ['trichter', 'Auswertung'],
+          ['ausschluss', `Nicht ansprechen (${ausschluss?.eintraege.length || 0})`]].map(([k, l]) => (
             <button key={k} type="button" className={`tab ${tab === k ? 'tab-active' : ''}`}
               onClick={() => { setTab(k); setAuswahl([]); }}>{l}</button>
           ))}
       </div>
 
-      {tab !== 'trichter' && liste && (
+      {tab === 'ausschluss' && ausschluss && (
+        <>
+          <p className="muted" style={{ fontSize: 13 }}>
+            Diese Personen nimmst Du bewusst aus der Ansprache. Sie erscheinen in keiner Arbeitsliste und werden
+            bei künftigen Importen übersprungen. Die Merkliste überlebt das Löschen des Profils, damit niemand
+            aus Versehen wieder auf der Liste landet.
+          </p>
+          <table className="table">
+            <thead><tr><th>Name</th><th>Grund</th><th>Seit</th><th /></tr></thead>
+            <tbody>
+              {ausschluss.eintraege.map((e) => (
+                <tr key={e.id}>
+                  <td><strong>{e.anzeige_name}</strong>
+                    {e.linkedin && <><br /><span className="muted" style={{ fontSize: 12 }}>{e.linkedin}</span></>}</td>
+                  <td>{e.grund || <span className="muted">ohne Angabe</span>}</td>
+                  <td>{fmt(e.created_at)}</td>
+                  <td>
+                    <button type="button" className="tab" style={{ padding: 0, color: 'var(--navy)' }}
+                      onClick={async () => {
+                        if (!window.confirm(`${e.anzeige_name} wieder in die Ansprache aufnehmen?`)) return;
+                        try {
+                          const d = await api.del(`/api/ansprache/ausschluss/${e.id}`);
+                          setMsg({ ok: true, text: d.message }); await laden();
+                        } catch (err) { setMsg({ ok: false, text: err.message }); }
+                      }}>zurücknehmen</button>
+                  </td>
+                </tr>
+              ))}
+              {!ausschluss.eintraege.length && (
+                <tr><td colSpan={4} className="muted">
+                  Noch niemand ausgenommen. In der Arbeitsliste findest Du rechts das Symbol dafür.
+                </td></tr>
+              )}
+            </tbody>
+          </table>
+        </>
+      )}
+
+      {tab !== 'trichter' && tab !== 'ausschluss' && liste && (
         <>
           {auswahl.length > 0 && (
             <p style={{ marginBottom: 10 }}>
@@ -126,7 +168,7 @@ export default function AdminAnsprache() {
                     onChange={(e) => setAuswahl(e.target.checked ? liste.map((x) => x.id) : [])} />
                 </th>
                 <th>Name</th><th>Position</th><th>Prio</th><th>Letzter Kontakt</th>
-                <th>Angeschrieben</th><th>Reaktion</th><th>Notiz</th>
+                <th>Angeschrieben</th><th>Reaktion</th><th>Notiz</th><th />
               </tr>
             </thead>
             <tbody>
@@ -176,10 +218,26 @@ export default function AdminAnsprache() {
                         schritt(p.id, { notiz: wert });
                       }}>{p.vorreg_notiz ? p.vorreg_notiz.slice(0, 40) : 'notieren'}</button>
                   </td>
+                  <td>
+                    <button type="button" title="Aus der Ansprache nehmen, Datensatz bleibt"
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--grey-400, #8a93a0)' }}
+                      onClick={async () => {
+                        const grund = window.prompt(
+                          `${p.vorname} ${p.nachname} aus der Ansprache nehmen.\n\n`
+                          + 'Die Person verschwindet aus allen Arbeitslisten und taucht bei künftigen Importen nicht wieder auf. '
+                          + 'Der Datensatz bleibt erhalten, Du kannst das jederzeit zurücknehmen.\n\nGrund (optional):',
+                          'nicht für Vermittlung');
+                        if (grund === null) return;
+                        try {
+                          const d = await api.post(`/api/ansprache/${p.id}/rausnehmen`, { grund });
+                          setMsg({ ok: true, text: d.message }); await laden();
+                        } catch (e) { setMsg({ ok: false, text: e.message }); }
+                      }}><UserMinus size={15} /></button>
+                  </td>
                 </tr>
               ))}
               {!liste.length && (
-                <tr><td colSpan={8} className="muted">
+                <tr><td colSpan={9} className="muted">
                   {tab === 'faellig'
                     ? 'Für heute ist die Liste leer. Entweder alle angeschrieben oder die Filter greifen zu eng.'
                     : 'Niemand fällig. Wiedervorlagen erscheinen hier, sobald die Frist abgelaufen ist.'}

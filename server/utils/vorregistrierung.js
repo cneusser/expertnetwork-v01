@@ -91,7 +91,7 @@ async function findePerson(tenantId, { email, linkedin, vorname, nachname }, { n
  * dass Dubletten entstehen.
  */
 async function importiereListe(zeilen, { tenantId, actorId = null, ip = null } = {}) {
-  const ergebnis = { angelegt: [], vorhanden: [], fehler: [] };
+  const ergebnis = { angelegt: [], vorhanden: [], ausgeschlossen: [], fehler: [] };
 
   for (const zeile of zeilen) {
     const vorname = String(zeile.vorname || '').trim();
@@ -101,6 +101,14 @@ async function importiereListe(zeilen, { tenantId, actorId = null, ip = null } =
       continue;
     }
     try {
+      // v1.26.1 — Wer einmal aus der Ansprache genommen wurde, kommt nicht wieder rein.
+      const gesperrt = await istAusgeschlossen(tenantId, { email: zeile.email, linkedin: zeile.linkedin, vorname, nachname });
+      if (gesperrt) {
+        ergebnis.ausgeschlossen.push({
+          vorname, nachname, linkedin: linkedinKey(zeile.linkedin), grund: gesperrt.grund || 'ohne Angabe',
+        });
+        continue;
+      }
       const fund = await findePerson(tenantId, { email: zeile.email, linkedin: zeile.linkedin, vorname, nachname });
       if (fund.treffer) {
         ergebnis.vorhanden.push({
@@ -124,12 +132,47 @@ async function importiereListe(zeilen, { tenantId, actorId = null, ip = null } =
     new_value_json: JSON.stringify({
       angelegt: ergebnis.angelegt.length,
       vorhanden: ergebnis.vorhanden.length,
+      ausgeschlossen: ergebnis.ausgeschlossen.length,
       fehler: ergebnis.fehler.length,
     }),
     ip,
   }).catch(() => { /* Protokoll darf den Import nie kippen */ });
 
   return ergebnis;
+}
+
+/**
+ * v1.26.1 — Steht die Person auf der Merkliste "nicht ansprechen"?
+ * Geprüft wird in derselben Reihenfolge wie überall: E-Mail, LinkedIn, Name.
+ */
+async function istAusgeschlossen(tenantId, { email, linkedin, vorname, nachname }) {
+  const mail = emailKey(email);
+  const li = linkedinKey(linkedin);
+  const key = nameKey(vorname, nachname);
+  const q = db('ansprache_ausschluss').where('tenant_id', tenantId).where(function oder() {
+    let leer = true;
+    if (mail) { this.orWhereRaw('lower(trim(email)) = ?', [mail]); leer = false; }
+    if (li) { this.orWhereRaw('lower(trim(linkedin)) = ?', [li]); leer = false; }
+    if (key) { this.orWhere('name_key', key); leer = false; }
+    if (leer) this.whereRaw('1 = 0');
+  });
+  return q.first();
+}
+
+/** Person auf die Merkliste setzen. Doppelte Einträge werden vermieden. */
+async function merkeAusschluss(tenantId, person, { grund = null, actorId = null } = {}) {
+  const vorhanden = await istAusgeschlossen(tenantId, person);
+  if (vorhanden) return vorhanden;
+  const [eintrag] = await db('ansprache_ausschluss').insert({
+    tenant_id: tenantId,
+    anzeige_name: `${person.vorname || ''} ${person.nachname || ''}`.trim() || '(ohne Namen)',
+    name_key: nameKey(person.vorname, person.nachname),
+    linkedin: linkedinKey(person.linkedin),
+    email: emailKey(person.email),
+    grund: grund ? String(grund).slice(0, 300) : null,
+    created_by: actorId,
+  }).returning('*');
+  return eintrag;
 }
 
 /**
@@ -313,6 +356,8 @@ function ergebnisCsv(ergebnis) {
     ...ergebnis.angelegt.map((r) => [r.vorname, r.nachname, r.linkedin || '', 'neu vorregistriert', '', r.id]),
     ...ergebnis.vorhanden.map((r) => [r.vorname, r.nachname, r.linkedin || '',
       `bereits vorhanden (erkannt über ${r.erkannt_ueber}${r.mehrdeutig ? ', mehrdeutig' : ''})`, r.status, r.expert_id ?? '']),
+    ...(ergebnis.ausgeschlossen || []).map((r) => [r.vorname, r.nachname, r.linkedin || '',
+      `übersprungen (nicht ansprechen: ${r.grund})`, '', '']),
     ...ergebnis.fehler.map((r) => [r.vorname || '', r.nachname || '', '', `Fehler: ${r.grund}`, '', '']),
   ];
   return `﻿${kopf.join(';')}\n${zeilen.map((z) => z.map(q).join(';')).join('\n')}\n`;
@@ -321,4 +366,5 @@ function ergebnisCsv(ergebnis) {
 module.exports = {
   VORREG, findePerson, importiereListe, uebernehmen, baueDatensatz, datumOderNull,
   leseDatei, ergebnisCsv, repariereAusListe, reparaturCsv,
+  istAusgeschlossen, merkeAusschluss,
 };

@@ -12,7 +12,7 @@ const express = require('express');
 const { z } = require('zod');
 const { db } = require('../db/knex');
 const { requireAuth, requireRole } = require('../middleware/auth');
-const { VORREG } = require('../utils/vorregistrierung');
+const { VORREG, merkeAusschluss } = require('../utils/vorregistrierung');
 
 const router = express.Router();
 router.use(requireAuth, requireRole('admin'));
@@ -27,6 +27,7 @@ const FELDER = [
   'vorreg_prio', 'vorreg_kanal', 'vorreg_quelle', 'vorreg_letzter_kontakt',
   'vorreg_angeschrieben_am', 'vorreg_reaktion', 'vorreg_reaktion_am', 'vorreg_wiedervorlage',
   'vorreg_notiz', 'vorreg_importiert_am', 'vorreg_zusammengefuehrt_am',
+  'vorreg_ausgeschlossen_am', 'vorreg_ausschluss_grund',
 ];
 
 /**
@@ -45,7 +46,8 @@ router.get('/arbeitsliste', async (req, res) => {
   const basis = () => {
     const q = db('experts').where({ tenant_id: req.user.tenantId })
       .whereIn('status', [VORREG, 'eingeladen'])
-      .whereNull('vorreg_zusammengefuehrt_am');
+      .whereNull('vorreg_zusammengefuehrt_am')
+      .whereNull('vorreg_ausgeschlossen_am'); // v1.26.1: wer raus ist, ist raus
     if (['A', 'B', 'C'].includes(prio)) q.andWhere('vorreg_prio', prio);
     if (['linkedin', 'email'].includes(kanal)) q.andWhere('vorreg_kanal', kanal);
     return q;
@@ -141,15 +143,88 @@ router.post('/angeschrieben', async (req, res) => {
 });
 
 /**
+ * v1.26.1 — Kontakt aus der Ansprache nehmen.
+ *
+ * Für Menschen, die im Netzwerk wertvoll sind, aber nie auf ein Mandat gehen
+ * werden. Der Datensatz bleibt zunächst stehen, verschwindet aber aus jeder
+ * Arbeitsliste. Gleichzeitig wandert ein schlanker Eintrag auf die Merkliste,
+ * damit die Person beim nächsten Import nicht wieder auftaucht. Löschen kannst
+ * Du sie danach jederzeit in der Expertenliste, die Merkliste bleibt.
+ */
+router.post('/:id(\\d+)/rausnehmen', async (req, res) => {
+  const person = await db('experts').where({ id: Number(req.params.id), tenant_id: req.user.tenantId }).first();
+  if (!person) return res.status(404).json({ error: 'Kontakt nicht gefunden' });
+  if (person.user_id && ['registriert', 'freigegeben'].includes(person.status)) {
+    return res.status(409).json({
+      error: 'Diese Person hat ein aktives Konto. Hier geht es nur um die Ansprache. '
+        + 'Für aktive Profile nutze die Ausschlussliste in der Expertenakte oder lösche das Profil.',
+    });
+  }
+  const grund = String(req.body?.grund || '').slice(0, 300) || null;
+
+  await db('experts').where({ id: person.id })
+    .update({ vorreg_ausgeschlossen_am: new Date(), vorreg_ausschluss_grund: grund });
+  const eintrag = await merkeAusschluss(req.user.tenantId, person, { grund, actorId: req.user.id });
+
+  await req.audit({
+    action: 'expert.ansprache_ausschluss', resource: 'experts', resourceId: person.id,
+    newValue: { grund, merkliste_id: eintrag.id },
+  });
+  res.locals.auditLogged = true;
+  res.json({
+    ok: true,
+    message: `${person.vorname} ${person.nachname} ist aus der Ansprache raus und steht auf der Merkliste.`,
+  });
+});
+
+/** Merkliste ansehen. */
+router.get('/ausschluss', async (req, res) => {
+  const eintraege = await db('ansprache_ausschluss').where({ tenant_id: req.user.tenantId })
+    .orderBy('created_at', 'desc').select('*');
+  const profile = await db('experts').where({ tenant_id: req.user.tenantId })
+    .whereNotNull('vorreg_ausgeschlossen_am')
+    .select('id', 'vorname', 'nachname', 'firma', 'berufsbezeichnung', 'status',
+      'vorreg_ausgeschlossen_am', 'vorreg_ausschluss_grund');
+  res.json({ eintraege, profile });
+});
+
+/** Ausschluss zurücknehmen: Merklisteneintrag weg, Datensatz wieder in der Liste. */
+router.delete('/ausschluss/:id(\\d+)', async (req, res) => {
+  const eintrag = await db('ansprache_ausschluss')
+    .where({ id: Number(req.params.id), tenant_id: req.user.tenantId }).first();
+  if (!eintrag) return res.status(404).json({ error: 'Eintrag nicht gefunden' });
+
+  await db('ansprache_ausschluss').where({ id: eintrag.id }).delete();
+  const zurueck = await db('experts').where({ tenant_id: req.user.tenantId })
+    .whereNotNull('vorreg_ausgeschlossen_am')
+    .where(function passt() {
+      if (eintrag.name_key) this.orWhere('name_key', eintrag.name_key);
+      if (eintrag.linkedin) this.orWhereRaw('lower(trim(linkedin)) = ?', [eintrag.linkedin]);
+      if (eintrag.email) this.orWhereRaw('lower(trim(email)) = ?', [eintrag.email]);
+    })
+    .update({ vorreg_ausgeschlossen_am: null, vorreg_ausschluss_grund: null });
+
+  await req.audit({
+    action: 'expert.ansprache_ausschluss_zurueck', resource: 'ansprache_ausschluss', resourceId: eintrag.id,
+    oldValue: { anzeige_name: eintrag.anzeige_name, grund: eintrag.grund },
+  });
+  res.locals.auditLogged = true;
+  res.json({ ok: true, message: `${eintrag.anzeige_name} ist wieder in der Ansprache${zurueck ? '' : ' (kein Profil mehr vorhanden)'}.` });
+});
+
+/**
  * Trichter. Zeigt, wie viele von der vorbereiteten Liste tatsächlich ankommen,
  * aufgeschlüsselt nach Priorität und Kanal. Grundmenge sind alle Datensätze aus
  * einer Vorregistrierung, auch die inzwischen registrierten.
  */
 router.get('/trichter', async (req, res) => {
-  const alle = await db('experts').where({ tenant_id: req.user.tenantId })
+  const roh = await db('experts').where({ tenant_id: req.user.tenantId })
     .whereNotNull('vorreg_importiert_am')
     .select('status', 'vorreg_prio', 'vorreg_kanal', 'vorreg_quelle', 'vorreg_angeschrieben_am',
-      'vorreg_reaktion', 'vorreg_zusammengefuehrt_am', 'id');
+      'vorreg_reaktion', 'vorreg_zusammengefuehrt_am', 'vorreg_ausgeschlossen_am', 'id');
+  // Wer aus der Ansprache genommen wurde, verzerrt die Quoten nicht mehr.
+  const ausgeschlossen = roh.filter((e) => e.vorreg_ausgeschlossen_am).length;
+  const alle = roh.filter((e) => !e.vorreg_ausgeschlossen_am);
 
   const aktive = new Set(['registriert', 'freigegeben']);
   const stufen = (menge) => {
@@ -182,7 +257,7 @@ router.get('/trichter', async (req, res) => {
   for (const r of REAKTIONEN) reaktionen[r] = alle.filter((e) => (e.vorreg_reaktion || 'offen') === r).length;
 
   res.json({
-    gesamt: stufen(alle),
+    gesamt: { ...stufen(alle), ausgeschlossen },
     nach_prio: gruppiere('vorreg_prio', 'ohne Prio'),
     nach_kanal: gruppiere('vorreg_kanal', 'ohne Kanal'),
     nach_quelle: gruppiere('vorreg_quelle', 'ohne Quelle'),
@@ -201,10 +276,11 @@ router.get('/export.csv', async (req, res) => {
   const datum = (d) => (d ? new Date(d).toLocaleDateString('de-DE') : '');
   const q = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
   const kopf = ['Vorname', 'Nachname', 'Firma', 'LinkedIn', 'E-Mail', 'Prio', 'Kanal',
-    'Angeschrieben am', 'Reaktion', 'Reaktion am', 'Wiedervorlage', 'Status', 'Notiz', 'Experten-ID'];
+    'Angeschrieben am', 'Reaktion', 'Reaktion am', 'Wiedervorlage', 'Status', 'Nicht ansprechen', 'Notiz', 'Experten-ID'];
   const zeilen = rows.map((r) => [r.vorname, r.nachname, r.firma, r.linkedin, r.email,
     r.vorreg_prio, r.vorreg_kanal, datum(r.vorreg_angeschrieben_am), LABEL[r.vorreg_reaktion] || r.vorreg_reaktion,
-    datum(r.vorreg_reaktion_am), datum(r.vorreg_wiedervorlage), r.status, r.vorreg_notiz, r.id]
+    datum(r.vorreg_reaktion_am), datum(r.vorreg_wiedervorlage), r.status,
+    r.vorreg_ausgeschlossen_am ? (r.vorreg_ausschluss_grund || 'ja') : '', r.vorreg_notiz, r.id]
     .map(q).join(';'));
 
   res.setHeader('Content-Type', 'text/csv; charset=utf-8');

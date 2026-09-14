@@ -167,3 +167,67 @@ test('CSV-Export enthält den Stand der Ansprache', async () => {
   assert.match(csv, /keine Reaktion|offen|Interesse|Absage/);
   assert.strictEqual((await get('/api/ansprache/export.csv')).status, 401);
 });
+
+test('Kontakt aus der Ansprache nehmen, Merkliste greift beim nächsten Import', async () => {
+  const prof = await db('experts').where({ nachname: 'Vormbaum' }).first();
+  const res = await post(`/api/ansprache/${prof.id}/rausnehmen`,
+    { grund: 'Professorin, fachliche Ressource, nicht für Vermittlung' }, { cookie: adminCookie });
+  assert.strictEqual(res.status, 200);
+
+  const stand = await db('experts').where({ id: prof.id }).first();
+  assert.ok(stand.vorreg_ausgeschlossen_am, 'am Datensatz vermerkt');
+  assert.match(stand.vorreg_ausschluss_grund, /Professorin/);
+  assert.strictEqual(stand.status, VORREG, 'Datensatz bleibt unangetastet');
+
+  // Aus allen Arbeitslisten verschwunden
+  const d = await (await get('/api/ansprache/arbeitsliste?pensum=100', { cookie: adminCookie })).json();
+  assert.ok(![...d.faellig, ...d.wiedervorlage].some((p) => p.id === prof.id));
+
+  // Im Trichter gesondert ausgewiesen und aus den Quoten heraus
+  const t = await (await get('/api/ansprache/trichter', { cookie: adminCookie })).json();
+  assert.strictEqual(t.gesamt.ausgeschlossen, 1);
+  assert.strictEqual(t.gesamt.vorbereitet, 3, 'Ausgeschlossene zählen nicht mehr mit');
+
+  // Der nächste Import bringt sie nicht zurück
+  const e = await importiereListe([{
+    vorname: 'Sieglinde', nachname: 'Vormbaum', prio: 'B', kanal: 'linkedin',
+    linkedin: 'https://www.linkedin.com/in/sieglinde-vormbaum', quelle: 'Neue Runde',
+  }], { tenantId });
+  assert.strictEqual(e.angelegt.length, 0);
+  assert.strictEqual(e.ausgeschlossen.length, 1);
+  assert.match(e.ausgeschlossen[0].grund, /Professorin/);
+
+  // Auch wenn das Profil weg ist, hält die Merkliste
+  await db('experts').where({ id: prof.id }).delete();
+  const e2 = await importiereListe([{
+    vorname: 'Sieglinde', nachname: 'Vormbaum', linkedin: 'https://www.linkedin.com/in/sieglinde-vormbaum',
+  }], { tenantId });
+  assert.strictEqual(e2.angelegt.length, 0, 'Merkliste überlebt das Löschen');
+  assert.strictEqual(e2.ausgeschlossen.length, 1);
+});
+
+test('Ausschluss zurücknehmen und aktive Profile bleiben unangetastet', async () => {
+  const liste = await (await get('/api/ansprache/ausschluss', { cookie: adminCookie })).json();
+  assert.strictEqual(liste.eintraege.length, 1);
+  assert.match(liste.eintraege[0].anzeige_name, /Vormbaum/);
+
+  const zurueck = await fetch(`${baseUrl}/api/ansprache/ausschluss/${liste.eintraege[0].id}`,
+    { method: 'DELETE', headers: { cookie: adminCookie } });
+  assert.strictEqual(zurueck.status, 200);
+  assert.strictEqual(await db('ansprache_ausschluss').first(), undefined);
+
+  // Jetzt geht der Import wieder durch
+  const e = await importiereListe([{
+    vorname: 'Sieglinde', nachname: 'Vormbaum', linkedin: 'https://www.linkedin.com/in/sieglinde-vormbaum',
+    quelle: 'Neue Runde', prio: 'B', kanal: 'linkedin',
+  }], { tenantId });
+  assert.strictEqual(e.angelegt.length, 1);
+
+  // Wer ein aktives Konto hat, wird hier nicht herausgenommen
+  const hermine = await db('experts').where({ nachname: 'Abendroth' }).first();
+  const abgelehnt = await post(`/api/ansprache/${hermine.id}/rausnehmen`, { grund: 'test' }, { cookie: adminCookie });
+  assert.strictEqual(abgelehnt.status, 409);
+  assert.match((await abgelehnt.json()).error, /aktives Konto/);
+
+  assert.strictEqual((await post(`/api/ansprache/${hermine.id}/rausnehmen`, {})).status, 401);
+});
