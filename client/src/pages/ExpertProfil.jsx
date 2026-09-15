@@ -10,6 +10,30 @@ import { api } from '../api/client';
 import { useLang, tr } from '../i18n';
 
 const fmtDate = (d) => (d ? new Date(d).toLocaleDateString('de-DE') : '—');
+const KATEGORIE_LABEL = {
+  remote: 'Remote', vor_ort: 'Vor Ort', interim: 'Interim',
+  projektleitung: 'Projektleitung', beratung: 'Beratung',
+};
+
+/**
+ * Sätze sind insert-only. Je Kategorie gilt der jüngste Eintrag, dessen
+ * Gültigkeit schon begonnen hat. Alles andere ist Historie. Vorher standen
+ * beide Gruppen ununterscheidbar in einer Tabelle, und niemand sah, was
+ * gerade gilt.
+ */
+function teileSaetze(rates) {
+  const heute = new Date().toLocaleDateString('sv-SE');
+  const sortiert = [...(rates || [])].sort((a, b) =>
+    String(b.gueltig_ab).localeCompare(String(a.gueltig_ab)) || b.id - a.id);
+  const aktuell = [];
+  const gesehen = new Set();
+  const rest = [];
+  for (const r of sortiert) {
+    const gilt = String(r.gueltig_ab).slice(0, 10) <= heute;
+    if (gilt && !gesehen.has(r.kategorie)) { gesehen.add(r.kategorie); aktuell.push(r); } else rest.push(r);
+  }
+  return { aktuell, rest };
+}
 
 export default function ExpertProfil() {
   const { lang } = useLang();
@@ -17,13 +41,23 @@ export default function ExpertProfil() {
   const [error, setError] = useState('');
   const [editing, setEditing] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [aendere, setAendere] = useState(null);
 
   const load = () => api.get('/api/experts/me').then(setData).catch((e) => setError(e.message));
   useEffect(() => { load(); }, []);
 
+  // Der Router springt nicht von allein zu einem Anker, und beim ersten Rendern
+  // steht der Abschnitt noch gar nicht da. Deshalb erst nach den Daten suchen.
+  useEffect(() => {
+    if (!data || !window.location.hash) return;
+    const ziel = document.getElementById(window.location.hash.slice(1));
+    if (ziel) setTimeout(() => ziel.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60);
+  }, [data]);
+
   if (error) return <Layout><div className="msg msg-error">{error}</div></Layout>;
   if (!data) return <Layout><p className="sub">Laden…</p></Layout>;
   const { expert, skills, rates, documents, educations = [], career_steps = [] } = data;
+  const { aktuell: aktuelleSaetze, rest: historie } = teileSaetze(rates);
 
   return (
     <Layout>
@@ -99,7 +133,7 @@ export default function ExpertProfil() {
               <p className="muted" style={{ marginTop: 8, fontSize: 12 }}>{tr(lang, 'Neue Begriffe prüft Phalanx kurz, bevor sie in der Suche erscheinen.', 'New terms are briefly reviewed by Phalanx before they appear in search.')}</p>
             </div>
             <div className="card">
-              <h3>{tr(lang, 'Meine Dokumente', 'My documents')}</h3>
+              <h3 id="dokumente">{tr(lang, 'Meine Dokumente', 'My documents')}</h3>
               {documents.map((d) => (
                 <p key={d.id} style={{ fontSize: 13, padding: '3px 0' }}>
                   <a href={`/api/experts/${expert.id}/documents/${d.id}/view`} target="_blank" rel="noreferrer">{d.filename}</a>
@@ -140,7 +174,7 @@ export default function ExpertProfil() {
 
       <KiCvAssistent onApplied={load} />
 
-      <h2 style={{ fontSize: 18, color: 'var(--navy)', margin: '28px 0 12px' }}>{tr(lang, 'Karrierestationen & Referenzprojekte', 'Career steps & reference projects')}</h2>
+      <h2 id="stationen" style={{ fontSize: 18, color: 'var(--navy)', margin: '28px 0 12px' }}>{tr(lang, 'Karrierestationen & Referenzprojekte', 'Career steps & reference projects')}</h2>
       <div className="card">
         {career_steps.map((c) => (
           <p key={c.id} style={{ padding: '6px 0', borderBottom: '1px solid var(--grey-200)', fontSize: 14 }}>
@@ -165,7 +199,7 @@ export default function ExpertProfil() {
         </form>
       </div>
 
-      <h2 style={{ fontSize: 18, color: 'var(--navy)', margin: '28px 0 12px' }}>{tr(lang, 'Ausbildung', 'Education')}</h2>
+      <h2 id="ausbildung" style={{ fontSize: 18, color: 'var(--navy)', margin: '28px 0 12px' }}>{tr(lang, 'Ausbildung', 'Education')}</h2>
       <div className="card">
         {educations.map((c) => (
           <p key={c.id} style={{ padding: '6px 0', borderBottom: '1px solid var(--grey-200)', fontSize: 14 }}>
@@ -189,20 +223,64 @@ export default function ExpertProfil() {
       </div>
 
       <h2 id="tagessaetze" style={{ fontSize: 18, color: 'var(--navy)', margin: '28px 0 12px' }}>{tr(lang, 'Meine Tagessätze', 'My daily rates')}</h2>
-      <table className="table">
-        <thead><tr><th>{tr(lang, 'Kategorie', 'Category')}</th><th>{tr(lang, 'Satz', 'Rate')}</th><th>{tr(lang, 'Gültig ab', 'Valid from')}</th><th>{tr(lang, 'Erfasst', 'Recorded')}</th></tr></thead>
-        <tbody>
-          {rates.map((r) => (
-            <tr key={r.id}>
-              <td>{r.kategorie}</td>
-              <td>{r.satz_von_eur}{r.satz_bis_eur ? ` – ${r.satz_bis_eur}` : ''} € / Tag</td>
-              <td>{fmtDate(r.gueltig_ab)}</td>
-              <td>{fmtDate(r.created_at)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      <RateForm onSave={async (payload) => { await api.post('/api/experts/me/rates', payload); await load(); }} />
+      {aktuelleSaetze.length === 0 ? (
+        <div className="notice">
+          {tr(lang, 'Du hast noch keinen Tagessatz hinterlegt. Trag unten mindestens einen ein, sonst können wir dich bei Anfragen nicht vorschlagen.',
+            'You have not set a daily rate yet. Add at least one below, otherwise we cannot propose you for requests.')}
+        </div>
+      ) : (
+        <table className="table">
+          <thead><tr>
+            <th>{tr(lang, 'Kategorie', 'Category')}</th><th>{tr(lang, 'Gilt aktuell', 'Currently valid')}</th>
+            <th>{tr(lang, 'Seit', 'Since')}</th><th />
+          </tr></thead>
+          <tbody>
+            {aktuelleSaetze.map((r) => (
+              <tr key={r.id}>
+                <td><strong>{KATEGORIE_LABEL[r.kategorie] || r.kategorie}</strong></td>
+                <td>{r.satz_von_eur}{r.satz_bis_eur ? ` bis ${r.satz_bis_eur}` : ''} € / {tr(lang, 'Tag', 'day')}</td>
+                <td>{fmtDate(r.gueltig_ab)}</td>
+                <td style={{ textAlign: 'right' }}>
+                  <button type="button" className="tab" style={{ padding: 0, color: 'var(--navy)' }}
+                    onClick={() => {
+                      setAendere(r);
+                      document.getElementById('satz-formular')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }}>{tr(lang, 'ändern', 'change')}</button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+
+      {historie.length > 0 && (
+        <details style={{ marginTop: 10 }}>
+          <summary style={{ cursor: 'pointer', fontSize: 13, color: 'var(--grey-600)' }}>
+            {tr(lang, `Frühere Sätze anzeigen (${historie.length})`, `Show previous rates (${historie.length})`)}
+          </summary>
+          <table className="table" style={{ marginTop: 8 }}>
+            <thead><tr>
+              <th>{tr(lang, 'Kategorie', 'Category')}</th><th>{tr(lang, 'Satz', 'Rate')}</th>
+              <th>{tr(lang, 'Galt ab', 'Valid from')}</th><th>{tr(lang, 'Erfasst', 'Recorded')}</th>
+            </tr></thead>
+            <tbody>
+              {historie.map((r) => (
+                <tr key={r.id} className="muted">
+                  <td>{KATEGORIE_LABEL[r.kategorie] || r.kategorie}</td>
+                  <td>{r.satz_von_eur}{r.satz_bis_eur ? ` bis ${r.satz_bis_eur}` : ''} € / {tr(lang, 'Tag', 'day')}</td>
+                  <td>{fmtDate(r.gueltig_ab)}</td>
+                  <td>{fmtDate(r.created_at)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </details>
+      )}
+
+      <div id="satz-formular">
+        <RateForm lang={lang} vorbelegung={aendere} aufAbbruch={() => setAendere(null)}
+          onSave={async (payload) => { await api.post('/api/experts/me/rates', payload); await load(); }} />
+      </div>
 
       <h2 style={{ fontSize: 18, color: 'var(--navy)', margin: '28px 0 12px' }}>{tr(lang, 'Datenschutz (DSGVO)', 'Data protection (GDPR)')}</h2>
       <div className="card">

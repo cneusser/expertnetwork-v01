@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { UserRound, CalendarClock, Euro, FileText, HeartHandshake, Receipt } from 'lucide-react';
+import { UserRound, CalendarClock, Euro, FileText, HeartHandshake, Receipt, ArrowRight } from 'lucide-react';
 import Layout from '../components/Layout';
 import { useAuth } from '../context/AuthContext';
 import { useLang, tr } from '../i18n';
@@ -53,8 +53,8 @@ export default function ExpertDashboard() {
 
   const modules = [
     { icon: UserRound, title: tr(lang, 'Mein Profil', 'My profile'), desc: tr(lang, 'Persönliche Daten, Kurzprofil, Sprachen: selbst pflegen.', 'Personal data, summary, languages: maintained by you.'), link: '/profil' },
-    { icon: Euro, title: tr(lang, 'Tagessätze', 'Daily rates'), desc: tr(lang, 'Sätze für Remote, vor Ort, Interim, Projektleitung, Beratung.', 'Rates for remote, on-site, interim, project lead, advisory.'), link: '/profil' },
-    { icon: FileText, title: tr(lang, 'Dokumente', 'Documents'), desc: tr(lang, 'Lebenslauf, Zertifikate und Referenzen, versioniert und selbst hochladbar.', 'CV, certificates and references, versioned and self-uploaded.'), link: '/profil' },
+    { icon: Euro, title: tr(lang, 'Tagessätze', 'Daily rates'), desc: tr(lang, 'Sätze für Remote, vor Ort, Interim, Projektleitung, Beratung. Ändern geht dort auch.', 'Rates for remote, on-site, interim, project lead, advisory. Changing them works there too.'), link: '/profil#tagessaetze' },
+    { icon: FileText, title: tr(lang, 'Dokumente', 'Documents'), desc: tr(lang, 'Lebenslauf, Zertifikate und Referenzen, versioniert und selbst hochladbar.', 'CV, certificates and references, versioned and self-uploaded.'), link: '/profil#dokumente' },
     { icon: HeartHandshake, title: tr(lang, 'Assoziierte Partner', 'Associated partners'), desc: tr(lang, 'Eigenes Netzwerk? Verdiene an Empfehlungen, Projekten und gemeinsamer Umsetzung mit.', 'A network of your own? Earn a share from referrals, projects and joint delivery.'), link: '/partner' },
   ];
 
@@ -71,14 +71,43 @@ export default function ExpertDashboard() {
           <div className="kpi"><div className="num">{dash.profil_views}</div><div className="lbl">{tr(lang, 'Profilaufrufe durch Phalanx', 'Profile views by Phalanx')}</div></div>
         </div>
       )}
+      {/* v1.30.0: Die fehlenden Bausteine standen hier als Fließtext. Wer las,
+          dass ihm der Tagessatz fehlt, musste die Stelle danach selbst suchen.
+          Jetzt führt jeder Punkt direkt dorthin. */}
       {dash && dash.vollstaendigkeit < 100 && (
         <div className="notice">
-          {tr(lang, 'Vervollständige dein Profil für bessere Projektvorschläge, es fehlt: ', 'Complete your profile for better project matches, still missing: ')}
-          {Object.entries(dash.checks).filter(([, ok]) => !ok).map(([k]) => ({
-            kurzprofil: tr(lang, 'Kurzprofil', 'Summary'), kontakt: tr(lang, 'Telefon/Mobil', 'Phone/mobile'), adresse: tr(lang, 'Adresse', 'Address'), skills: tr(lang, 'mind. 5 Skills', 'at least 5 skills'),
-            tagessatz: tr(lang, 'Tagessatz', 'Daily rate'), verfuegbarkeit: tr(lang, 'Verfügbarkeit', 'Availability'), cv_dokument: 'CV-Upload',
-            ausbildung: tr(lang, 'Ausbildung', 'Education'), stationen: tr(lang, 'Karrierestationen', 'Career steps'), sprachen: tr(lang, 'Sprachen', 'Languages'),
-          }[k])).join(', ')}.
+          <strong>{tr(lang, 'Dein Profil ist noch nicht vollständig.', 'Your profile is not complete yet.')}</strong>{' '}
+          {tr(lang, 'Je vollständiger es ist, desto eher können wir dich vorschlagen. Klick auf einen Punkt, dann bist du an der richtigen Stelle:',
+            'The more complete it is, the sooner we can propose you. Click an item to go straight there:')}
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
+            {Object.entries(dash.checks).filter(([, ok]) => !ok).map(([k]) => {
+              const ZIELE = {
+                kurzprofil: ['/profil#kurzprofil', tr(lang, 'Kurzprofil', 'Summary')],
+                kontakt: ['/profil', tr(lang, 'Telefon oder Mobil', 'Phone or mobile')],
+                adresse: ['/profil', tr(lang, 'Adresse', 'Address')],
+                skills: ['/profil#skills', tr(lang, 'mindestens 5 Skills', 'at least 5 skills')],
+                tagessatz: ['/profil#tagessaetze', tr(lang, 'Tagessatz', 'Daily rate')],
+                verfuegbarkeit: ['#verfuegbarkeit', tr(lang, 'Verfügbarkeit', 'Availability')],
+                cv_dokument: ['/profil#dokumente', tr(lang, 'Lebenslauf hochladen', 'Upload CV')],
+                ausbildung: ['/profil#ausbildung', tr(lang, 'Ausbildung', 'Education')],
+                stationen: ['/profil#stationen', tr(lang, 'Karrierestationen', 'Career steps')],
+                sprachen: ['/profil', tr(lang, 'Sprachen', 'Languages')],
+              };
+              const [ziel, label] = ZIELE[k] || ['/profil', k];
+              return (
+                ziel.startsWith('#') ? (
+                  <button key={k} type="button" className="tag" style={{ border: 'none', cursor: 'pointer', font: 'inherit' }}
+                    onClick={() => document.getElementById(ziel.slice(1))?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>
+                    {label} <ArrowRight size={12} style={{ verticalAlign: '-2px' }} />
+                  </button>
+                ) : (
+                  <Link key={k} to={ziel} className="tag" style={{ textDecoration: 'none' }}>
+                    {label} <ArrowRight size={12} style={{ verticalAlign: '-2px' }} />
+                  </Link>
+                )
+              );
+            })}
+          </div>
         </div>
       )}
       {!user?.isApproved && (

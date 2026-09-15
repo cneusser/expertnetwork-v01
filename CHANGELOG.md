@@ -2,6 +2,17 @@
 
 Versionsschema: v\<Major>.\<Sprint>.\<Patch>. Sprintabschluss endet auf .0, Korrekturen zählen den Patch hoch.
 
+## v1.30.0 — Tagessätze ändern, ohne zu suchen
+
+Rückmeldung aus der Praxis vom ersten Experten im Self-Service: Tagessatz eintragen gewollt, „Bearbeiten" gesucht, nicht gefunden.
+
+- Die Tagessatz-Übersicht zeigt jetzt getrennt, was aktuell gilt und was Historie ist. Vorher standen beide Gruppen ununterscheidbar in einer Tabelle.
+- Neben jedem geltenden Satz ein Knopf „ändern". Er belegt das Formular mit den bisherigen Werten vor und springt dorthin. Ein Satz darüber erklärt, dass Sätze nie überschrieben, sondern fortgeschrieben werden und es deshalb kein Bearbeiten gibt.
+- Frühere Sätze sind eingeklappt, die Übersicht bleibt ruhig.
+- Wer noch keinen Satz hat, liest das jetzt im Klartext samt Grund, statt eine leere Tabelle zu sehen.
+- Das Formular ist zweisprachig, bisher war es nur deutsch, obwohl die Seite umschaltbar ist.
+- Die fehlenden Bausteine auf dem Experten-Dashboard sind anklickbar und führen direkt an die richtige Stelle. Dazu Sprungmarken für Kurzprofil, Skills, Dokumente, Ausbildung, Stationen und Tagessätze.
+
 ## v1.29.0 — Ansprache: Erfolge sichtbar, Nachfolger vorgeschlagen
 
 - BUGFIX: Die Auswertung zählte nur die vorbereiteten Kontakte, die Arbeitsliste aber auch die eingeladenen. Wer aus der eingeladenen Gruppe ankam, tauchte nirgends als Erfolg auf. Der Trichter stand auf null, während auf dem Dashboard neue Profile erschienen. Die Herkunft aus der Ansprache steht jetzt in einem eigenen Feld und überlebt den Statuswechsel beim Ankommen. Migration 0032 trägt sie für alle bestehenden Kontakte nach.
