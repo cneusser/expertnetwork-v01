@@ -118,25 +118,171 @@ router.get('/', requireRole('admin'), async (req, res) => {
   });
 });
 
-/** Dashboard-Kennzahlen (Admin). */
+/**
+ * Dashboard-Kennzahlen (Admin).
+ *
+ * v1.28.0: Die Kennzahlen zählen nur noch Menschen mit eigenem Konto, also
+ * registriert, freigegeben und inaktiv. Vorbereitete und eingeladene Kontakte
+ * stehen getrennt daneben. Vorher liefen die 766 vorregistrierten Kontakte in
+ * „Einwilligung fehlt" und ließen den Pool voller aussehen, als er ist.
+ *
+ * Außerdem lief die Berechnung vorher als Schleife über alle Profile, mit drei
+ * Einzelabfragen je Person. Bei 779 Profilen waren das über 2000 Abfragen für
+ * einen Dashboard-Aufruf. Jetzt sind es fünf.
+ */
+const IM_POOL = ['registriert', 'freigegeben', 'inaktiv'];
+
 router.get('/stats', requireRole('admin'), async (req, res) => {
-  const experts = await db('experts').where({ tenant_id: req.user.tenantId });
+  const t = req.user.tenantId;
+  const alle = await db('experts').where({ tenant_id: t }).select('id', 'user_id', 'status');
+  const pool = alle.filter((e) => IM_POOL.includes(e.status));
+  const ids = pool.map((e) => e.id);
   const today = new Date().toISOString().slice(0, 10);
+
+  // Jüngster Eintrag je Expert, in einer Abfrage statt einer je Person.
+  const juengste = async (tabelle, zeitspalte, felder) => {
+    if (!ids.length) return new Map();
+    const rows = await db.raw(
+      `SELECT DISTINCT ON (expert_id) expert_id, ${felder}
+         FROM ${tabelle} WHERE expert_id = ANY(?)
+        ORDER BY expert_id, ${zeitspalte} DESC`, [ids],
+    );
+    return new Map(rows.rows.map((r) => [r.expert_id, r]));
+  };
+
+  const avails = ids.length
+    ? await db('availabilities').whereIn('expert_id', ids).orderBy('created_at', 'desc')
+    : [];
+  const proExpert = new Map();
+  for (const a of avails) {
+    if (!proExpert.has(a.expert_id)) proExpert.set(a.expert_id, []);
+    proExpert.get(a.expert_id).push(a);
+  }
+  const rates = await juengste('rates', 'created_at', 'created_at');
+  const cvs = ids.length
+    ? await db('documents').whereIn('expert_id', ids).where({ kategorie: 'cv' })
+      .orderBy('uploaded_at', 'desc').select('expert_id', 'uploaded_at')
+    : [];
+  const cvProExpert = new Map();
+  for (const d of cvs) if (!cvProExpert.has(d.expert_id)) cvProExpert.set(d.expert_id, d);
+
+  const userIds = pool.map((e) => e.user_id).filter(Boolean);
+  const consents = userIds.length
+    ? await db('consents').whereIn('user_id', userIds).where({ zweck: 'talentpool' })
+      .whereNull('revoked_at').orderBy('expires_at', 'desc')
+    : [];
+  const consentProUser = new Map();
+  for (const c of consents) if (!consentProUser.has(c.user_id)) consentProUser.set(c.user_id, c);
+
   let verfuegbarJetzt = 0;
   let nichtBestaetigt = 0;
   let consentFehlt = 0;
-  for (const e of experts) {
-    const avails = await db('availabilities').where({ expert_id: e.id }).orderBy('created_at', 'desc');
-    const f = await freshnessFor(e.id, avails);
+  for (const e of pool) {
+    const liste = proExpert.get(e.id) || [];
+    const f = freshness({
+      availabilityConfirmedAt: liste[0]?.confirmed_at,
+      rateCreatedAt: rates.get(e.id)?.created_at,
+      cvUploadedAt: cvProExpert.get(e.id)?.uploaded_at,
+    });
     if (f.nichtBestaetigt) nichtBestaetigt++;
-    const current = avails.find((a) => !a.ab_datum || new Date(a.ab_datum).toISOString().slice(0, 10) <= today) || avails[0];
+    const current = liste.find((a) => !a.ab_datum || new Date(a.ab_datum).toISOString().slice(0, 10) <= today) || liste[0];
     if (current && ['sofort', 'teilweise'].includes(current.status) && !f.nichtBestaetigt) verfuegbarJetzt++;
-    const consent = e.user_id
-      ? await db('consents').where({ user_id: e.user_id, zweck: 'talentpool' }).whereNull('revoked_at').orderBy('expires_at', 'desc').first()
-      : null;
+    const consent = e.user_id ? consentProUser.get(e.user_id) : null;
     if (!consent || new Date(consent.expires_at) < new Date()) consentFehlt++;
   }
-  res.json({ gesamt: experts.length, verfuegbarJetzt, nichtBestaetigt, consentFehlt });
+
+  res.json({
+    gesamt: pool.length,
+    verfuegbarJetzt,
+    nichtBestaetigt,
+    consentFehlt,
+    vorregistriert: alle.filter((e) => e.status === 'vorregistriert').length,
+    eingeladen: alle.filter((e) => e.status === 'eingeladen').length,
+  });
+});
+
+/**
+ * Was zuletzt passiert ist (Admin).
+ *
+ * Drei kurze Listen fürs Dashboard, je fünf Einträge, alle anklickbar:
+ *   neu        — wer neu dazugekommen ist
+ *   verfuegbar — wer seine Verfügbarkeit aktualisiert hat
+ *   profil     — wer sein Profil angepasst hat
+ *
+ * Zwei Feinheiten, die sonst ein falsches Bild geben würden:
+ *
+ * Erstens zählt bei „neu" nicht das Anlagedatum, sondern der Tag, an dem
+ * jemand wirklich dazugehört. Wer aus einer Vorregistrierung übernommen wurde,
+ * steht seit dem Import in der Datenbank, dabei ist er erst seit der
+ * Zusammenführung. Sonst würden die 766 importierten Kontakte diese Liste für
+ * immer blockieren.
+ *
+ * Zweitens sagt jede Zeile, ob die Person selbst gehandelt hat oder das Büro.
+ * Für die Frage „pflegen die Leute ihre Profile?" ist genau das der Punkt.
+ */
+const PROFIL_AKTIONEN = [
+  'expert.update', 'expert.foto_upload',
+  'expert.skill_add', 'expert.skill_remove',
+  'expert.skill_vorschlag', 'expert.skill_remove_self',
+  'cv.step_add', 'cv.education_add',
+];
+
+const AKTION_TEXT = {
+  'expert.update': 'Stammdaten geändert',
+  'expert.foto_upload': 'Profilbild gesetzt',
+  'expert.skill_add': 'Skill ergänzt',
+  'expert.skill_remove': 'Skill entfernt',
+  'expert.skill_vorschlag': 'Skill vorgeschlagen',
+  'expert.skill_remove_self': 'Skill entfernt',
+  'cv.step_add': 'Station im Lebenslauf ergänzt',
+  'cv.education_add': 'Ausbildung ergänzt',
+};
+
+router.get('/aktivitaet', requireRole('admin'), async (req, res) => {
+  const t = req.user.tenantId;
+  const anzahl = Math.min(Math.max(Number(req.query.anzahl) || 5, 1), 20);
+  const kopf = ['e.id', 'e.vorname', 'e.nachname', 'e.firma', 'e.berufsbezeichnung', 'e.status'];
+
+  const neu = await db('experts as e')
+    .where('e.tenant_id', t).whereIn('e.status', IM_POOL)
+    .select(...kopf,
+      db.raw('COALESCE(e.vorreg_zusammengefuehrt_am, e.created_at) as dabei_seit'),
+      db.raw('(e.vorreg_zusammengefuehrt_am IS NOT NULL) as aus_vorregistrierung'))
+    .orderByRaw('COALESCE(e.vorreg_zusammengefuehrt_am, e.created_at) DESC NULLS LAST')
+    .limit(anzahl);
+
+  // Verfügbarkeiten sind insert-only, der jüngste Eintrag je Person ist der Stand.
+  const verfuegbar = (await db.raw(
+    `SELECT * FROM (
+       SELECT DISTINCT ON (a.expert_id)
+              e.id, e.vorname, e.nachname, e.firma, e.berufsbezeichnung, e.status,
+              a.status AS verfuegbarkeit, a.ab_datum, a.auslastung_prozent,
+              a.source, a.created_at AS wann
+         FROM availabilities a JOIN experts e ON e.id = a.expert_id
+        WHERE a.tenant_id = ? AND e.status = ANY(?)
+        ORDER BY a.expert_id, a.created_at DESC
+     ) s ORDER BY wann DESC LIMIT ?`, [t, IM_POOL, anzahl],
+  )).rows;
+
+  // Profiländerungen aus dem Audit-Log, je Person nur der jüngste Eintrag.
+  const profil = (await db.raw(
+    `SELECT * FROM (
+       SELECT DISTINCT ON (l.resource_id)
+              e.id, e.vorname, e.nachname, e.firma, e.berufsbezeichnung, e.status,
+              l.action, l.ts AS wann,
+              COALESCE(l.actor_id IS NOT NULL AND l.actor_id = e.user_id, false) AS selbst
+         FROM audit_log l JOIN experts e ON e.id = l.resource_id
+        WHERE l.tenant_id = ? AND l.resource = 'experts'
+          AND l.action = ANY(?) AND e.status = ANY(?)
+        ORDER BY l.resource_id, l.ts DESC
+     ) s ORDER BY wann DESC LIMIT ?`, [t, PROFIL_AKTIONEN, IM_POOL, anzahl],
+  )).rows;
+
+  res.json({
+    neu,
+    verfuegbar,
+    profil: profil.map((r) => ({ ...r, was: AKTION_TEXT[r.action] || 'Profil geändert' })),
+  });
 });
 
 /**

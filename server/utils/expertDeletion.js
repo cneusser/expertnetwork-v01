@@ -16,9 +16,12 @@ async function deleteExpertCascade(expert, { tenantId, actorId = null, grund, ip
   }
   if (expert.foto_pfad) { try { await storage.remove(expert.foto_pfad); } catch (e) { console.error('Foto-Löschung:', e.message); } }
 
+  // handover_tokens ab v1.28.0: kam mit v1.27.0 dazu und fehlte hier. Ohne den
+  // Eintrag scheiterte die Löschung an der Fremdschlüsselbeziehung, sobald für
+  // die Person einmal ein Capitalmatch-Übergabelink erzeugt worden war.
   for (const tabelle of ['project_releases', 'applications', 'communications', 'documents',
     'availabilities', 'rates', 'expert_skills', 'educations', 'career_steps',
-    'watchlist', 'blocklist', 'match_alerts', 'ratings']) {
+    'watchlist', 'blocklist', 'match_alerts', 'ratings', 'handover_tokens']) {
     await db(tabelle).where({ expert_id: expert.id }).delete().catch(() => {});
   }
   if (expert.email) await db('mail_outbox').where({ to_email: expert.email }).delete().catch(() => {});

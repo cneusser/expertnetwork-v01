@@ -2,6 +2,17 @@
 
 Versionsschema: v\<Major>.\<Sprint>.\<Patch>. Sprintabschluss endet auf .0, Korrekturen zählen den Patch hoch.
 
+## v1.28.0 — Dashboard zeigt, was zuletzt passiert ist
+
+- Drei neue Listen auf dem Admin-Dashboard, je fünf Einträge, jeder anklickbar bis in die Expertenakte: neu dazugekommen, Verfügbarkeit aktualisiert, Profil angepasst.
+- Bei „neu dazugekommen" zählt der Tag, an dem jemand wirklich dazugehört. Wer aus der Ansprache übernommen wurde, erscheint mit dem Datum der Zusammenführung statt mit dem Importdatum, und ist als „aus der Ansprache" gekennzeichnet.
+- Bei „Profil angepasst" steht in jeder Zeile, was geändert wurde und ob die Person selbst gehandelt hat oder das Büro.
+- Die Kennzahlen oben zählen nur noch Menschen mit eigenem Konto. Vorbereitete und eingeladene Kontakte stehen getrennt darunter, mit Weg zur Ansprache. Vorher liefen die 766 vorbereiteten Kontakte in „Einwilligung fehlt" und ließen den Pool voller aussehen, als er ist.
+- Die Kennzahlen brauchten bisher über 2000 Datenbankabfragen je Aufruf, jetzt sind es fünf.
+- BUGFIX: Ein Profil ließ sich nicht mehr löschen, sobald für die Person einmal ein Capitalmatch-Übergabelink erzeugt worden war. Das betraf die Art.-17-Löschung ebenso wie die 120-Tage-Frist für vorbereitete Kontakte. Der Fehler kam mit v1.27.0 und wäre erst in einigen Wochen aufgefallen.
+- BUGFIX: Der Löschfrist-Job brach beim ersten Datensatz ab, der sich nicht löschen ließ, und alle folgenden Löschungen fielen still aus. Jetzt wird einzeln aufgeräumt, Fehlschläge werden protokolliert und im Ergebnis ausgewiesen.
+- Test `v128.test.js`, dazu zwei Testdateien gegen Störungen aus der gemeinsamen Testdatenbank abgesichert.
+
 ## v1.27.1 — Capitalmatch-Domain bestätigt
 
 - `CAPITALMATCH_URL` steht jetzt standardmäßig auf `https://www.capitalmatch.de`, die Adresse ist geprüft und gehört zur Phalanx GmbH. Die Variable überschreibt den Standard weiterhin.

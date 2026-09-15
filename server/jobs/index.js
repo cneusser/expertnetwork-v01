@@ -324,15 +324,38 @@ async function runVorregLoeschfrist() {
     .where('vorreg_importiert_am', '<', DAYS(tage))
     .select('id', 'tenant_id', 'vorname', 'nachname', 'vorreg_quelle');
 
+  // v1.28.0: Zwei Lehren aus einem Fehlschlag.
+  //
+  // Erstens hängen an einem vorbereiteten Kontakt inzwischen Übergabelinks nach
+  // Capitalmatch. Die müssen vor dem Profil weg, sonst blockiert der
+  // Fremdschlüssel die Löschung.
+  //
+  // Zweitens lief die Schleife ohne Absicherung. Ein einziger Datensatz, der
+  // sich nicht löschen ließ, hätte den Job abgebrochen und alle folgenden
+  // Löschungen still ausfallen lassen. Bei einer Aufbewahrungsfrist ist das der
+  // gefährlichste denkbare Fehler, deshalb wird jetzt einzeln aufgeräumt und
+  // jeder Fehlschlag protokolliert statt verschluckt.
+  let geloescht = 0;
+  const gescheitert = [];
   for (const e of faellig) {
-    await db('experts').where({ id: e.id }).delete();
-    await db('audit_log').insert({
-      tenant_id: e.tenant_id, action: 'expert.vorregistrierung_frist_geloescht',
-      resource: 'experts', resource_id: e.id,
-      old_value_json: JSON.stringify({ quelle: e.vorreg_quelle, tage }),
-    }).catch(() => {});
+    try {
+      await db('handover_tokens').where({ expert_id: e.id }).delete();
+      await db('experts').where({ id: e.id }).delete();
+      geloescht++;
+      await db('audit_log').insert({
+        tenant_id: e.tenant_id, action: 'expert.vorregistrierung_frist_geloescht',
+        resource: 'experts', resource_id: e.id,
+        old_value_json: JSON.stringify({ quelle: e.vorreg_quelle, tage }),
+      }).catch(() => {});
+    } catch (err) {
+      gescheitert.push({ id: e.id, grund: err.message });
+      console.error(`Löschfrist: Datensatz ${e.id} ließ sich nicht löschen:`, err.message);
+    }
   }
-  return { geloescht: faellig.length, tage, schluessel_nachgezogen: ohneSchluessel.length };
+  return {
+    geloescht, tage, schluessel_nachgezogen: ohneSchluessel.length,
+    gescheitert: gescheitert.length, gescheiterte_ids: gescheitert.map((g) => g.id),
+  };
 }
 
 module.exports = {

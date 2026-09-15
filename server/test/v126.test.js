@@ -40,6 +40,19 @@ before(async () => {
     email: process.env.ADMIN_EMAIL || 'admin@phalanx.example',
     password: process.env.ADMIN_PASSWORD || 'phalanx-admin-2026',
   })).headers.get('set-cookie');
+
+  // Alle Testdateien teilen sich eine Datenbank. Frühere Läufe hinterlassen
+  // vorbereitete und eingeladene Kontakte, die hier jede Zahl im Trichter und
+  // in der Arbeitsliste verfälschen. Ausschließen geht nicht, das würde den
+  // Zähler "ausgeschlossen" verfälschen, und Löschen scheitert an den
+  // Fremdschlüsseln. Also aus diesem Mandanten heraus in einen Ablagemandanten
+  // schieben, dann sieht die Ansprache sie nicht mehr.
+  const ablage = await db('tenants').where({ slug: 'test-ablage' }).first()
+    || (await db('tenants').insert({ name: 'Test-Ablage', slug: 'test-ablage' }).returning('*'))[0];
+  await db('ansprache_ausschluss').where({ tenant_id: tenantId }).update({ tenant_id: ablage.id });
+  await db('experts').where({ tenant_id: tenantId })
+    .whereIn('status', [VORREG, 'eingeladen']).update({ tenant_id: ablage.id });
+
   await importiereListe(LISTE, { tenantId });
 });
 
