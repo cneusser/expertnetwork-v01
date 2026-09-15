@@ -2,6 +2,15 @@
 
 Versionsschema: v\<Major>.\<Sprint>.\<Patch>. Sprintabschluss endet auf .0, Korrekturen zählen den Patch hoch.
 
+## v1.29.0 — Ansprache: Erfolge sichtbar, Nachfolger vorgeschlagen
+
+- BUGFIX: Die Auswertung zählte nur die vorbereiteten Kontakte, die Arbeitsliste aber auch die eingeladenen. Wer aus der eingeladenen Gruppe ankam, tauchte nirgends als Erfolg auf. Der Trichter stand auf null, während auf dem Dashboard neue Profile erschienen. Die Herkunft aus der Ansprache steht jetzt in einem eigenen Feld und überlebt den Statuswechsel beim Ankommen. Migration 0032 trägt sie für alle bestehenden Kontakte nach.
+- Neuer Reiter „Angeschrieben": alle, bei denen Du schon warst, neueste zuerst, mit Reaktion, Notiz und dem Vermerk, wer inzwischen angekommen ist. Das Datum lässt sich dort korrigieren.
+- Neuer Reiter „Mögliche Nachfolger": Die Plattform durchsucht Position, Kurzprofil und Firmenname nach Hinweisen auf eine Nachfolgeabsicht und legt eine Vorschlagsliste vor. Neben jedem Namen steht das Wort, das den Vorschlag ausgelöst hat. Gesetzt wird nichts, die Zielgruppe entscheidest Du je Person.
+- Auswertung zusätzlich nach Zielgruppe aufgeschlüsselt.
+- In der Expertenakte steht jetzt, ob und wann die Person über LinkedIn angesprochen wurde, mit Reaktion, Wiedervorlage, Priorität, Herkunftsliste und der internen Notiz.
+- Test `v129.test.js`.
+
 ## v1.28.0 — Dashboard zeigt, was zuletzt passiert ist
 
 - Drei neue Listen auf dem Admin-Dashboard, je fünf Einträge, jeder anklickbar bis in die Expertenakte: neu dazugekommen, Verfügbarkeit aktualisiert, Profil angepasst.

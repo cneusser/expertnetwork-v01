@@ -218,10 +218,18 @@ router.delete('/ausschluss/:id(\\d+)', async (req, res) => {
  * einer Vorregistrierung, auch die inzwischen registrierten.
  */
 router.get('/trichter', async (req, res) => {
+  // v1.29.0: Die Grundgesamtheit hing an vorreg_importiert_am und erfasste
+  // damit nur die vorbereiteten Kontakte. Die eingeladenen fehlten, obwohl die
+  // Arbeitsliste sie führt. Wer aus dieser Gruppe ankam, tauchte nirgends als
+  // Erfolg auf, der Trichter stand auf null, während auf dem Dashboard neue
+  // Profile erschienen. Jetzt entscheidet ansprache_seit, und das überlebt den
+  // Statuswechsel beim Ankommen.
   const roh = await db('experts').where({ tenant_id: req.user.tenantId })
-    .whereNotNull('vorreg_importiert_am')
+    .where(function ausDerAnsprache() {
+      this.whereNotNull('ansprache_seit').orWhereNotNull('vorreg_importiert_am');
+    })
     .select('status', 'vorreg_prio', 'vorreg_kanal', 'vorreg_quelle', 'vorreg_angeschrieben_am',
-      'vorreg_reaktion', 'vorreg_zusammengefuehrt_am', 'vorreg_ausgeschlossen_am', 'id');
+      'vorreg_reaktion', 'vorreg_zusammengefuehrt_am', 'vorreg_ausgeschlossen_am', 'id', 'zielgruppe');
   // Wer aus der Ansprache genommen wurde, verzerrt die Quoten nicht mehr.
   const ausgeschlossen = roh.filter((e) => e.vorreg_ausgeschlossen_am).length;
   const alle = roh.filter((e) => !e.vorreg_ausgeschlossen_am);
@@ -261,7 +269,108 @@ router.get('/trichter', async (req, res) => {
     nach_prio: gruppiere('vorreg_prio', 'ohne Prio'),
     nach_kanal: gruppiere('vorreg_kanal', 'ohne Kanal'),
     nach_quelle: gruppiere('vorreg_quelle', 'ohne Quelle'),
+    nach_zielgruppe: gruppiere('zielgruppe', 'noch offen'),
     reaktionen,
+  });
+});
+
+/**
+ * v1.29.0 — Wen habe ich schon angeschrieben?
+ *
+ * Die Arbeitsliste beantwortet, wer als Nächstes dran ist. Diese Liste
+ * beantwortet die andere Frage: bei wem war ich schon, wann, und was kam
+ * zurück. Unabhängig davon, ob die Wiedervorlagefrist schon läuft, und
+ * unabhängig davon, ob die Person inzwischen angekommen ist. Gerade die
+ * Angekommenen gehören hierher, denn das sind die Erfolge.
+ */
+router.get('/angeschrieben', async (req, res) => {
+  const seite = Math.max(Number(req.query.seite) || 1, 1);
+  const proSeite = Math.min(Math.max(Number(req.query.pro_seite) || 50, 1), 200);
+  const reaktion = String(req.query.reaktion || '').toLowerCase();
+
+  const basis = () => {
+    const q = db('experts').where({ tenant_id: req.user.tenantId })
+      .whereNotNull('vorreg_angeschrieben_am');
+    if (REAKTIONEN.includes(reaktion)) q.andWhere('vorreg_reaktion', reaktion);
+    return q;
+  };
+
+  const kontakte = await basis()
+    .orderBy('vorreg_angeschrieben_am', 'desc').orderBy('nachname', 'asc')
+    .limit(proSeite).offset((seite - 1) * proSeite)
+    .select([...FELDER, 'ansprache_seit']);
+
+  const gesamt = Number((await basis().count('* as c').first()).c);
+  const angekommen = Number((await basis()
+    .whereIn('status', ['registriert', 'freigegeben']).count('* as c').first()).c);
+
+  res.json({
+    kontakte,
+    zahlen: {
+      gesamt,
+      angekommen,
+      offen: Number((await basis().where('vorreg_reaktion', 'offen').count('* as c').first()).c),
+      heute: Number((await basis().where('vorreg_angeschrieben_am', HEUTE()).count('* as c').first()).c),
+    },
+    seite,
+    seiten: Math.max(Math.ceil(gesamt / proSeite), 1),
+  });
+});
+
+/**
+ * v1.29.0 — Wer von den Kontakten könnte Unternehmensnachfolger sein?
+ *
+ * Bewusst nur ein Vorschlag. Die Plattform durchsucht Position, Kurzprofil und
+ * Firmenname nach Begriffen, die auf eine Nachfolgeabsicht hindeuten, und legt
+ * das Ergebnis vor. Gesetzt wird nichts: Die Zielgruppe entscheidest Du, weil
+ * ein Treffer auf "Beteiligung" genauso gut ein Berater für Beteiligungen sein
+ * kann. Jeder Treffer nennt das Wort, das ihn ausgelöst hat, damit Du in einer
+ * Sekunde siehst, ob der Vorschlag taugt.
+ *
+ * Wer schon als Nachfolger markiert ist oder eine andere Zielgruppe trägt,
+ * erscheint nicht mehr. Ausgeschlossene auch nicht.
+ */
+const NACHFOLGE_WOERTER = [
+  'nachfolge', 'nachfolger', 'unternehmensnachfolge', 'betriebsübernahme',
+  'unternehmenskauf', 'unternehmen kaufen', 'firmenkauf', 'übernahme',
+  'mbi', 'mbo', 'management buy', 'buy-in', 'buyin',
+  'beteiligung', 'beteiligungen', 'investor', 'search fund', 'searchfund',
+  'eti', 'entrepreneur through acquisition', 'unternehmer in spe',
+];
+
+router.get('/nachfolger-vorschlaege', async (req, res) => {
+  const treffer = await db('experts').where({ tenant_id: req.user.tenantId })
+    .whereNull('vorreg_ausgeschlossen_am')
+    .whereNull('zielgruppe')
+    .where(function irgendwoErwaehnt() {
+      for (const wort of NACHFOLGE_WOERTER) {
+        this.orWhereRaw(
+          "lower(coalesce(berufsbezeichnung,'') || ' ' || coalesce(kurzprofil,'') || ' ' || coalesce(firma,'')) LIKE ?",
+          [`%${wort}%`],
+        );
+      }
+    })
+    .orderByRaw("coalesce(vorreg_prio, 'Z') asc, nachname asc")
+    .limit(200)
+    .select([...FELDER, 'kurzprofil']);
+
+  // Das auslösende Wort mitliefern, sonst ist der Vorschlag nicht nachvollziehbar.
+  const mitGrund = treffer.map((p) => {
+    const text = `${p.berufsbezeichnung || ''} ${p.kurzprofil || ''} ${p.firma || ''}`.toLowerCase();
+    const gefunden = NACHFOLGE_WOERTER.filter((w) => text.includes(w));
+    const { kurzprofil, ...rest } = p;
+    return { ...rest, treffer: gefunden.slice(0, 3) };
+  });
+
+  res.json({
+    vorschlaege: mitGrund,
+    zahlen: {
+      gesamt: mitGrund.length,
+      schon_markiert: Number((await db('experts').where({ tenant_id: req.user.tenantId, zielgruppe: 'nachfolger' })
+        .count('* as c').first()).c),
+    },
+    hinweis: 'Vorschlag aus den Profiltexten. Es ist nichts gesetzt, das entscheidest Du je Person.',
+    gesucht_nach: NACHFOLGE_WOERTER,
   });
 });
 

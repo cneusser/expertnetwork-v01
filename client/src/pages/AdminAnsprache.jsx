@@ -5,7 +5,9 @@
  */
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Send, RotateCcw, Download, ExternalLink, UserMinus, ArrowRightLeft, Copy } from 'lucide-react';
+import {
+  Send, RotateCcw, Download, ExternalLink, UserMinus, ArrowRightLeft, Copy, CheckCheck, Sparkles,
+} from 'lucide-react';
 import Layout from '../components/Layout';
 import { api } from '../api/client';
 
@@ -22,17 +24,22 @@ export default function AdminAnsprache() {
   const [auswahl, setAuswahl] = useState([]);
   const [ausschluss, setAusschluss] = useState(null);
   const [uebergaben, setUebergaben] = useState(null);
+  const [erledigt, setErledigt] = useState(null);
+  const [nachfolger, setNachfolger] = useState(null);
 
   const laden = async () => {
     try {
       const p = new URLSearchParams(Object.entries(filter).filter(([, v]) => v !== '' && v != null));
-      const [a, t, x, u] = await Promise.all([
+      const [a, t, x, u, e, n] = await Promise.all([
         api.get(`/api/ansprache/arbeitsliste?${p}`),
         api.get('/api/ansprache/trichter'),
         api.get('/api/ansprache/ausschluss'),
         api.get('/api/ansprache/uebergaben'),
+        api.get('/api/ansprache/angeschrieben'),
+        api.get('/api/ansprache/nachfolger-vorschlaege'),
       ]);
       setDaten(a); setTrichter(t); setAusschluss(x); setUebergaben(u);
+      setErledigt(e); setNachfolger(n);
     } catch (e) { setMsg({ ok: false, text: e.message }); }
   };
   useEffect(() => { laden(); }, [filter.prio, filter.kanal, filter.pensum, filter.wiedervorlage_tage]);
@@ -102,6 +109,8 @@ export default function AdminAnsprache() {
       <div className="tabs" style={{ margin: '10px 0 14px' }}>
         {[['faellig', `Heute dran (${daten?.faellig.length || 0})`],
           ['wiedervorlage', `Wiedervorlage (${daten?.wiedervorlage.length || 0})`],
+          ['erledigt', `Angeschrieben (${erledigt?.zahlen.gesamt || 0})`],
+          ['nachfolger', `Mögliche Nachfolger (${nachfolger?.zahlen.gesamt || 0})`],
           ['trichter', 'Auswertung'],
           ['ausschluss', `Nicht ansprechen (${ausschluss?.eintraege.length || 0})`],
           ['uebergaben', `Capitalmatch (${uebergaben?.zahlen.gesamt || 0})`]].map(([k, l]) => (
@@ -208,7 +217,147 @@ export default function AdminAnsprache() {
         </>
       )}
 
-      {tab !== 'trichter' && tab !== 'ausschluss' && tab !== 'uebergaben' && liste && (
+      {tab === 'erledigt' && erledigt && (
+        <>
+          <p className="muted" style={{ fontSize: 13 }}>
+            Alle, bei denen Du schon warst, neueste zuerst. Auch die, die inzwischen angekommen sind,
+            denn das sind die Erfolge.
+          </p>
+          <p style={{ fontSize: 13 }}>
+            {erledigt.zahlen.gesamt} angeschrieben · {erledigt.zahlen.heute} davon heute ·{' '}
+            {erledigt.zahlen.offen} ohne Reaktion · <strong>{erledigt.zahlen.angekommen} angekommen</strong>
+          </p>
+          <table className="table">
+            <thead><tr>
+              <th>Name</th><th>Position</th><th>Prio</th><th>Angeschrieben</th>
+              <th>Reaktion</th><th>Stand</th><th>Notiz</th>
+            </tr></thead>
+            <tbody>
+              {erledigt.kontakte.map((p) => (
+                <tr key={p.id}>
+                  <td>
+                    <Link to={`/admin/experten/${p.id}`}><strong>{p.vorname} {p.nachname}</strong></Link>
+                    {p.linkedin && (
+                      <>{' '}<a href={`https://${p.linkedin}`} target="_blank" rel="noreferrer" title="LinkedIn-Profil öffnen">
+                        <ExternalLink size={13} style={{ verticalAlign: '-2px' }} /></a></>
+                    )}
+                    <br /><span className="muted" style={{ fontSize: 12 }}>{p.firma}</span>
+                  </td>
+                  <td style={{ fontSize: 13, maxWidth: 240 }}>{(p.berufsbezeichnung || '').slice(0, 90)}</td>
+                  <td>{p.vorreg_prio}</td>
+                  <td style={{ whiteSpace: 'nowrap' }}>
+                    <button type="button" className="tab" style={{ padding: 0, color: 'var(--navy)', fontSize: 13 }}
+                      title="Datum korrigieren"
+                      onClick={() => {
+                        const wert = window.prompt('Angeschrieben am (JJJJ-MM-TT, leer lassen zum Zurücksetzen):',
+                          String(p.vorreg_angeschrieben_am).slice(0, 10));
+                        if (wert === null) return;
+                        schritt(p.id, { angeschrieben_am: wert || null });
+                      }}>{fmt(p.vorreg_angeschrieben_am)}</button>
+                  </td>
+                  <td>
+                    <span className={`status status-${BADGE[p.vorreg_reaktion || 'offen']}`}>
+                      {REAKTION[p.vorreg_reaktion || 'offen']}
+                    </span>
+                    {p.vorreg_wiedervorlage && (
+                      <><br /><span className="muted" style={{ fontSize: 11 }}>
+                        <RotateCcw size={11} style={{ verticalAlign: '-1px' }} /> {fmt(p.vorreg_wiedervorlage)}</span></>
+                    )}
+                  </td>
+                  <td>
+                    {['registriert', 'freigegeben'].includes(p.status)
+                      ? <span className={`status status-${p.status}`}>
+                        <CheckCheck size={12} style={{ verticalAlign: '-2px' }} /> {p.status}
+                      </span>
+                      : <span className="muted" style={{ fontSize: 12 }}>wartet</span>}
+                  </td>
+                  <td style={{ fontSize: 12, maxWidth: 180 }} className="muted">
+                    {p.vorreg_notiz ? p.vorreg_notiz.slice(0, 60) : ''}
+                  </td>
+                </tr>
+              ))}
+              {!erledigt.kontakte.length && (
+                <tr><td colSpan={7} className="muted">
+                  Noch niemanden angeschrieben. Sobald Du in „Heute dran" auf „heute" klickst, erscheint die Person hier.
+                </td></tr>
+              )}
+            </tbody>
+          </table>
+          {erledigt.seiten > 1 && (
+            <p className="muted" style={{ fontSize: 12, marginTop: 8 }}>
+              Seite {erledigt.seite} von {erledigt.seiten}, es werden die 50 jüngsten gezeigt.
+            </p>
+          )}
+        </>
+      )}
+
+      {tab === 'nachfolger' && nachfolger && (
+        <>
+          <p className="muted" style={{ fontSize: 13 }}>
+            <Sparkles size={14} style={{ verticalAlign: '-2px' }} /> {nachfolger.hinweis}
+            {' '}Durchsucht werden Position, Kurzprofil und Firmenname. Ein Treffer auf „Beteiligung" kann
+            genauso gut ein Berater für Beteiligungen sein, deshalb steht neben jedem Namen das Wort,
+            das den Vorschlag ausgelöst hat.
+          </p>
+          <p style={{ fontSize: 13 }}>
+            {nachfolger.zahlen.gesamt} Vorschläge · {nachfolger.zahlen.schon_markiert} bereits als
+            Nachfolger markiert
+          </p>
+          <table className="table">
+            <thead><tr>
+              <th>Name</th><th>Position</th><th>Gefunden wegen</th><th>Prio</th><th>Als Nachfolger</th>
+            </tr></thead>
+            <tbody>
+              {nachfolger.vorschlaege.map((p) => (
+                <tr key={p.id}>
+                  <td>
+                    <Link to={`/admin/experten/${p.id}`}><strong>{p.vorname} {p.nachname}</strong></Link>
+                    {p.linkedin && (
+                      <>{' '}<a href={`https://${p.linkedin}`} target="_blank" rel="noreferrer" title="LinkedIn-Profil öffnen">
+                        <ExternalLink size={13} style={{ verticalAlign: '-2px' }} /></a></>
+                    )}
+                    <br /><span className="muted" style={{ fontSize: 12 }}>{p.firma}</span>
+                  </td>
+                  <td style={{ fontSize: 13, maxWidth: 280 }}>{(p.berufsbezeichnung || '').slice(0, 110)}</td>
+                  <td>
+                    {p.treffer.map((w) => (
+                      <span key={w} className="status status-eingeladen" style={{ marginRight: 4 }}>{w}</span>
+                    ))}
+                  </td>
+                  <td>{p.vorreg_prio}</td>
+                  <td style={{ whiteSpace: 'nowrap' }}>
+                    <button type="button" className="btn" style={{ width: 'auto', padding: '5px 12px', fontSize: 13 }}
+                      onClick={async () => {
+                        try {
+                          await api.put(`/api/ansprache/${p.id}/zielgruppe`, { zielgruppe: 'nachfolger' });
+                          setMsg({ ok: true, text: `${p.vorname} ${p.nachname} ist jetzt als Nachfolger markiert.` });
+                          await laden();
+                        } catch (err) { setMsg({ ok: false, text: err.message }); }
+                      }}>markieren</button>
+                    {' '}
+                    <button type="button" className="tab" style={{ padding: 0, color: 'var(--grey-600)', fontSize: 13 }}
+                      title="Passt nicht, als Interim markieren und aus dieser Liste nehmen"
+                      onClick={async () => {
+                        try {
+                          await api.put(`/api/ansprache/${p.id}/zielgruppe`, { zielgruppe: 'interim' });
+                          await laden();
+                        } catch (err) { setMsg({ ok: false, text: err.message }); }
+                      }}>passt nicht</button>
+                  </td>
+                </tr>
+              ))}
+              {!nachfolger.vorschlaege.length && (
+                <tr><td colSpan={5} className="muted">
+                  Keine Treffer. Entweder steht in den Profiltexten nichts zur Nachfolge, oder Du hast
+                  schon überall eine Zielgruppe gesetzt. Vorschläge erscheinen nur bei Kontakten ohne Zielgruppe.
+                </td></tr>
+              )}
+            </tbody>
+          </table>
+        </>
+      )}
+
+      {['faellig', 'wiedervorlage'].includes(tab) && liste && (
         <>
           {auswahl.length > 0 && (
             <p style={{ marginBottom: 10 }}>
@@ -348,6 +497,12 @@ export default function AdminAnsprache() {
           <Tabelle zeilen={trichter.nach_kanal} />
           <h3 style={{ color: 'var(--navy)', fontSize: 16, marginTop: 22 }}>Nach Liste</h3>
           <Tabelle zeilen={trichter.nach_quelle} />
+          <h3 style={{ color: 'var(--navy)', fontSize: 16, marginTop: 22 }}>Nach Zielgruppe</h3>
+          <p className="muted" style={{ fontSize: 12, marginBottom: 8 }}>
+            Wer als Nachfolger markiert ist, gehört zu Capitalmatch statt ins Expertennetzwerk.
+            Vorschläge dazu findest Du im Reiter „Mögliche Nachfolger".
+          </p>
+          <Tabelle zeilen={trichter.nach_zielgruppe} />
           <h3 style={{ color: 'var(--navy)', fontSize: 16, marginTop: 22 }}>Reaktionen</h3>
           <p style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
             {Object.entries(trichter.reaktionen).map(([k, v]) => (

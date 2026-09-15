@@ -17,6 +17,9 @@ const AVAIL_LABEL = { sofort: 'Sofort verfügbar', ab_datum: 'Verfügbar ab Datu
 const SKILL_KAT = [['rolle', 'Rollen'], ['kompetenz', 'Kompetenzen'], ['branche', 'Branchen'], ['zertifikat', 'Zertifikate & Normen'], ['technologie', 'Technologien']];
 
 const fmtDate = (d) => (d ? new Date(d).toLocaleDateString('de-DE') : '—');
+const ANSPRACHE_REAKTION = {
+  interesse: 'Interesse', spaeter: 'später', absage: 'Absage', keine: 'keine Reaktion',
+};
 
 export default function AdminExpertDetail() {
   const { id } = useParams();
@@ -175,6 +178,29 @@ export default function AdminExpertDetail() {
                 setInfo(d.message); load();
               } catch (err) { window.alert(err.message); }
             }}>Zugangslink senden</button>
+        </p>
+      )}
+
+      {/* v1.29.0: Die persönliche Ansprache über LinkedIn lief bisher nur im Cockpit.
+          Wer hier auf ein Profil schaut, soll ohne Umweg sehen, ob und wann geschrieben wurde. */}
+      {(expert.vorreg_angeschrieben_am || expert.ansprache_seit || expert.vorreg_quelle) && (
+        <p className="muted" style={{ marginBottom: 18, fontSize: 13 }}>
+          Ansprache:{' '}
+          {expert.vorreg_angeschrieben_am
+            ? <strong style={{ color: 'var(--navy)' }}>über LinkedIn angesprochen am {fmtDate(expert.vorreg_angeschrieben_am)}</strong>
+            : 'noch nicht angesprochen'}
+          {expert.vorreg_reaktion && expert.vorreg_reaktion !== 'offen'
+            && ` · Reaktion: ${ANSPRACHE_REAKTION[expert.vorreg_reaktion] || expert.vorreg_reaktion}`
+            + (expert.vorreg_reaktion_am ? ` am ${fmtDate(expert.vorreg_reaktion_am)}` : '')}
+          {expert.vorreg_wiedervorlage && ` · Wiedervorlage ${fmtDate(expert.vorreg_wiedervorlage)}`}
+          {expert.vorreg_prio && ` · Prio ${expert.vorreg_prio}`}
+          {expert.vorreg_quelle && ` · aus ${expert.vorreg_quelle}`}
+          {expert.zielgruppe && ` · Zielgruppe ${expert.zielgruppe}`}
+          {expert.vorreg_zusammengefuehrt_am && ` · zusammengeführt am ${fmtDate(expert.vorreg_zusammengefuehrt_am)}`}
+          {' · '}<Link to="/admin/ansprache">Im Cockpit öffnen</Link>
+          {expert.vorreg_notiz && (
+            <><br />Notiz aus der Ansprache: {expert.vorreg_notiz}</>
+          )}
         </p>
       )}
 

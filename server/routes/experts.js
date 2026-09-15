@@ -332,6 +332,7 @@ async function inviteNewExpert(req, { vorname, nachname, email, sprache }) {
     vorname: String(vorname).slice(0, 100), nachname: String(nachname).slice(0, 100),
     email: mail, status: 'eingeladen',
     invite_cycle_started_at: db.fn.now(), invite_zyklus: 'neu', // v1.12.0: Erinnerung Tag 7/21, Loeschung Tag 28
+    ansprache_seit: db.fn.now(), // v1.29.0: zählt im Trichter mit, auch nachdem die Person angekommen ist
   }).returning('*');
 
   const token = signPurposeToken(user.id, 'expert-invite', '14d');

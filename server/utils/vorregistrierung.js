@@ -32,6 +32,7 @@ function baueDatensatz(zeile, tenantId) {
     vorreg_kanal: /mail/i.test(zeile.kanal || '') ? 'email' : (zeile.kanal ? 'linkedin' : null),
     vorreg_letzter_kontakt: datumOderNull(zeile.letzter_kontakt),
     vorreg_importiert_am: new Date(),
+    ansprache_seit: new Date(), // v1.29.0: überlebt den Statuswechsel, damit der Trichter Ankünfte sieht
   };
 }
 
