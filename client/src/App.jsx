@@ -7,7 +7,9 @@ import Datenschutz from './pages/Datenschutz';
 import AdminFunnel from './pages/AdminFunnel';
 import AdminMails from './pages/AdminMails';
 import PartnerWerden from './pages/PartnerWerden';
+import KapitalpartnerWerden from './pages/KapitalpartnerWerden';
 import AdminPartner from './pages/AdminPartner';
+import AdminKapitalpartner from './pages/AdminKapitalpartner';
 import AdminAbrechnung from './pages/AdminAbrechnung';
 import AdminAnsprache from './pages/AdminAnsprache';
 import Bewertung from './pages/Bewertung';
@@ -56,6 +58,7 @@ export default function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/datenschutz" element={<Datenschutz />} />
           <Route path="/partner" element={<PartnerWerden />} />
+          <Route path="/kapitalpartner" element={<KapitalpartnerWerden />} />
           <Route path="/mitmachen" element={<Mitmachen />} />
           <Route path="/bewertung" element={<Bewertung />} />
           <Route path="/register" element={<Register />} />
@@ -77,6 +80,7 @@ export default function App() {
           <Route path="/admin/mails" element={<ProtectedRoute roles={['admin', 'tenant_owner']}><AdminMails /></ProtectedRoute>} />
           <Route path="/admin/skills" element={<ProtectedRoute roles={['admin', 'tenant_owner']}><AdminSkills /></ProtectedRoute>} />
           <Route path="/admin/partner" element={<ProtectedRoute roles={['admin', 'tenant_owner']}><AdminPartner /></ProtectedRoute>} />
+          <Route path="/admin/kapitalpartner" element={<ProtectedRoute roles={['admin', 'tenant_owner']}><AdminKapitalpartner /></ProtectedRoute>} />
           <Route path="/admin/abrechnung" element={<ProtectedRoute roles={['admin', 'tenant_owner']}><AdminAbrechnung /></ProtectedRoute>} />
           <Route path="/admin/ansprache" element={<ProtectedRoute roles={['admin', 'tenant_owner']}><AdminAnsprache /></ProtectedRoute>} />
           <Route path="/admin/projekte/:id" element={<ProtectedRoute roles={['admin', 'tenant_owner']}><AdminProjectDetail /></ProtectedRoute>} />

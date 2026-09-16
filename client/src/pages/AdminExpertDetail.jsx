@@ -117,6 +117,20 @@ export default function AdminExpertDetail() {
           window.location.href = '/admin/experten';
         }}>Zu Provider umwandeln</a>
         {' · '}
+        {/* v1.31.0: Der Fall aus der Praxis. Jemand antwortet auf die Ansprache,
+            dass er sich als Interim Manager nicht sieht, aber gern finanziert. */}
+        <a style={{ cursor: 'pointer' }} onClick={async () => {
+          if (!window.confirm(`${expert.vorname} ${expert.nachname} als Kapitalpartner übernehmen?\n\n`
+            + 'Es entsteht ein Eintrag im Kapitalpartner-Verzeichnis mit den vorhandenen Kontaktdaten. '
+            + 'Der Kontakt wird aus der Interim-Ansprache genommen, das Expertenprofil bleibt bestehen. '
+            + 'Finanzierungsarten und Bonitätslagen trägst du danach im Verzeichnis nach.')) return;
+          try {
+            const r = await api.post(`/api/kapitalpartner/aus-experte/${id}`);
+            window.alert(r.message);
+            window.location.href = '/admin/kapitalpartner';
+          } catch (e) { window.alert(e.message); }
+        }}>Zu Kapitalpartner machen</a>
+        {' · '}
         <a href="#blockieren" style={{ color: blocked ? 'var(--danger)' : undefined }} onClick={async (e) => {
           e.preventDefault();
           await api.post(`/api/experts/${id}/block`, {});

@@ -2,6 +2,18 @@
 
 Versionsschema: v\<Major>.\<Sprint>.\<Patch>. Sprintabschluss endet auf .0, Korrekturen zählen den Patch hoch.
 
+## v1.31.0 — Kapitalpartner
+
+Rückmeldung aus der Ansprache: Ein Kontakt sieht sich nicht als Interim Manager, möchte aber als Finanzierer ins Netzwerk. Für diese Rolle passte bisher nichts.
+
+- Eigener Bereich „Kapitalpartner" mit eigener Tabelle. Keine Tagessätze, keine Verfügbarkeitsschleife, keine Profil-Erinnerung, keine automatischen Mails. Ein Leasinghaus ist immer verfügbar.
+- Öffentliche Seite unter `/kapitalpartner` in Sie-Form, mit einer Erfassungsmaske, die zu Finanzierern passt: Finanzierungsarten, Objektarten, Branchen, Volumenbereich, Entscheidungsdauer.
+- Das entscheidende Feld ist die Bonitätslage: normal, schwach, laufende Sanierung, StaRUG, Eigenverwaltung, Insolvenz. Fast jeder finanziert gute Bonität. Wertvoll für Sanierungsmandate sind die, die weitergehen, und genau danach lässt sich filtern.
+- Verzeichnis im Admin mit Filtern nach Bonitätslage, Finanzierungsart, gesuchtem Betrag und Volltext über Objekte und Branchen. Die Volumensuche berücksichtigt offene Grenzen.
+- Kennzahl „Finanzieren auch im Verfahren", weil das die Zahl ist, die im Ernstfall zählt.
+- Knopf „Zu Kapitalpartner machen" in der Expertenakte. Der Kontakt wandert herüber, wird aus der Interim-Ansprache genommen und bekommt die Zielgruppe `kapitalpartner`. Das Expertenprofil bleibt bestehen, gelöscht wird nichts.
+- Migration 0033, Route `/api/kapitalpartner`, öffentliche Route `/api/public/kapitalpartner-bewerbung`, Test `v131.test.js`.
+
 ## v1.30.0 — Tagessätze ändern, ohne zu suchen
 
 Rückmeldung aus der Praxis vom ersten Experten im Self-Service: Tagessatz eintragen gewollt, „Bearbeiten" gesucht, nicht gefunden.

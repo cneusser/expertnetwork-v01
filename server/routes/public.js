@@ -283,4 +283,88 @@ router.post('/bewertung/:token', async (req, res) => {
   res.json({ ok: true, message: 'Vielen Dank für Ihre Bewertung!' });
 });
 
+/**
+ * v1.31.0 — Bewerbung als Kapitalpartner, ohne Konto.
+ *
+ * Die Gegenseite ist ein Finanzierer, kein Bewerber. Entsprechend kurz ist das
+ * Formular: Firma, Ansprechpartner, was finanziert wird, in welcher Größe, und
+ * die eine Frage, auf die es ankommt, nämlich bis zu welcher Bonitätslage.
+ * Es geht keine automatische Mail an den Absender raus, nur eine interne
+ * Benachrichtigung an das Büro. Sie-Form, weil das die Kundenseite ist.
+ */
+router.post('/kapitalpartner-bewerbung', async (req, res) => {
+  const { FINANZIERUNGSARTEN, BONITAET } = require('./kapitalpartner');
+  const b = req.body || {};
+  const firmenname = String(b.firmenname || '').trim();
+  const email = String(b.email || '').toLowerCase().trim();
+
+  if (firmenname.length < 2) return res.status(400).json({ error: 'Firmenname erforderlich' });
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return res.status(400).json({ error: 'Ungültige E-Mail-Adresse' });
+  if (b.consent !== true) return res.status(400).json({ error: 'Zustimmung zur Datenverarbeitung erforderlich' });
+
+  const nurBekannte = (wert, erlaubt) => (Array.isArray(wert)
+    ? [...new Set(wert.map((x) => String(x).toLowerCase()).filter((x) => erlaubt.includes(x)))].slice(0, 20)
+    : []);
+  const frei = (wert) => (Array.isArray(wert)
+    ? [...new Set(wert.map((x) => String(x).trim().slice(0, 60)).filter(Boolean))].slice(0, 20)
+    : []);
+  const zahl = (wert) => {
+    const n = Number(wert);
+    return Number.isFinite(n) && n >= 0 && n <= 1000000000 ? Math.round(n) : null;
+  };
+
+  const tenant = await db('tenants').where({ slug: 'phalanx' }).first();
+  const [row] = await db('kapitalpartner').insert({
+    tenant_id: tenant.id,
+    firmenname: firmenname.slice(0, 200),
+    anrede: b.anrede ? String(b.anrede).slice(0, 20) : null,
+    vorname: b.vorname ? String(b.vorname).slice(0, 100) : null,
+    nachname: b.nachname ? String(b.nachname).slice(0, 100) : null,
+    email,
+    telefon: b.telefon ? String(b.telefon).slice(0, 40) : null,
+    webseite: b.webseite ? String(b.webseite).slice(0, 300) : null,
+    linkedin: b.linkedin ? String(b.linkedin).slice(0, 300) : null,
+    finanzierungsarten_json: JSON.stringify(nurBekannte(b.finanzierungsarten, FINANZIERUNGSARTEN)),
+    bonitaet_json: JSON.stringify(nurBekannte(b.bonitaet, BONITAET)),
+    objektarten_json: JSON.stringify(frei(b.objektarten)),
+    branchen_json: JSON.stringify(frei(b.branchen)),
+    volumen_von_eur: zahl(b.volumen_von_eur),
+    volumen_bis_eur: zahl(b.volumen_bis_eur),
+    regionen: b.regionen ? String(b.regionen).slice(0, 200) : null,
+    entscheidung_tage: zahl(b.entscheidung_tage),
+    beschreibung: b.beschreibung ? String(b.beschreibung).slice(0, 3000) : null,
+    quelle: 'landingpage',
+  }).returning('*');
+
+  await db('audit_log').insert({
+    tenant_id: tenant.id, action: 'kapitalpartner.anfrage', resource: 'kapitalpartner',
+    resource_id: row.id, new_value_json: JSON.stringify({ firmenname: row.firmenname, email }), ip: req.ip,
+  });
+
+  try {
+    const admin = await db('users').where({ tenant_id: tenant.id, role: 'admin' }).orderBy('id').first();
+    if (admin) {
+      const { getMailProvider } = require('../providers/mail');
+      const bon = JSON.parse(row.bonitaet_json || '[]');
+      await getMailProvider().send({
+        to: admin.email,
+        subject: `Neuer Kapitalpartner: ${row.firmenname}`,
+        html: `<p>Neue Anfrage als Kapitalpartner:</p>
+<p><strong>${row.firmenname}</strong><br />${[row.vorname, row.nachname].filter(Boolean).join(' ')}<br />${email}${row.telefon ? `<br />${row.telefon}` : ''}</p>
+<p>Finanzierung: ${JSON.parse(row.finanzierungsarten_json || '[]').join(', ') || 'keine Angabe'}</p>
+<p>Bonitätslagen: ${bon.join(', ') || 'keine Angabe'}</p>
+<p>Volumen: ${row.volumen_von_eur || '?'} bis ${row.volumen_bis_eur || '?'} Euro</p>
+${row.beschreibung ? `<p>${row.beschreibung}</p>` : ''}
+<p>Zur Prüfung: Admin-Konsole, Menüpunkt Kapitalpartner.</p>`,
+        text: `Neuer Kapitalpartner ${row.firmenname} (${email}), Bonitätslagen: ${bon.join(', ')}`,
+      }, { tenantId: tenant.id, templateKey: 'kapitalpartner_anfrage_intern' });
+    }
+  } catch (e) { console.error('Kapitalpartner-Anfrage-Mail fehlgeschlagen:', e.message); }
+
+  res.status(201).json({
+    ok: true,
+    message: 'Danke, Ihre Angaben sind angekommen. Wir melden uns persönlich, meist innerhalb von zwei Werktagen.',
+  });
+});
+
 module.exports = router;

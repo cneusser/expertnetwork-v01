@@ -25,7 +25,7 @@ const { requireAuth, requireRole } = require('../middleware/auth');
 
 const router = express.Router();
 
-const ZIELGRUPPEN = ['interim', 'cfo', 'nachfolger'];
+const ZIELGRUPPEN = ['interim', 'cfo', 'nachfolger', 'kapitalpartner'];
 const GUELTIG_TAGE = Number(process.env.HANDOVER_GUELTIG_TAGE || 7);
 
 function capitalmatchBasis() {
