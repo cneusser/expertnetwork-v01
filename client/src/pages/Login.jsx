@@ -14,10 +14,12 @@ export default function Login() {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [liEnabled, setLiEnabled] = useState(false);
+  const [pxEnabled, setPxEnabled] = useState(false);
   const [params] = useSearchParams();
 
   useEffect(() => {
     fetch('/api/auth/linkedin/status').then((r) => r.json()).then((d) => setLiEnabled(d.enabled)).catch(() => {});
+    fetch('/api/auth/phalanx/status').then((r) => r.json()).then((d) => setPxEnabled(d.enabled)).catch(() => {});
     const err = params.get('error');
     if (err) {
       setError({
@@ -27,6 +29,13 @@ export default function Login() {
         'linkedin-nicht-konfiguriert': 'LinkedIn-Anmeldung ist derzeit nicht eingerichtet.',
         'email-nicht-bestaetigt': 'Bitte bestätige zuerst deine E-Mail-Adresse.',
         'linkedin-fehler': 'LinkedIn-Anmeldung fehlgeschlagen. Bitte erneut versuchen.',
+        'phalanx-kein-konto': 'Zu diesem Phalanx-OS-Konto gibt es hier keinen Zugang. Die Anmeldung über Phalanx OS ist Mitarbeitenden der Phalanx GmbH vorbehalten.',
+        'phalanx-keine-berechtigung': 'Dieses Konto hat hier keine Verwaltungsrechte. Bitte melde dich mit E-Mail und Passwort an.',
+        'phalanx-state': 'Anmeldung über Phalanx OS abgebrochen (Sicherheitsprüfung). Bitte erneut versuchen.',
+        'phalanx-abgebrochen': 'Anmeldung über Phalanx OS abgebrochen.',
+        'phalanx-nicht-konfiguriert': 'Die Anmeldung über Phalanx OS ist noch nicht eingerichtet.',
+        'phalanx-nicht-erreichbar': 'Phalanx OS antwortet gerade nicht. Bitte später erneut versuchen.',
+        'phalanx-fehler': 'Anmeldung über Phalanx OS fehlgeschlagen. Bitte erneut versuchen.',
       }[err] || 'Anmeldung fehlgeschlagen.');
     }
   }, []);
@@ -71,6 +80,15 @@ export default function Login() {
           <button type="button" className="btn" style={{ marginTop: 10, background: '#0A66C2' }}
             onClick={() => { window.location.href = '/api/auth/linkedin'; }}>
             {tr(lang, 'Mit LinkedIn anmelden', 'Sign in with LinkedIn')}
+          </button>
+        )}
+        {/* v1.32.0: Nur fuer Verwaltungskonten. Fuer Experten bleibt der
+            regulaere Weg, weil dort die Einwilligung dranhaengt. */}
+        {pxEnabled && (
+          <button type="button" className="btn"
+            style={{ marginTop: 10, background: 'transparent', color: 'var(--navy)', border: '1px solid var(--grey-200)' }}
+            onClick={() => { window.location.href = '/api/auth/phalanx'; }}>
+            {tr(lang, 'Mit Phalanx OS anmelden', 'Sign in with Phalanx OS')}
           </button>
         )}
         <div style={{ marginTop: 16, padding: '12px 14px', background: 'var(--grey-100, #f4f6f8)', borderLeft: '3px solid var(--navy)', borderRadius: 6, fontSize: 13, lineHeight: 1.5 }}>

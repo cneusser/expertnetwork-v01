@@ -143,10 +143,15 @@ async function runInviteLifecycle() {
   const APP_URL = process.env.APP_URL ||
     (process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : 'http://localhost:5173');
 
+  // v1.32.0: Kontakte aus dem Phalanx-OS-Pool nimmt dieser Zyklus aus. Er
+  // loescht Profile nach Ablauf, und das CRM kennt den Datensatz als fuehrende
+  // Quelle weiter. Ein stiller Datenverlust gegenueber dem Pool waere die
+  // Folge, deshalb laufen diese Kontakte hier nicht mit.
   const kandidaten = await db('experts')
     .where({ status: 'eingeladen' }) // Vorregistrierte sind hier per Definition nicht dabei
     .whereNotNull('invite_cycle_started_at')
-    .whereNotNull('user_id');
+    .whereNotNull('user_id')
+    .whereNull('pool_contact_id');
 
   let erinnert = 0;
   let geloescht = 0;

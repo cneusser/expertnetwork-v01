@@ -115,6 +115,47 @@ Arbeitsfläche für die persönliche Ansprache über LinkedIn, erreichbar unter 
 
 Migration 0029 und 0030, Route `/api/ansprache`, Test `v126.test.js`.
 
+## Phalanx-OS-Anbindung (v1.32.0)
+
+Zwei Strecken zum Phalanx OS, beide abgeschaltet, solange die Umgebungsvariablen fehlen. Verwaltung unter **Phalanx OS** in der Admin-Navigation.
+
+### Umgebungsvariablen (Railway)
+
+```
+PHALANX_OS_BASE_URL=https://phalanx-os-production.up.railway.app
+PHALANX_OS_CLIENT_ID=<aus Phalanx OS, Verwaltung, SSO-Clients>
+PHALANX_OS_CLIENT_SECRET=<ebenda, nie ins Repo>
+PHALANX_SYNC_TAGS=LI:Interim,LI:Berater,LI:CFO/Finance    (optional)
+PHALANX_SYNC_INTERVALL_MIN=30                              (0 schaltet den Abgleich ab)
+```
+
+Als Redirect-URI in Phalanx OS eintragen: `https://experts.phalanx.de/api/auth/phalanx/callback`. Das `/api` davor ist nötig, alles andere fängt der React-Router ab.
+
+### Anmeldung
+
+Knopf „Mit Phalanx OS anmelden" auf der Anmeldeseite, Authorization Code Flow mit PKCE (S256). Das ID-Token wird vollständig geprüft: Signatur gegen `jwks_uri`, Aussteller, Empfänger, Ablauf und Einmalkennung. Bewusst ohne `openid-client`, weil Version 6 reines ESM ist und der Server CommonJS. Node liest JWKS-Schlüssel über `crypto.createPublicKey`, `jsonwebtoken` prüft damit RS256, also keine neue Abhängigkeit.
+
+Verknüpft wird über `sub`, nicht über die E-Mail. Beim ersten Mal ist eine Verknüpfung über die Adresse möglich, aber nur wenn sie dort verifiziert ist und hier ein Admin- oder Staff-Konto damit existiert. Neue Konten entstehen über diesen Weg nie, und die Rolle hier gilt, nicht die in Phalanx OS. Für Experten ist der Weg bewusst zu, weil an deren Registrierung die Einwilligung hängt.
+
+### Datenpool
+
+Modul `server/sync/phalanxpool.js`, Scheduler-Job `phalanx-pool-sync` alle 30 Minuten.
+
+- **Lesen:** Kontakte je konfiguriertem Tag über `updated_since`-Polling. Die Dublettenprüfung ist dieselbe Funktion, die der Listenimport und die Selbstregistrierung nutzen: E-Mail, normalisierte LinkedIn-URL, Namensschlüssel und der nur bei genau einem Treffer. Damit entstehen keine Duplikate zwischen Listenimport und Pool. Treffer werden ergänzt, aber nie überschrieben: Was ein Mensch hier gepflegt hat, bleibt stehen. Unbekannte kommen als `vorregistriert` mit Quelle `phalanx-pool` an. Mehrdeutige Namen landen in der Warteliste „Zuordnung prüfen", statt geraten zu werden.
+- **Nichts wird gelöscht.** Verschwindet ein Kontakt im Pool, bleibt er hier unangetastet.
+- **Melden:** Wer den Status `registriert` oder `freigegeben` erreicht, wird per Upsert mit `source_id = expert-<id>` zurückgemeldet. Als Job und nicht als Haken an jeder Statuswechselstelle, damit keine vergessen wird. Fehler bleiben in der Warteschlange und blockieren nie einen Nutzerfluss.
+- **Lauf-Protokoll** in `phalanx_sync_lauf`, sichtbar in der Verwaltung mit Zahlen je Durchgang.
+
+### Werbeeinwilligung (§ 7 UWG)
+
+Adressen aus dem LinkedIn-Import tragen keine Werbeeinwilligung. Die Sperre sitzt zentral im Mail-Wrapper `providers/mail/index.js` und nicht in einzelnen Jobs: Jede ausgehende Mail läuft dort durch, eine Sperre im Job hätte der nächste Job umgangen. Automatisierte Post an solche Adressen wird abgewiesen und in der Outbox mit Status `gesperrt` protokolliert. Einzelkorrespondenz setzt `einzelkorrespondenz: true` und sagt damit ausdrücklich, was sie tut; transaktionale Mails wie Verifizierung und Passwort-Reset gehen deshalb weiter durch.
+
+Der Standardwert der Spalte ist `true`, und das ist Absicht: `false` als Standard klingt sicherer, sperrt aber jeden Weg aus, an dem tatsächlich eine Einwilligung vorliegt. Gesperrt sind genau die beiden Wege, auf denen Adressen ohne Einwilligung hereinkommen, nämlich der Pool-Abgleich und der Listenimport. Mit der Registrierung oder der angenommenen Einladung fällt die Sperre.
+
+Kontakte mit `pool_contact_id` nimmt der Einladungszyklus vom automatischen Löschen aus, weil das CRM sie als führende Quelle weiterführt.
+
+Migration 0034, Routen `/api/phalanx-os` und `/api/auth/phalanx`, Test `v132.test.js` gegen Fixtures statt gegen das Netz.
+
 ## Roadmap
 
 Sprint 1 Expert Directory → 2 Verfügbarkeit + Erinnerungs-Loop → 3 Tagessätze → 4 Audit-Trail-UI → 5 Suche → 6 Projekte/Matching → 7 Kommunikation → 8 Vendor-Portal/Multi-Tenant → 9 KI (CV-Extraktion, Matching-Begründung). Details: `Rechercheberichte/Expertnetwork-Fable5-Bauprompt-2026-07-11.md`.

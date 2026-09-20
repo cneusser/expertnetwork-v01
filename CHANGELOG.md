@@ -2,6 +2,17 @@
 
 Versionsschema: v\<Major>.\<Sprint>.\<Patch>. Sprintabschluss endet auf .0, Korrekturen zählen den Patch hoch.
 
+## v1.32.0 — Anbindung an Phalanx OS, Teil A
+
+- **Anmeldung über Phalanx OS** für Admin- und Staff-Konten: Authorization Code Flow mit PKCE (S256), vollständige Prüfung des ID-Tokens gegen `jwks_uri` inklusive Aussteller, Empfänger, Ablauf und Einmalkennung. Ohne neue Abhängigkeit gebaut, weil `openid-client` v6 reines ESM ist und der Server CommonJS. Verknüpft wird über `sub`, nie über die E-Mail. Neue Konten entstehen über diesen Weg nicht, und die Rolle hier gilt, nicht die in Phalanx OS. Die Experten-Registrierung bleibt unverändert.
+- **Datenpool-Abgleich** alle 30 Minuten (`PHALANX_SYNC_INTERVALL_MIN`, 0 schaltet ab), mit `updated_since`-Polling je konfiguriertem Tag. Die Dublettenprüfung ist dieselbe, die Listenimport und Selbstregistrierung schon nutzen, deshalb entstehen keine Duplikate zwischen den Wegen. Treffer werden ergänzt, nie überschrieben. Unbekannte kommen als `vorregistriert` mit Quelle `phalanx-pool` an, mehrdeutige Namen in die Warteliste „Zuordnung prüfen". Gelöscht wird nichts.
+- **Rückmeldung** der Ankünfte per idempotentem Upsert mit `source_id`. Als Job statt als Haken an jeder Statuswechselstelle, damit keine vergessen wird. Fehler bleiben in der Warteschlange und blockieren nie einen Nutzerfluss.
+- **Werbeeinwilligung nach § 7 UWG** zentral im Mail-Wrapper geprüft, nicht in einzelnen Jobs. Automatisierte Post an Adressen ohne Einwilligung wird abgewiesen und in der Outbox mit Status `gesperrt` protokolliert. Einzelkorrespondenz und transaktionale Mails gehen weiter durch. Der Listenimport setzt die Sperre ebenfalls, mit der Registrierung fällt sie.
+- Kontakte aus dem Pool nimmt der Einladungszyklus vom automatischen Löschen aus, weil das CRM sie als führende Quelle weiterführt.
+- Verwaltungsseite mit Verbindungsprüfung, Zahlen je Tag-Segment, Knopf „Jetzt synchronisieren" und Lauf-Protokoll. Kennzeichen „Phalanx-Netzwerk" in der Expertenliste.
+- Der Scheduler kann jetzt auch Intervalljobs, bisher gab es nur den Tageslauf um 06:00.
+- Migration 0034, Modul `server/sync/phalanxpool.js`, Test `v132.test.js` gegen Fixtures statt gegen das Netz. README-Abschnitt ergänzt.
+
 ## v1.31.0 — Kapitalpartner
 
 Rückmeldung aus der Ansprache: Ein Kontakt sieht sich nicht als Interim Manager, möchte aber als Finanzierer ins Netzwerk. Für diese Rolle passte bisher nichts.

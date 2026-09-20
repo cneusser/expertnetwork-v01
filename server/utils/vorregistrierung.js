@@ -33,6 +33,10 @@ function baueDatensatz(zeile, tenantId) {
     vorreg_letzter_kontakt: datumOderNull(zeile.letzter_kontakt),
     vorreg_importiert_am: new Date(),
     ansprache_seit: new Date(), // v1.29.0: überlebt den Statuswechsel, damit der Trichter Ankünfte sieht
+    // v1.32.0: Adressen aus Kontaktlisten stammen aus LinkedIn und tragen keine
+    // Werbeeinwilligung nach § 7 UWG. Der zentrale Mail-Wrapper prüft das.
+    // Mit der Registrierung fällt die Sperre, siehe uebernehmen().
+    werbeeinwilligung: false,
   };
 }
 
@@ -192,6 +196,9 @@ async function uebernehmen(vorregId, user, { vorname, nachname, linkedin, minima
     status: 'registriert',
     email: emailKey(user.email) || vorher.email,
     vorreg_zusammengefuehrt_am: new Date(),
+    // v1.32.0: Wer sich hier registriert, hat gerade eingewilligt. Damit fällt
+    // die UWG-Sperre für diese Adresse, sonst bekäme er nie einen Match-Alert.
+    werbeeinwilligung: true,
   };
   if (vorname) { patch.vorname = String(vorname).trim().slice(0, 100); }
   if (nachname) { patch.nachname = String(nachname).trim().slice(0, 100); }

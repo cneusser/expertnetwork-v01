@@ -176,7 +176,8 @@ router.post('/register', async (req, res) => {
 
   const token = signPurposeToken(user.id, 'verify-email', '7d');
   try {
-    await getMailProvider().send({ to: user.email, ...verificationMail(token) });
+    await getMailProvider().send({ to: user.email, ...verificationMail(token) },
+      { tenantId: user.tenant_id, templateKey: 'verify-email', einzelkorrespondenz: true });
   } catch (e) {
     console.error('Mail-Versand fehlgeschlagen (Verifizierung):', e.message);
     return res.status(201).json({
@@ -235,7 +236,8 @@ router.post('/register-kunde', async (req, res) => {
 
   try {
     const token = signPurposeToken(user.id, 'verify-email', '7d');
-    await getMailProvider().send({ to: email, ...verificationMail(token) });
+    await getMailProvider().send({ to: email, ...verificationMail(token) },
+      { templateKey: 'verify-email', einzelkorrespondenz: true });
   } catch (e) { console.error('Mail-Versand fehlgeschlagen (Kunden-Verifizierung):', e.message); }
 
   res.status(201).json({ ok: true, message: 'Registrierung eingegangen. Bitte E-Mail bestätigen — die Phalanx GmbH schaltet Ihren Zugang anschließend frei.' });
@@ -426,7 +428,8 @@ router.post('/forgot-password', async (req, res) => {
   if (user) {
     try {
       const token = signPurposeToken(user.id, 'reset-password', '1h');
-      await getMailProvider().send({ to: user.email, ...passwordResetMail(token) });
+      await getMailProvider().send({ to: user.email, ...passwordResetMail(token) },
+        { tenantId: user.tenant_id, templateKey: 'reset-password', einzelkorrespondenz: true });
     } catch (e) {
       console.error('Mail-Versand fehlgeschlagen (Passwort-Reset):', e.message);
     }
@@ -490,7 +493,9 @@ router.post('/accept-invite', async (req, res) => {
       text_version: CONSENT_VERSION,
       expires_at: consentExpiry(),
     });
-    await db('experts').where({ user_id: user.id }).whereIn('status', ['eingeladen', 'registriert']).update({ status: 'freigegeben' });
+    // v1.32.0: Mit der Annahme liegt die Einwilligung vor, die UWG-Sperre fällt.
+    await db('experts').where({ user_id: user.id }).whereIn('status', ['eingeladen', 'registriert'])
+      .update({ status: 'freigegeben', werbeeinwilligung: true });
     await db('audit_log').insert({
       tenant_id: user.tenant_id,
       actor_id: user.id,
@@ -537,7 +542,8 @@ router.post('/renew-consent', async (req, res) => {
       text_version: CONSENT_VERSION,
       expires_at: consentExpiry(),
     });
-    await db('experts').where({ user_id: user.id, status: 'inaktiv' }).update({ status: 'freigegeben' });
+    await db('experts').where({ user_id: user.id, status: 'inaktiv' })
+      .update({ status: 'freigegeben', werbeeinwilligung: true });
     await db('audit_log').insert({
       tenant_id: user.tenant_id,
       actor_id: user.id,
@@ -613,6 +619,104 @@ router.get('/linkedin/callback', async (req, res) => {
   } catch (e) {
     console.error('LinkedIn-Callback:', e.message);
     res.redirect('/login?error=linkedin-fehler');
+  }
+});
+
+/* ---------------- v1.32.0 Anmeldung über Phalanx OS ---------------- */
+const phalanxOs = require('../utils/phalanxOs');
+
+/** Der Knopf auf der Anmeldeseite erscheint nur, wenn die Strecke eingerichtet ist. */
+router.get('/phalanx/status', (_req, res) => res.json({
+  enabled: phalanxOs.eingerichtet(),
+  redirect_uri: phalanxOs.redirectUri(),
+}));
+
+/**
+ * Start. Verifier und Einmalkennung wandern in ein kurzlebiges Cookie, nicht
+ * in die Adresszeile. Zehn Minuten reichen für jeden Anmeldevorgang und
+ * begrenzen das Fenster für einen abgefangenen Rücksprung.
+ */
+router.get('/phalanx', async (req, res) => {
+  if (!phalanxOs.eingerichtet()) return res.redirect('/login?error=phalanx-nicht-konfiguriert');
+  try {
+    const { url, verifier, state, nonce } = await phalanxOs.anmeldeStart();
+    const kurz = { ...cookieOpts, maxAge: 10 * 60 * 1000 };
+    res.cookie('px_state', state, kurz);
+    res.cookie('px_verifier', verifier, kurz);
+    res.cookie('px_nonce', nonce, kurz);
+    res.redirect(url);
+  } catch (e) {
+    console.error('Phalanx-OS-Start:', e.message);
+    res.redirect('/login?error=phalanx-nicht-erreichbar');
+  }
+});
+
+/**
+ * Rückkehr aus Phalanx OS.
+ *
+ * Verknüpft wird über `sub`. Beim allerersten Mal erlauben wir die Verknüpfung
+ * über die E-Mail, aber nur unter drei Bedingungen gleichzeitig: Die Adresse
+ * ist dort verifiziert, hier existiert ein Konto damit, und dieses Konto ist
+ * ein Admin- oder Staff-Konto. Ein neues Admin-Konto entsteht hier nie, sonst
+ * könnte jeder, der in Phalanx OS ein Konto anlegt, sich hier Rechte holen.
+ *
+ * Für Experten ist dieser Weg bewusst zu. Deren Registrierung braucht die
+ * Einwilligung, und die holt man nicht über einen fremden Anmeldedienst ein.
+ */
+const SSO_ROLLEN = ['admin', 'tenant_owner'];
+
+router.get('/phalanx/callback', async (req, res) => {
+  const { code, state, error } = req.query;
+  const erwartet = req.cookies?.px_state;
+  const verifier = req.cookies?.px_verifier;
+  const nonce = req.cookies?.px_nonce;
+  const weg = { ...cookieOpts, maxAge: 0 };
+  res.clearCookie('px_state', weg);
+  res.clearCookie('px_verifier', weg);
+  res.clearCookie('px_nonce', weg);
+
+  if (error) return res.redirect('/login?error=phalanx-abgebrochen');
+  if (!code || !state || !erwartet || String(state) !== String(erwartet) || !verifier) {
+    return res.redirect('/login?error=phalanx-state');
+  }
+
+  try {
+    const info = await phalanxOs.anmeldeAbschluss(String(code), verifier, nonce);
+
+    let user = await db('users').where({ phalanx_os_sub: info.sub }).first();
+
+    if (!user) {
+      if (!info.email || !info.email_verified) return res.redirect('/login?error=phalanx-kein-konto');
+      const kandidat = await db('users').whereRaw('lower(trim(email)) = ?', [info.email]).first();
+      if (!kandidat || !SSO_ROLLEN.includes(kandidat.role)) {
+        return res.redirect('/login?error=phalanx-kein-konto');
+      }
+      await db('users').where({ id: kandidat.id }).update({
+        phalanx_os_sub: info.sub,
+        ...(kandidat.email_verified_at ? {} : { email_verified_at: db.fn.now() }),
+      });
+      await db('audit_log').insert({
+        tenant_id: kandidat.tenant_id, actor_id: kandidat.id, action: 'auth.phalanx_verknuepft',
+        resource: 'users', resource_id: kandidat.id,
+        new_value_json: JSON.stringify({ sub: info.sub, rollen_dort: info.roles }), ip: req.ip,
+      });
+      user = await db('users').where({ id: kandidat.id }).first();
+    }
+
+    // Die Rolle hier gilt, nicht die in Phalanx OS. Wer dort Rechte bekommt,
+    // bekommt sie hier nicht automatisch dazu.
+    if (!SSO_ROLLEN.includes(user.role)) return res.redirect('/login?error=phalanx-keine-berechtigung');
+
+    await db('audit_log').insert({
+      tenant_id: user.tenant_id, actor_id: user.id, action: 'auth.login',
+      resource: 'users', resource_id: user.id,
+      new_value_json: JSON.stringify({ quelle: 'phalanx-os' }), ip: req.ip,
+    });
+    res.cookie('session', signSession(user), cookieOpts);
+    res.redirect('/admin');
+  } catch (e) {
+    console.error('Phalanx-OS-Callback:', e.message);
+    res.redirect('/login?error=phalanx-fehler');
   }
 });
 

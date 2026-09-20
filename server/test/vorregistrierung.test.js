@@ -213,12 +213,20 @@ test('Banner erscheint nach der Zusammenführung und verschwindet mit den Angabe
 test('An Vorregistrierte geht keine automatische Post, und die Frist räumt auf', async () => {
   const vorregEmails = await db('experts').where({ status: VORREG }).whereNotNull('email').pluck('email');
   const vorher = await db('mail_outbox').count('* as c').first();
+  // Nur die Mails dieses Laufs betrachten. Andere Testdateien teilen sich diese
+  // Datenbank und schicken absichtlich Einzelkorrespondenz an dieselben
+  // Adressen. Hier geht es allein um die Frage, ob die Jobs Post auslösen.
+  const marke = Number((await db('mail_outbox').max('id as m').first()).m || 0);
+
   await runAvailabilityReminders();
   await runProfilCheck();
   await runInviteLifecycle();
   const nachher = await db('mail_outbox').count('* as c').first();
+
   for (const mail of vorregEmails) {
-    assert.strictEqual(await db('mail_outbox').where({ to_email: mail }).first(), undefined, `keine Mail an ${mail}`);
+    const raus = await db('mail_outbox').where({ to_email: mail }).where('id', '>', marke)
+      .whereIn('status', ['gesendet', 'stub']).first();
+    assert.strictEqual(raus, undefined, `keine Mail an ${mail}`);
   }
   assert.ok(Number(nachher.c) >= Number(vorher.c));
 
@@ -227,10 +235,17 @@ test('An Vorregistrierte geht keine automatische Post, und die Frist räumt auf'
     tenant_id: tenantId, status: VORREG, vorname: 'Frieda', nachname: 'Neuzugang',
     name_key: 'frieda|neuzugang', vorreg_quelle: 'Testliste', vorreg_importiert_am: new Date(),
   });
-  const alt = await db('experts').where({ status: VORREG }).whereNot('nachname', 'Neuzugang').first();
-  await db('experts').where({ id: alt.id }).update({ vorreg_importiert_am: new Date(Date.now() - 130 * 86400000) });
+  // Den Altfall gezielt anlegen statt einen beliebigen vorhandenen umzudatieren.
+  // `.first()` ohne Sortierung erwischte sonst irgendeinen Datensatz, auch
+  // einen, den der Job aus gutem Grund nicht anfasst, etwa weil er ein Konto hat.
+  const [alt] = await db('experts').insert({
+    tenant_id: tenantId, status: VORREG, vorname: 'Hilmar', nachname: 'Altfall',
+    name_key: 'hilmar|altfall', vorreg_quelle: 'Testliste',
+    vorreg_importiert_am: new Date(Date.now() - 130 * 86400000),
+  }).returning('*');
   const lauf = await runVorregLoeschfrist();
-  assert.strictEqual(lauf.geloescht, 1);
+  assert.ok(lauf.geloescht >= 1);
+  assert.strictEqual(lauf.gescheitert, 0, 'kein Datensatz bleibt hängen');
   assert.strictEqual(lauf.tage, 120);
   assert.strictEqual(await db('experts').where({ id: alt.id }).first(), undefined);
   assert.ok(await db('audit_log').where({ action: 'expert.vorregistrierung_frist_geloescht', resource_id: alt.id }).first());

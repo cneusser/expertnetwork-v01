@@ -778,7 +778,7 @@ router.post('/:id(\\d+)/verfuegbarkeit-erinnerung', requireRole('admin'), async 
   const token = signPurposeToken(expert.id, 'confirm-availability', '7d');
   try {
     await getMailProvider().send({ to: expert.email, ...availabilityReminderMail(token, expert.vorname) },
-      { tenantId: req.user.tenantId, templateKey: 'verfuegbarkeit_erinnerung' });
+      { tenantId: req.user.tenantId, templateKey: 'verfuegbarkeit_erinnerung', einzelkorrespondenz: true });
   } catch (err) {
     return res.status(502).json({ error: `Versand fehlgeschlagen: ${err.message}` });
   }
@@ -819,7 +819,7 @@ router.post('/direktmail', requireRole('admin'), async (req, res) => {
     }
     const msg = render({ subject, body_text: body }, { vorname: ex.vorname, nachname: ex.nachname });
     try {
-      await getMailProvider().send({ to: ex.email, ...msg }, { tenantId: req.user.tenantId, templateKey: 'direktmail' });
+      await getMailProvider().send({ to: ex.email, ...msg }, { tenantId: req.user.tenantId, templateKey: 'direktmail', einzelkorrespondenz: true });
       await db('audit_log').insert({
         tenant_id: req.user.tenantId, actor_id: req.user.id, action: 'expert.direktmail',
         resource: 'experts', resource_id: ex.id, new_value_json: JSON.stringify({ subject }), ip: req.ip,
@@ -878,7 +878,7 @@ router.post('/:id(\\d+)/standardmail', requireRole('admin'), async (req, res) =>
     link: `${APP_URL}/profil`, link_label: 'Profil vervollständigen',
   });
   try {
-    await getMailProvider().send({ to: expert.email, ...msg }, { tenantId: req.user.tenantId, templateKey: key });
+    await getMailProvider().send({ to: expert.email, ...msg }, { tenantId: req.user.tenantId, templateKey: key, einzelkorrespondenz: true });
   } catch (err) {
     return res.status(502).json({ error: `Versand fehlgeschlagen: ${err.message}` });
   }
@@ -938,7 +938,7 @@ router.post('/speicher-check/anschreiben', requireRole('admin'), async (req, res
       link: `${APP_URL}/profil`, link_label: 'Datei erneut hochladen',
     });
     try {
-      await getMailProvider().send({ to: b.email, ...msg }, { tenantId: req.user.tenantId, templateKey: 'datei_erneut_hochladen' });
+      await getMailProvider().send({ to: b.email, ...msg }, { tenantId: req.user.tenantId, templateKey: 'datei_erneut_hochladen', einzelkorrespondenz: true });
       await db('audit_log').insert({
         tenant_id: req.user.tenantId, actor_id: req.user.id, action: 'expert.datei_nachforderung',
         resource: 'experts', resource_id: b.expert_id,

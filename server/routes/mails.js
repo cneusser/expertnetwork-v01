@@ -102,7 +102,7 @@ router.post('/inbox/:id(\\d+)/antwort', async (req, res) => {
   const subject = row.subject?.startsWith('Re:') ? row.subject : `Re: ${row.subject || 'Ihre Nachricht'}`;
   const msg = render({ subject, body_text: text }, {});
   try {
-    await getMailProvider().send({ to: row.from_email, ...msg }, { tenantId: req.user.tenantId, templateKey: 'antwort' });
+    await getMailProvider().send({ to: row.from_email, ...msg }, { tenantId: req.user.tenantId, templateKey: 'antwort', einzelkorrespondenz: true });
   } catch (e) {
     return res.status(502).json({ error: `Versand fehlgeschlagen: ${e.message}` });
   }

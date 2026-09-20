@@ -5,7 +5,7 @@ const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const cookieParser = require('cookie-parser');
 const cors = require('cors');
-const { registerJob } = require('./scheduler');
+const { registerJob, registerIntervallJob } = require('./scheduler');
 const { db } = require('./db/knex');
 const { seed } = require('./db/seed');
 const { importAll } = require('./db/import-experts');
@@ -91,6 +91,7 @@ app.use('/api/public', publicRoutes);
 app.use('/api/billing', require('./routes/billing'));
 app.use('/api/ansprache', require('./routes/ansprache'));
 app.use('/api/kapitalpartner', require('./routes/kapitalpartner').router);
+app.use('/api/phalanx-os', require('./routes/phalanxos'));
 app.use('/api', require('./routes/handover')); // Uebergabe an Capitalmatch (Admin + Maschine)
 
 // Produktion: gebauten Client ausliefern (ein Railway-Service für beides).
@@ -146,6 +147,11 @@ async function start() {
   registerJob('provider-digest', runProviderDigest);
   registerJob('profil-check', runProfilCheck); // quartalsweise Nachfrage, ob das Profil noch stimmt
   registerJob('vorreg-loeschfrist', runVorregLoeschfrist); // Aufbewahrungsfrist fuer vorbereitete Kontakte
+
+  // v1.32.0: Abgleich mit dem Phalanx-OS-Datenpool. Laeuft oefter als der
+  // Tageslauf, PHALANX_SYNC_INTERVALL_MIN=0 schaltet ihn ab.
+  const { laufAlleMandanten } = require('./sync/phalanxpool');
+  registerIntervallJob('phalanx-pool-sync', process.env.PHALANX_SYNC_INTERVALL_MIN || 30, laufAlleMandanten);
   startScheduler();
   app.listen(PORT, () => console.log(`Phalanx Expert Network Server auf Port ${PORT}`));
 }

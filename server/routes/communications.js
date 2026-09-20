@@ -93,7 +93,9 @@ router.post('/send', async (req, res) => {
     let status = 'gesendet';
     let fehler = null;
     try {
-      await getMailProvider().send({ to: expert.email, subject, html: mailLayout(text), text });
+      // Einzelkorrespondenz aus der Kommunikationsseite, kein automatisierter Versand.
+      await getMailProvider().send({ to: expert.email, subject, html: mailLayout(text), text },
+        { tenantId: req.user.tenantId, templateKey: 'kommunikation', einzelkorrespondenz: true });
     } catch (e) {
       status = 'fehlgeschlagen';
       fehler = e.message.slice(0, 250);

@@ -347,7 +347,17 @@ export default function AdminExperts() {
               <tr key={e.id}>
                 <td><input type="checkbox" checked={auswahl.includes(e.id)}
                   onChange={(ev) => setAuswahl(ev.target.checked ? [...auswahl, e.id] : auswahl.filter((x) => x !== e.id))} /></td>
-                <td><Link to={`/admin/experten/${e.id}`}><strong>{e.vorname} {e.nachname}</strong></Link><br />
+                <td><Link to={`/admin/experten/${e.id}`}><strong>{e.vorname} {e.nachname}</strong></Link>
+                  {/* v1.32.0: Woher der Datensatz stammt, mit direktem Weg zum Profil. */}
+                  {e.pool_contact_id && (
+                    <>{' '}<span className="tag" title="Aus dem Phalanx-OS-Datenpool übernommen">Phalanx-Netzwerk</span>
+                      {e.linkedin && (
+                        <>{' '}<a href={`https://${String(e.linkedin).replace(/^https?:\/\//, '')}`}
+                          target="_blank" rel="noreferrer" title="LinkedIn-Profil öffnen">LinkedIn</a></>
+                      )}
+                    </>
+                  )}
+                  <br />
                   <span className="muted">{e.firma}</span></td>
                 <td>{e.berufsbezeichnung?.split('—')[0]}</td>
                 {vorregAnsicht ? (

@@ -33,6 +33,7 @@ export default function Layout({ children }) {
             {isAdmin && <NavLink to="/admin/funnel">Funnel</NavLink>}
             {isAdmin && <NavLink to="/admin/partner">Partner</NavLink>}
             {isAdmin && <NavLink to="/admin/kapitalpartner">Kapitalpartner</NavLink>}
+            {isAdmin && <NavLink to="/admin/phalanx-os">Phalanx OS</NavLink>}
             {isAdmin && <NavLink to="/admin/abrechnung">Abrechnung</NavLink>}
             {isAdmin && <NavLink to="/admin/kommunikation">Kommunikation</NavLink>}
             {isAdmin && <NavLink to="/admin/mails">Mails</NavLink>}

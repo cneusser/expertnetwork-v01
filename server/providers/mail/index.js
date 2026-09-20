@@ -15,9 +15,45 @@ function realProvider() {
 }
 
 /**
+ * v1.32.0 — Werbeeinwilligung nach § 7 UWG, zentral geprüft.
+ *
+ * Adressen, die aus dem LinkedIn-Import des Phalanx-OS-Pools stammen, tragen
+ * keine Werbeeinwilligung. Einzelkorrespondenz ist zulässig, automatisierte
+ * Post nicht: kein Newsletter, kein Einladungszyklus, keine Erinnerung.
+ *
+ * Diese Prüfung sitzt bewusst hier und nicht im Einladungsjob. Jede ausgehende
+ * Mail läuft durch diese eine Funktion. Eine Sperre im Job hätte der nächste
+ * Job umgangen, den wir schreiben, und es wäre niemandem aufgefallen. Hier ist
+ * der sichere Zustand der Standard: Wer eine Mail verschickt, ohne sich Gedanken
+ * zu machen, wird gestoppt. Einzelkorrespondenz aus der Oberfläche setzt
+ * `einzelkorrespondenz: true` und sagt damit ausdrücklich, was sie tut.
+ *
+ * Ein Fehler bei der Prüfung selbst darf nicht dazu führen, dass die Mail
+ * trotzdem rausgeht. Deshalb gilt im Zweifel: nicht senden.
+ */
+async function werbungErlaubt(adresse) {
+  if (!adresse) return { erlaubt: false, grund: 'keine Adresse' };
+  try {
+    const { db } = require('../../db/knex');
+    const profil = await db('experts')
+      .whereRaw('lower(trim(email)) = ?', [String(adresse).trim().toLowerCase()])
+      .select('werbeeinwilligung', 'pool_contact_id').first();
+    if (!profil) return { erlaubt: true, grund: null }; // kein Profil, also kein Pool-Kontakt
+    if (profil.werbeeinwilligung) return { erlaubt: true, grund: null };
+    return {
+      erlaubt: false,
+      grund: 'keine Werbeeinwilligung (§ 7 UWG), Kontakt stammt aus dem Datenpool',
+    };
+  } catch (e) {
+    console.error('Einwilligungsprüfung fehlgeschlagen, Versand gestoppt:', e.message);
+    return { erlaubt: false, grund: 'Einwilligung nicht prüfbar' };
+  }
+}
+
+/**
  * v1.8.0 — Wrapper mit Outbox: JEDE ausgehende Mail wird in mail_outbox
- * protokolliert (gesendet | fehler | stub). Logging darf den Versand nie
- * blockieren, Fehler beim Loggen werden nur auf der Konsole vermerkt.
+ * protokolliert (gesendet | fehler | stub | gesperrt). Logging darf den Versand
+ * nie blockieren, Fehler beim Loggen werden nur auf der Konsole vermerkt.
  */
 function getMailProvider() {
   const { p, stub: isStub } = realProvider();
@@ -37,6 +73,16 @@ function getMailProvider() {
           });
         } catch (e) { console.error('Outbox-Protokoll fehlgeschlagen:', e.message); }
       };
+
+      if (!meta.einzelkorrespondenz) {
+        const { erlaubt, grund } = await werbungErlaubt(msg.to);
+        if (!erlaubt) {
+          await log('gesperrt', grund);
+          console.warn(`Mail an ${msg.to} nicht verschickt: ${grund}`);
+          return; // kein Fehler nach außen, der Aufrufer soll nicht scheitern
+        }
+      }
+
       try {
         await p.send(msg);
         await log(isStub ? 'stub' : 'gesendet');
@@ -48,4 +94,4 @@ function getMailProvider() {
   };
 }
 
-module.exports = { getMailProvider };
+module.exports = { getMailProvider, werbungErlaubt };
