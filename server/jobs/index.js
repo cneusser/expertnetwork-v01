@@ -33,9 +33,13 @@ async function runAvailabilityReminders() {
       .where('expires_at', '>', db.fn.now())
       .first();
     if (!consent) continue;
+    // v1.33.0: Nicht mehr stur nach Kalender fragen, sondern erst wenn die
+    // Angabe ihren Aussagewert verloren hat. Wer "verfügbar ab 1.10." gemeldet
+    // hat, kann vorher nichts Neues sagen, und genau deshalb bekam er bisher
+    // alle zwei Wochen dieselbe Frage.
+    const { nachfrageFaellig } = require('../utils/verfuegbarkeit');
     const latest = await db('availabilities').where({ expert_id: expert.id }).orderBy('created_at', 'desc').first();
-    const confirmedAt = latest?.confirmed_at ? new Date(latest.confirmed_at) : null;
-    const due = !confirmedAt || confirmedAt < DAYS(14);
+    const due = nachfrageFaellig(latest);
     const throttled = expert.last_availability_reminder_at && new Date(expert.last_availability_reminder_at) > DAYS(14);
     if (!due || throttled) continue;
     const token = signPurposeToken(expert.id, 'confirm-availability', '7d');

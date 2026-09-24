@@ -2,6 +2,17 @@
 
 Versionsschema: v\<Major>.\<Sprint>.\<Patch>. Sprintabschluss endet auf .0, Korrekturen zählen den Patch hoch.
 
+## v1.33.0 — Verfügbarkeit: fragen, wenn es etwas zu fragen gibt
+
+Aufgefallen an einer Akte mit fünf identischen Bestätigungen im Abstand von genau zwei Wochen. Der Experte hatte „verfügbar ab 1.10." gemeldet und konnte jedes Mal nur dasselbe antworten.
+
+- Die Erinnerung richtet sich nicht mehr nach dem Kalender, sondern nach dem Aussagewert der Angabe. Wer ein Datum in der Zukunft nennt, wird eine Woche vor diesem Termin gefragt und nicht alle vierzehn Tage. Ist der Termin erreicht oder vorbei, wird gefragt, denn dann ist offen, ob die Person wirklich frei ist.
+- „Sofort" und „teilweise" altern weiter in vierzehn Tagen, weil sie etwas über heute sagen. „Ausgebucht" ändert sich selten und altert in dreißig Tagen.
+- Ein Deckel von neunzig Tagen sorgt dafür, dass auch ein Termin weit in der Zukunft nicht dazu führt, dass ein Profil einschläft.
+- Der Frische-Score kennt dieselbe Regel. Wer aus gutem Grund nicht gefragt wird, gilt nicht plötzlich als „nicht bestätigt" und verschwindet damit aus „Verfügbar jetzt". Die alte Aufrufform bleibt unverändert gültig.
+- In der Expertenakte werden aufeinanderfolgende identische Angaben zu einer Zeile zusammengefasst, mit allen Bestätigungsdaten daneben. Fünf gleiche Zeilen waren keine Historie, sondern Rauschen. Ein echter Wechsel bleibt eine eigene Zeile.
+- Neue Datei `utils/verfuegbarkeit.js` als gemeinsame Regel für Job, Frische-Score, Suche und Matching. Test `v133.test.js`.
+
 ## v1.32.0 — Anbindung an Phalanx OS, Teil A
 
 - **Anmeldung über Phalanx OS** für Admin- und Staff-Konten: Authorization Code Flow mit PKCE (S256), vollständige Prüfung des ID-Tokens gegen `jwks_uri` inklusive Aussteller, Empfänger, Ablauf und Einmalkennung. Ohne neue Abhängigkeit gebaut, weil `openid-client` v6 reines ESM ist und der Server CommonJS. Verknüpft wird über `sub`, nie über die E-Mail. Neue Konten entstehen über diesen Weg nicht, und die Rolle hier gilt, nicht die in Phalanx OS. Die Experten-Registrierung bleibt unverändert.

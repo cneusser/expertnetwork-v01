@@ -53,6 +53,7 @@ async function executeSearch(tenantId, params) {
       availabilityConfirmedAt: latestAvail?.confirmed_at,
       rateCreatedAt: latestRate?.created_at,
       cvUploadedAt: latestCv?.uploaded_at,
+      availability: latestAvail,
     });
 
     if (params.verfuegbar === 'jetzt') {

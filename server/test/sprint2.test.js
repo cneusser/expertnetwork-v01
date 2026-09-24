@@ -66,7 +66,18 @@ test('Erinnerungs-Job: sendet bei veralteter Bestätigung, drosselt Wiederholung
     expires_at: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
   });
   // Bestätigung künstlich altern lassen (23 Tage) — direkt per SQL, da Insert-only.
-  await db.raw(`update availabilities set confirmed_at = now() - interval '23 days' where expert_id = ?`, [adrian.id]);
+  //
+  // v1.33.0: Das Alter allein reicht nicht mehr. Adrians jüngste Angabe lautet
+  // "verfügbar ab 1.11.", und solange dieses Datum in der Zukunft liegt, fragt
+  // die Plattform bewusst nicht nach, weil er nichts Neues sagen könnte. Für
+  // diesen Test muss die Angabe deshalb wirklich überholt sein: Das genannte
+  // Datum wird mit zurückdatiert, dann ist offen, ob er jetzt frei ist.
+  await db.raw(
+    `update availabilities
+        set confirmed_at = now() - interval '23 days',
+            ab_datum = (now() - interval '10 days')::date
+      where expert_id = ?`, [adrian.id],
+  );
   const r1 = await runAvailabilityReminders();
   assert.ok(r1.sent >= 1, 'Mindestens ein Reminder versendet'); // v1.19.1: auch Selbstregistrierte haben Profile
   assert.ok(outbox.some((m) => m.to === adrian.email && /Verfügbarkeit/.test(m.subject)));

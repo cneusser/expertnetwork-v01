@@ -41,6 +41,7 @@ async function sendProjectMatchAlerts(project) {
       availabilityConfirmedAt: latestAvail?.confirmed_at,
       rateCreatedAt: latestRate?.created_at,
       cvUploadedAt: latestCv?.uploaded_at,
+      availability: latestAvail,
     });
     const m = computeMatch({
       project, projectSkillIds, expertSkillIds: skills,

@@ -41,6 +41,7 @@ async function expertMatchInput(expertId) {
     availabilityConfirmedAt: latestAvail?.confirmed_at,
     rateCreatedAt: latestRate?.created_at,
     cvUploadedAt: latestCv?.uploaded_at,
+    availability: latestAvail,
   });
   return { expertSkillIds: skills, latestAvail, latestRate, freshnessScore: f.score, nichtBestaetigt: f.nichtBestaetigt };
 }

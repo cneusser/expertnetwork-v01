@@ -21,6 +21,34 @@ const ANSPRACHE_REAKTION = {
   interesse: 'Interesse', spaeter: 'später', absage: 'Absage', keine: 'keine Reaktion',
 };
 
+/**
+ * v1.33.0 — Aufeinanderfolgende identische Angaben zu einer Zeile machen.
+ *
+ * Die Tabelle ist insert-only, jede Bestätigung erzeugt einen Eintrag. Wer
+ * fünfmal dasselbe bestätigt, stand bisher fünfmal untereinander, und man
+ * musste jede Zeile lesen, um zu merken, dass sich nichts geändert hat.
+ * Zusammengefasst wird nur, was wirklich gleich ist, ein echter Wechsel bleibt
+ * eine eigene Zeile.
+ */
+function fasseVerfuegbarkeitZusammen(liste) {
+  const sortiert = [...(liste || [])].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+  const gleich = (a, b) => a.status === b.status
+    && String(a.ab_datum || '') === String(b.ab_datum || '')
+    && (a.auslastung_prozent || null) === (b.auslastung_prozent || null)
+    && (a.kommentar || '') === (b.kommentar || '');
+
+  const gruppen = [];
+  for (const a of sortiert) {
+    const letzte = gruppen[gruppen.length - 1];
+    if (letzte && gleich(letzte, a)) {
+      letzte.bestaetigungen.push(a.confirmed_at || a.created_at);
+      continue;
+    }
+    gruppen.push({ ...a, bestaetigungen: [a.confirmed_at || a.created_at] });
+  }
+  return gruppen;
+}
+
 export default function AdminExpertDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -446,21 +474,43 @@ export default function AdminExpertDetail() {
       )}
 
       {tab === 'verfuegbarkeit' && (
-        <table className="table">
-          <thead><tr><th>Status</th><th>Ab</th><th>Auslastung</th><th>Kommentar</th><th>Bestätigt</th><th>Quelle</th></tr></thead>
-          <tbody>
-            {availabilities.map((a) => (
-              <tr key={a.id}>
-                <td>{AVAIL_LABEL[a.status] || a.status}</td>
-                <td>{fmtDate(a.ab_datum)}</td>
-                <td>{a.auslastung_prozent ? `${a.auslastung_prozent} %` : '—'}</td>
-                <td>{a.kommentar}</td>
-                <td>{fmtDate(a.confirmed_at)}</td>
-                <td>{a.source}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <>
+          {/* v1.33.0: Fünf identische Zeilen sind keine Historie, sondern
+              Rauschen. Gleiche Angaben werden zu einer Zeile mit allen
+              Bestätigungsdaten zusammengefasst. */}
+          <p className="muted" style={{ fontSize: 13, marginBottom: 10 }}>
+            Nachgefragt wird erst, wenn die Angabe ihren Aussagewert verliert.
+            Wer ein Datum in der Zukunft nennt, wird eine Woche vorher gefragt und nicht alle 14 Tage.
+          </p>
+          <table className="table">
+            <thead><tr>
+              <th>Status</th><th>Ab</th><th>Auslastung</th><th>Kommentar</th>
+              <th>Bestätigt</th><th>Quelle</th>
+            </tr></thead>
+            <tbody>
+              {fasseVerfuegbarkeitZusammen(availabilities).map((g) => (
+                <tr key={g.id}>
+                  <td>{AVAIL_LABEL[g.status] || g.status}</td>
+                  <td>{fmtDate(g.ab_datum)}</td>
+                  <td>{g.auslastung_prozent ? `${g.auslastung_prozent} %` : '—'}</td>
+                  <td>{g.kommentar}</td>
+                  <td>
+                    {fmtDate(g.bestaetigungen[0])}
+                    {g.bestaetigungen.length > 1 && (
+                      <><br /><span className="muted" style={{ fontSize: 12 }}>
+                        unverändert bestätigt am {g.bestaetigungen.slice(1).map(fmtDate).join(', ')}
+                      </span></>
+                    )}
+                  </td>
+                  <td>{g.source}</td>
+                </tr>
+              ))}
+              {!availabilities.length && (
+                <tr><td colSpan={6} className="muted">Noch keine Angabe zur Verfügbarkeit.</td></tr>
+              )}
+            </tbody>
+          </table>
+        </>
       )}
 
       {tab === 'saetze' && (

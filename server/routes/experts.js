@@ -93,6 +93,7 @@ async function freshnessFor(expertId, avails) {
     availabilityConfirmedAt: latestAvail?.confirmed_at,
     rateCreatedAt: latestRate?.created_at,
     cvUploadedAt: latestCv?.uploaded_at,
+    availability: latestAvail, // v1.33.0: eine Angabe, die noch gilt, wertet nicht ab
   });
 }
 
@@ -183,6 +184,7 @@ router.get('/stats', requireRole('admin'), async (req, res) => {
       availabilityConfirmedAt: liste[0]?.confirmed_at,
       rateCreatedAt: rates.get(e.id)?.created_at,
       cvUploadedAt: cvProExpert.get(e.id)?.uploaded_at,
+      availability: liste[0],
     });
     if (f.nichtBestaetigt) nichtBestaetigt++;
     const current = liste.find((a) => !a.ab_datum || new Date(a.ab_datum).toISOString().slice(0, 10) <= today) || liste[0];
