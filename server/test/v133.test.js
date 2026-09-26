@@ -67,8 +67,12 @@ test('Der Fall aus der Praxis: ein Datum in der Zukunft wird nicht alle 14 Tage 
     'nach acht Wochen wird trotzdem nicht gefragt, die Aussage gilt noch');
   assert.ok(angabeGiltNoch(angabe), 'und das Profil wird dafür nicht abgewertet');
 
+  // Gegen den Termin selbst rechnen, nicht gegen die aktuelle Uhrzeit: Das
+  // ab_datum ist Mitternacht, inTagen() traegt die Tageszeit mit, und je
+  // nachdem wann der Test laeuft, ergibt die Differenz sonst 7 oder 8.
   const ziel = naechsteNachfrage(angabe);
-  const tageVorher = Math.round((inTagen(20).getTime() - ziel.getTime()) / TAG);
+  const termin = new Date(`${alsTag(inTagen(20))}T00:00:00`);
+  const tageVorher = Math.round((termin.getTime() - ziel.getTime()) / TAG);
   assert.strictEqual(tageVorher, 7, 'gefragt wird eine Woche vor dem genannten Termin');
 });
 

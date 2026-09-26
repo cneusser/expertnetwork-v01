@@ -35,6 +35,8 @@ export default function AdminExperts() {
   const [vorregErgebnis, setVorregErgebnis] = useState(null);
   const [vorregBusy, setVorregBusy] = useState(false);
   const [zuordnung, setZuordnung] = useState([]);
+  const [fest, setFest] = useState(null);
+  const [festOffen, setFestOffen] = useState(false);
   const ladeZuordnung = () => api.get('/api/experts/vorregistrierung/zuordnung-pruefen')
     .then((d) => setZuordnung(d.faelle)).catch(() => {});
   const ladeVorschlaege = () => api.get('/api/experts/skill-vorschlaege').then((d) => setSkillVorschlaege(d.vorschlaege)).catch(() => {});
@@ -51,6 +53,12 @@ export default function AdminExperts() {
     .filter((e) => !nurUnbestaetigt || e.freshness?.nichtBestaetigt);
   // Vorregistrierte haben weder Verfügbarkeit noch Tagessatz, dafür Prio und Kanal.
   const vorregAnsicht = statusFilter === 'vorregistriert';
+
+  // v1.35.0: Wer eingeladen wurde und nicht hineinkommt. Still im Hintergrund
+  // geladen, damit die Zahl auch dann auffaellt, wenn man nicht danach sucht.
+  useEffect(() => {
+    api.get('/api/experts/haengen-fest').then(setFest).catch(() => {});
+  }, []);
 
   return (
     <Layout>
@@ -205,6 +213,71 @@ export default function AdminExperts() {
               } catch (err) { setInviteMsg({ ok: false, text: err.message }); }
             }}>Verwaiste Einträge aufräumen</button>
         </p>
+      )}
+
+      {fest && fest.zahlen.gesamt > 0 && (
+        <div className="notice" style={{ marginBottom: 14 }}>
+          <strong>{fest.zahlen.gesamt} eingeladene Kontakte kommen nicht hinein.</strong>{' '}
+          Sie haben ein Konto, aber nie ein Passwort vergeben. Wer das versucht, liest auf der
+          Anmeldeseite nur „E-Mail oder Passwort falsch".{' '}
+          <button type="button" className="tab" style={{ padding: 0, color: 'var(--navy)', fontWeight: 600 }}
+            onClick={() => setFestOffen(!festOffen)}>
+            {festOffen ? 'Liste schließen' : 'Liste ansehen'}
+          </button>
+
+          {festOffen && (
+            <>
+              <table className="table" style={{ marginTop: 12 }}>
+                <thead><tr>
+                  <th style={{ width: 28 }} />
+                  <th>Name</th><th>Adresse</th><th>Prio</th><th>Wartet</th><th>Stand</th>
+                </tr></thead>
+                <tbody>
+                  {fest.kontakte.map((k) => (
+                    <tr key={k.id}>
+                      <td><input type="checkbox" checked={auswahl.includes(k.id)}
+                        onChange={(ev) => setAuswahl(ev.target.checked
+                          ? [...auswahl, k.id] : auswahl.filter((x) => x !== k.id))} /></td>
+                      <td>
+                        <Link to={`/admin/experten/${k.id}`}><strong>{k.vorname} {k.nachname}</strong></Link>
+                        {k.firma && <><br /><span className="muted" style={{ fontSize: 12 }}>{k.firma}</span></>}
+                      </td>
+                      <td style={{ fontSize: 12.5 }}>{k.konto_email}</td>
+                      <td>{k.vorreg_prio}</td>
+                      <td style={{ whiteSpace: 'nowrap' }}>{k.wartet_tage} Tage</td>
+                      <td style={{ fontSize: 12.5 }} className="muted">
+                        {!k.passwort_gesetzt && 'kein Passwort'}
+                        {!k.passwort_gesetzt && !k.email_verified_at && ', '}
+                        {!k.email_verified_at && 'nicht bestätigt'}
+                        {k.vorreg_angeschrieben_am && <><br />angeschrieben {fmtDate(k.vorreg_angeschrieben_am)}</>}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <p style={{ marginTop: 10 }}>
+                <button type="button" className="btn" style={{ width: 'auto', padding: '7px 16px' }}
+                  disabled={!auswahl.length}
+                  onClick={async () => {
+                    if (!window.confirm(`An ${auswahl.length} Kontakt(e) die Einladung erneut senden?`)) return;
+                    try {
+                      const d = await api.post('/api/experts/erneut-einladen', { ids: auswahl });
+                      setInviteMsg({ ok: true, text: d.message });
+                      setAuswahl([]);
+                      api.get('/api/experts/haengen-fest').then(setFest).catch(() => {});
+                    } catch (err) { setInviteMsg({ ok: false, text: err.message }); }
+                  }}>
+                  Einladung erneut senden ({auswahl.length})
+                </button>{' '}
+                <button type="button" className="tab" style={{ padding: 0, color: 'var(--navy)' }}
+                  onClick={() => setAuswahl(fest.kontakte.map((k) => k.id))}>alle auswählen</button>
+              </p>
+              <p className="muted" style={{ fontSize: 12.5 }}>
+                Höchstens 50 auf einmal. Wer bereits eingewilligt hat, wird übersprungen.
+              </p>
+            </>
+          )}
+        </div>
       )}
 
       {skillVorschlaege.length > 0 && (

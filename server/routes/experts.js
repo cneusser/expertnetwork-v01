@@ -912,6 +912,114 @@ async function fehlendeDateien(tenantId) {
   return { gesamt: docs.length, betroffen: [...betroffen.values()] };
 }
 
+/**
+ * v1.35.0 — Wer hängt fest?
+ *
+ * Eingeladene Konten, die nie ein Passwort vergeben haben. Solange das so ist,
+ * kommt die Person nicht hinein, und auf der Anmeldeseite sieht sie nur
+ * "E-Mail oder Passwort falsch". Bisher musste man jede Akte einzeln öffnen,
+ * um das zu bemerken. Hier steht es auf einen Blick, mit der Möglichkeit,
+ * mehrere auf einmal noch einmal einzuladen.
+ *
+ * Sortiert nach Wartezeit, denn wer am längsten feststeckt, hat die Nachricht
+ * am ehesten vergessen und braucht sie am dringendsten neu.
+ */
+router.get('/haengen-fest', requireRole('admin'), async (req, res) => {
+  const rows = await db('experts as e')
+    .join('users as u', 'u.id', 'e.user_id')
+    .where('e.tenant_id', req.user.tenantId)
+    .where('e.status', 'eingeladen')
+    .leftJoin('consents as c', function beitritt() {
+      this.on('c.user_id', 'u.id').andOn('c.zweck', db.raw('?', ['talentpool'])).andOnNull('c.revoked_at');
+    })
+    .whereNull('c.id')
+    .select(
+      'e.id', 'e.user_id', 'e.vorname', 'e.nachname', 'e.firma', 'e.email', 'e.linkedin',
+      'e.vorreg_prio', 'e.vorreg_angeschrieben_am', 'e.invite_cycle_started_at',
+      'e.invite_reminders_sent', 'e.pool_contact_id',
+      'u.email as konto_email', 'u.email_verified_at', 'u.created_at as konto_seit',
+    )
+    .orderBy('u.created_at', 'asc');
+
+  const userIds = rows.map((r) => r.user_id).filter(Boolean);
+
+  // Am Passwort-Hash lässt sich nichts ablesen: Beim Einladen wird ein echter
+  // bcrypt-Hash über einen Zufallswert gesetzt, damit die Spalte nicht leer
+  // bleibt. Ob jemand selbst ein Passwort vergeben hat, steht deshalb im
+  // Audit-Log, genauso wie es die Expertenakte seit v1.24.2 bestimmt.
+  // Beide Abfragen laufen einmal für alle, nicht einmal je Kontakt.
+  const holeActor = (aktionen) => (userIds.length
+    ? db('audit_log').whereIn('action', aktionen).whereIn('actor_id', userIds)
+      .distinct('actor_id').pluck('actor_id')
+    : Promise.resolve([]));
+
+  const [mitPasswort, angemeldet] = await Promise.all([
+    holeActor(['auth.reset_password', 'auth.accept_invite']).then((x) => new Set(x)),
+    holeActor(['auth.login']).then((x) => new Set(x)),
+  ]);
+
+  const liste = rows
+    .filter((r) => !(mitPasswort.has(r.user_id) && angemeldet.has(r.user_id)))
+    .map((r) => ({
+      ...r,
+      passwort_gesetzt: mitPasswort.has(r.user_id),
+      jemals_angemeldet: angemeldet.has(r.user_id),
+      wartet_tage: Math.floor((Date.now() - new Date(r.konto_seit).getTime()) / 86400000),
+    }));
+
+  res.json({
+    kontakte: liste,
+    zahlen: {
+      gesamt: liste.length,
+      ohne_passwort: liste.filter((x) => !x.passwort_gesetzt).length,
+      nie_angemeldet: liste.filter((x) => !x.jemals_angemeldet).length,
+      aus_dem_pool: liste.filter((x) => x.pool_contact_id).length,
+    },
+  });
+});
+
+/** Mehrere auf einmal erneut einladen. Gedrosselt, damit keine Welle rausgeht. */
+router.post('/erneut-einladen', requireRole('admin'), async (req, res) => {
+  const ids = Array.isArray(req.body?.ids) ? req.body.ids.map(Number).filter(Boolean).slice(0, 50) : [];
+  if (!ids.length) return res.status(400).json({ error: 'Keine Kontakte ausgewählt' });
+
+  const { getTemplate, render } = require('../utils/mailTemplates');
+  const APP_URL = process.env.APP_URL
+    || (process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : 'http://localhost:5173');
+
+  const ergebnis = { verschickt: [], uebersprungen: [] };
+  for (const id of ids) {
+    const e = await db('experts').where({ id, tenant_id: req.user.tenantId, status: 'eingeladen' }).first();
+    if (!e || !e.user_id || !e.email) { ergebnis.uebersprungen.push({ id, grund: 'kein Konto oder keine Adresse' }); continue; }
+    const consent = await db('consents')
+      .where({ user_id: e.user_id, zweck: 'talentpool' }).whereNull('revoked_at').first();
+    if (consent) { ergebnis.uebersprungen.push({ id, grund: 'hat bereits eingewilligt' }); continue; }
+    try {
+      const token = signPurposeToken(e.user_id, 'expert-invite', '14d');
+      const tpl = await getTemplate(req.user.tenantId, 'einladung_bestand');
+      const msg = render(tpl, {
+        vorname: e.vorname, nachname: e.nachname,
+        link: `${APP_URL}/einladung?token=${encodeURIComponent(token)}`, link_label: 'Zugang aktivieren',
+      });
+      await getMailProvider().send({ to: e.email, ...msg },
+        { tenantId: req.user.tenantId, templateKey: 'einladung_bestand', einzelkorrespondenz: true });
+      ergebnis.verschickt.push({ id, email: e.email });
+    } catch (err) {
+      ergebnis.uebersprungen.push({ id, grund: err.message });
+    }
+  }
+
+  await req.audit({
+    action: 'expert.erneut_eingeladen', resource: 'experts',
+    newValue: { verschickt: ergebnis.verschickt.length, uebersprungen: ergebnis.uebersprungen.length },
+  });
+  res.locals.auditLogged = true;
+  res.json({
+    ok: true, ...ergebnis,
+    message: `${ergebnis.verschickt.length} Einladung(en) erneut verschickt, ${ergebnis.uebersprungen.length} übersprungen.`,
+  });
+});
+
 router.get('/speicher-check', requireRole('admin'), async (req, res) => {
   const befund = await fehlendeDateien(req.user.tenantId);
   res.json({

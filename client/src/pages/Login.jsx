@@ -105,6 +105,17 @@ export default function Login() {
             {tr(lang, 'Mit Phalanx OS anmelden', 'Sign in with Phalanx OS')}
           </button>
         )}
+        {/* v1.35.0: Wer eingeladen wurde und nie ein Passwort vergeben hat,
+            bekam hier nur "E-Mail oder Passwort falsch" und wusste nicht
+            weiter. Der Hinweis steht deshalb dauerhaft da, unabhaengig von
+            der Eingabe, damit er niemandem verraet, welche Adressen es gibt. */}
+        <div className="notice" style={{ marginTop: 16, fontSize: 13, lineHeight: 1.55 }}>
+          <strong>{tr(lang, 'Von uns eingeladen worden?', 'Invited by us?')}</strong><br />
+          {tr(lang,
+            'Wenn du eine Einladung bekommen hast und noch kein Passwort vergeben hast, melde dich hier nicht an, sondern lass dir den Zugang schicken.',
+            'If you received an invitation and have not set a password yet, do not log in here. Have your access link sent instead.')}{' '}
+          <Link to="/forgot-password">{tr(lang, 'Zugang schicken lassen', 'Send me my access link')}</Link>
+        </div>
         <div style={{ marginTop: 16, padding: '12px 14px', background: 'var(--grey-100, #f4f6f8)', borderLeft: '3px solid var(--navy)', borderRadius: 6, fontSize: 13, lineHeight: 1.5 }}>
           <strong>{tr(lang, 'Assoziierte Partner', 'Associated partners')}</strong><br />
           {tr(lang,

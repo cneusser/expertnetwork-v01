@@ -422,16 +422,56 @@ router.post('/stop-impersonate', requireAuth, async (req, res) => {
 });
 
 /** Passwort vergessen — antwortet immer gleich (kein User-Enumeration-Leak). */
+/**
+ * v1.35.0 — Zwei Fälle, eine Adresse.
+ *
+ * Wer ein Passwort hat und es vergessen hat, bekommt einen Reset-Link. Wer
+ * dagegen eingeladen wurde, nie ein Passwort vergeben und nie eingewilligt hat,
+ * braucht etwas anderes: die Einladung. Ein Reset-Link würde ihm zwar ein
+ * Passwort geben, aber die Einwilligung überspringen, und die ist die
+ * Grundlage dafür, dass wir sein Profil überhaupt führen dürfen.
+ *
+ * Aufgefallen an einem echten Fall: Jemand wurde über LinkedIn angesprochen,
+ * versuchte sich anzumelden, bekam "E-Mail oder Passwort falsch", probierte
+ * "Passwort vergessen" und landete wieder woanders, als er sollte. Von den
+ * eingeladenen Kontakten geht es 185 Menschen genauso, falls sie es versuchen.
+ *
+ * Die Antwort nach außen bleibt in beiden Fällen dieselbe, damit niemand
+ * herausfinden kann, welche Adressen bei uns existieren.
+ */
 router.post('/forgot-password', async (req, res) => {
   const email = String(req.body?.email || '').trim().toLowerCase();
   const user = email ? await db('users').whereRaw('lower(trim(email)) = ?', [email]).first() : null;
+
   if (user) {
     try {
-      const token = signPurposeToken(user.id, 'reset-password', '1h');
-      await getMailProvider().send({ to: user.email, ...passwordResetMail(token) },
-        { tenantId: user.tenant_id, templateKey: 'reset-password', einzelkorrespondenz: true });
+      const offen = await db('experts').where({ user_id: user.id, status: 'eingeladen' }).first();
+      const consent = await db('consents')
+        .where({ user_id: user.id, zweck: CONSENT_ZWECK }).whereNull('revoked_at').first();
+
+      if (offen && !consent) {
+        const { getTemplate, render } = require('../utils/mailTemplates');
+        const APP_URL = process.env.APP_URL
+          || (process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : 'http://localhost:5173');
+        const token = signPurposeToken(user.id, 'expert-invite', '14d');
+        const tpl = await getTemplate(user.tenant_id, 'einladung_bestand');
+        const msg = render(tpl, {
+          vorname: offen.vorname, nachname: offen.nachname,
+          link: `${APP_URL}/einladung?token=${encodeURIComponent(token)}`, link_label: 'Zugang aktivieren',
+        });
+        await getMailProvider().send({ to: user.email, ...msg },
+          { tenantId: user.tenant_id, templateKey: 'einladung_bestand', einzelkorrespondenz: true });
+        await db('audit_log').insert({
+          tenant_id: user.tenant_id, actor_id: user.id, action: 'auth.einladung_statt_reset',
+          resource: 'users', resource_id: user.id, ip: req.ip,
+        }).catch(() => {});
+      } else {
+        const token = signPurposeToken(user.id, 'reset-password', '1h');
+        await getMailProvider().send({ to: user.email, ...passwordResetMail(token) },
+          { tenantId: user.tenant_id, templateKey: 'reset-password', einzelkorrespondenz: true });
+      }
     } catch (e) {
-      console.error('Mail-Versand fehlgeschlagen (Passwort-Reset):', e.message);
+      console.error('Mail-Versand fehlgeschlagen (Passwort vergessen):', e.message);
     }
   }
   res.json({ ok: true, message: 'Falls die Adresse existiert, wurde eine E-Mail versendet.' });

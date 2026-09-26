@@ -2,6 +2,17 @@
 
 Versionsschema: v\<Major>.\<Sprint>.\<Patch>. Sprintabschluss endet auf .0, Korrekturen zählen den Patch hoch.
 
+## v1.35.0 — Niemand steht mehr vor der Wand
+
+Anlass war ein Kontakt, der über LinkedIn angesprochen wurde, ein Konto aus dem Einladungs-Upload hatte, aber nie ein Passwort. Auf der Anmeldeseite las er nur „E-Mail oder Passwort falsch". Von den eingeladenen Kontakten geht es 185 Menschen genauso, sobald sie es versuchen.
+
+- „Passwort vergessen" unterscheidet jetzt zwei Fälle: Wer ein Passwort hatte, bekommt weiterhin den Reset-Link. Wer eingeladen wurde und nie eingewilligt hat, bekommt die Einladung, denn nur über sie kommt die Einwilligung zustande. Ein Reset-Link hätte sie übersprungen. Die Antwort nach außen bleibt in beiden Fällen dieselbe, damit niemand herausfinden kann, welche Adressen existieren.
+- Die Seite heißt deshalb jetzt „Zugang anfordern" und benennt beide Fälle.
+- Auf der Anmeldeseite steht ein dauerhaft sichtbarer Hinweis für Eingeladene, unabhängig von der Eingabe. Auch er verrät nichts über vorhandene Adressen.
+- Neue Übersicht in der Expertenliste: wer eingeladen wurde und nicht hineinkommt, sortiert nach Wartezeit, mit Sammelaktion „Einladung erneut senden" für bis zu fünfzig auf einmal. Wer bereits eingewilligt hat, wird übersprungen.
+- Ob jemand ein eigenes Passwort hat, wird über das Audit-Log bestimmt und nicht über den Passwort-Hash. Beim Einladen wird ein echter bcrypt-Hash über einen Zufallswert gesetzt, am Hash ist also nichts abzulesen.
+- Test `v135.test.js`, darunter der ganze Weg vom Feststecken bis zur erfolgreichen Anmeldung. Dazu ein zeitabhängiger Test aus v1.33.0 entschärft, der je nach Tageszeit kippte.
+
 ## v1.34.2 — Logo gestapelt auf den Kartenseiten
 
 - Auf der Anmeldung und allen übrigen Kartenseiten steht das Logo jetzt in seiner Originalform, also Blüte über der Wortmarke, mittig auf der Karte. Der Kopf der Anmeldung führt deshalb nur noch die Terminvereinbarung, sonst stünde die Marke zweimal da.

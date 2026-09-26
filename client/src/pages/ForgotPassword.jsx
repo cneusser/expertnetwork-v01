@@ -23,15 +23,27 @@ export default function ForgotPassword() {
     <div className="auth-wrap">
       <form className="auth-card" onSubmit={submit}>
         <Logo variante="dunkel" form="stapel" zusatz="Expert Network" />
-        <h1>Passwort vergessen</h1>
+        <h1>Zugang anfordern</h1>
         {sent ? (
           <div className="msg msg-success">
-            Falls die Adresse registriert ist, haben wir Ihnen einen Link zum
-            Zurücksetzen geschickt (1 Stunde gültig).
+            Falls die Adresse bei uns hinterlegt ist, haben wir dir gerade eine
+            E-Mail geschickt. Wenn du schon ein Passwort hattest, steht darin ein
+            Link zum Zurücksetzen, eine Stunde gültig. Wenn du von uns eingeladen
+            wurdest und noch nie ein Passwort vergeben hast, ist es deine
+            Einladung, über die du beides auf einmal erledigst.
+            <br /><br />
+            Schau bitte auch kurz in den Spam-Ordner.
           </div>
         ) : (
           <>
-            <p className="sub">Wir senden Ihnen einen Link zum Zurücksetzen.</p>
+            {/* v1.35.0: Dieselbe Seite deckt beide Faelle ab. Welcher es ist,
+                entscheidet der Server, denn eine Einladung braucht die
+                Einwilligung und ein Passwort-Reset wuerde sie ueberspringen. */}
+            <p className="sub">
+              Egal ob du dein Passwort vergessen hast oder von uns eingeladen wurdest und noch
+              gar keins vergeben konntest: Trag deine Adresse ein, wir schicken dir den
+              passenden Link.
+            </p>
             <div className="field">
               <label htmlFor="email">E-Mail-Adresse</label>
               <input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoFocus />
