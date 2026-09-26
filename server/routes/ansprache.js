@@ -397,4 +397,98 @@ router.get('/export.csv', async (req, res) => {
   res.send(`﻿${kopf.join(';')}\n${zeilen.join('\n')}\n`);
 });
 
+/**
+ * v1.36.0 — Wie steht es um die Monatsfrist aus Art. 14 DSGVO?
+ *
+ * Gezählt werden nur vorbereitete Kontakte, die noch nicht angeschrieben
+ * wurden. Wer angeschrieben ist, hat die Information bekommen, denn der
+ * Datenschutz-Baustein steht in der Nachricht.
+ */
+router.get('/frist', async (req, res) => {
+  const { lage } = require('../utils/artikel14');
+  const pensum = Math.min(Math.max(Number(req.query.pensum) || 25, 1), 200);
+
+  const kontakte = await db('experts').where({ tenant_id: req.user.tenantId })
+    .whereNotNull('vorreg_importiert_am')
+    .whereNull('vorreg_ausgeschlossen_am')
+    .whereNull('vorreg_zusammengefuehrt_am')
+    .where('status', VORREG)
+    .select('id', 'vorname', 'nachname', 'vorreg_prio', 'vorreg_quelle',
+      'vorreg_importiert_am', 'vorreg_angeschrieben_am');
+
+  res.json({
+    ...lage(kontakte, { pensum }),
+    hinweis: 'Die Monatsfrist beginnt mit dem Import. Ob sie im Einzelfall genau so läuft '
+      + 'und was bei Überschreitung gilt, gehört zur anwaltlichen Prüfung.',
+  });
+});
+
+/**
+ * v1.36.0 — Bewusst verzichten, statt die Frist zu reißen.
+ *
+ * Wenn die Zeit für alle nicht reicht, gibt es zwei ehrliche Wege: schneller
+ * werden oder weniger Kontakte führen. Der zweite wird hier möglich. Gelöscht
+ * wird nur, was ausdrücklich ausgewählt wurde, und es entsteht kein Eintrag
+ * auf der Merkliste: Diese Menschen sollen später wieder importiert werden
+ * können, wenn wirklich Zeit ist. Sie stehen ja nicht auf der Liste, weil sie
+ * unerwünscht sind, sondern weil der Kalender nicht reicht.
+ *
+ * Ohne Auswahl passiert nichts, eine Vorschau gibt es über GET /frist/vorschau.
+ */
+router.get('/frist/vorschau', async (req, res) => {
+  const prio = String(req.query.prio || '').toUpperCase();
+  const q = db('experts').where({ tenant_id: req.user.tenantId, status: VORREG })
+    .whereNull('vorreg_angeschrieben_am')
+    .whereNull('vorreg_ausgeschlossen_am')
+    .whereNotNull('vorreg_importiert_am');
+  if (['A', 'B', 'C'].includes(prio)) q.andWhere('vorreg_prio', prio);
+  else if (prio === 'OHNE') q.whereNull('vorreg_prio');
+
+  const treffer = await q.orderByRaw("coalesce(vorreg_prio, 'Z') asc, nachname asc")
+    .select('id', 'vorname', 'nachname', 'firma', 'vorreg_prio', 'vorreg_quelle', 'vorreg_importiert_am');
+  res.json({ anzahl: treffer.length, kontakte: treffer.slice(0, 200), prio: prio || 'alle' });
+});
+
+router.post('/frist/verzichten', async (req, res) => {
+  const ids = Array.isArray(req.body?.ids) ? req.body.ids.map(Number).filter(Boolean) : [];
+  const bestaetigung = String(req.body?.bestaetigung || '');
+  if (!ids.length) return res.status(400).json({ error: 'Keine Kontakte ausgewählt' });
+  if (bestaetigung !== 'LÖSCHEN') {
+    return res.status(400).json({ error: 'Zur Bestätigung bitte LÖSCHEN übergeben' });
+  }
+
+  // Nur unangeschriebene vorbereitete Kontakte. Wer schon Post bekommen hat
+  // oder ein Konto besitzt, wird hier nicht angefasst.
+  const treffer = await db('experts').where({ tenant_id: req.user.tenantId, status: VORREG })
+    .whereIn('id', ids).whereNull('vorreg_angeschrieben_am').whereNull('user_id')
+    .select('id', 'vorname', 'nachname', 'vorreg_quelle');
+
+  let geloescht = 0;
+  const gescheitert = [];
+  for (const k of treffer) {
+    try {
+      await db('handover_tokens').where({ expert_id: k.id }).delete();
+      await db('experts').where({ id: k.id }).delete();
+      geloescht += 1;
+    } catch (e) {
+      gescheitert.push({ id: k.id, grund: e.message });
+    }
+  }
+
+  await req.audit({
+    action: 'expert.frist_verzicht', resource: 'experts',
+    newValue: {
+      geloescht, gescheitert: gescheitert.length,
+      grund: 'Art.-14-Frist nicht erreichbar, bewusster Verzicht',
+      quellen: [...new Set(treffer.map((k) => k.vorreg_quelle))],
+    },
+  });
+  res.locals.auditLogged = true;
+  res.json({
+    ok: true, geloescht, gescheitert,
+    uebersprungen: ids.length - treffer.length,
+    message: `${geloescht} Kontakt(e) gelöscht. Sie stehen auf keiner Merkliste und können später neu importiert werden.`,
+  });
+});
+
 module.exports = router;

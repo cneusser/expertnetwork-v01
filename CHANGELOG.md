@@ -2,6 +2,17 @@
 
 Versionsschema: v\<Major>.\<Sprint>.\<Patch>. Sprintabschluss endet auf .0, Korrekturen zählen den Patch hoch.
 
+## v1.36.0 — Die Art.-14-Frist rechnet mit
+
+Die Monatsfrist aus Art. 14 Abs. 3 DSGVO stand bisher nur im Wochenplan. Ein Dokument rechnet aber nicht mit, und 766 Kontakte mit je eigener Frist behält niemand im Kopf.
+
+- Neuer Reiter „Frist" im Ansprache-Cockpit, dazu ein Hinweis ganz oben, sobald etwas ansteht. Angezeigt werden: wie viele informiert sind, wie viele noch offen, wie viele Fristen bereits abgelaufen sind, wann die nächste und die letzte endet, und wie viele Nachrichten je Arbeitstag nötig wären.
+- Die Einschätzung rechnet gegen das eingestellte Tagespensum und sagt klar, ob es reicht, knapp wird oder nicht ausgeht. Arbeitstage zählen ohne Wochenenden.
+- Wer angeschrieben wurde, gilt als informiert und zählt nicht mehr mit, denn der Datenschutz-Baustein steht in der Nachricht.
+- Wenn die Zeit nicht reicht, gibt es den bewussten Verzicht: Kontakte einer Gruppe ansehen und löschen. Das passiert nur nach ausdrücklicher Bestätigung, erfasst nie jemanden mit bereits verschickter Nachricht und erzeugt keinen Eintrag auf der Merkliste. Diese Menschen sind nicht unerwünscht, es fehlt nur die Zeit, und ein späterer Import soll möglich bleiben.
+- Die Rechnung trifft bewusst keine Rechtsauskunft und löscht nichts von allein. Beides steht als Hinweis dabei.
+- Neue Datei `utils/artikel14.js`, Routen unter `/api/ansprache/frist`, Test `v136.test.js`.
+
 ## v1.35.0 — Niemand steht mehr vor der Wand
 
 Anlass war ein Kontakt, der über LinkedIn angesprochen wurde, ein Konto aus dem Einladungs-Upload hatte, aber nie ein Passwort. Auf der Anmeldeseite las er nur „E-Mail oder Passwort falsch". Von den eingeladenen Kontakten geht es 185 Menschen genauso, sobald sie es versuchen.

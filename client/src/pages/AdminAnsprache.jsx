@@ -26,6 +26,9 @@ export default function AdminAnsprache() {
   const [uebergaben, setUebergaben] = useState(null);
   const [erledigt, setErledigt] = useState(null);
   const [nachfolger, setNachfolger] = useState(null);
+  const [frist, setFrist] = useState(null);
+  const [vorschau, setVorschau] = useState(null);
+  const [verzichtPrio, setVerzichtPrio] = useState('C');
 
   const laden = async () => {
     try {
@@ -38,6 +41,7 @@ export default function AdminAnsprache() {
         api.get('/api/ansprache/angeschrieben'),
         api.get('/api/ansprache/nachfolger-vorschlaege'),
       ]);
+      api.get(`/api/ansprache/frist?pensum=${filter.pensum}`).then(setFrist).catch(() => {});
       setDaten(a); setTrichter(t); setAusschluss(x); setUebergaben(u);
       setErledigt(e); setNachfolger(n);
     } catch (e) { setMsg({ ok: false, text: e.message }); }
@@ -62,6 +66,50 @@ export default function AdminAnsprache() {
         Du schreibst selbst und notierst hier, was zurückkam.
       </p>
       {msg && <div className={`msg ${msg.ok ? 'msg-success' : 'msg-error'}`}>{msg.text}</div>}
+
+      {/* v1.36.0: Die Monatsfrist aus Art. 14 rechnet jetzt mit, statt nur in
+          einem Dokument zu stehen. Sie steht ganz oben, weil sie der einzige
+          Teil dieser Seite ist, der einen Termin hat. */}
+      {frist && frist.offen + frist.abgelaufen > 0 && (
+        <div className={`notice ${frist.ampel === 'rot' ? 'msg-error' : ''}`} style={{ marginTop: 16 }}>
+          <strong>
+            {frist.abgelaufen > 0
+              ? `Bei ${frist.abgelaufen} Kontakten ist die Monatsfrist bereits abgelaufen.`
+              : `Noch ${frist.offen} Kontakte zu informieren.`}
+          </strong>
+          <br />
+          {frist.naechste_frist && (
+            <>
+              Die nächste Frist endet am {fmt(frist.naechste_frist)}, das sind{' '}
+              {frist.arbeitstage_bis_naechste} Arbeitstage. Die letzte endet am {fmt(frist.letzte_frist)}.
+              <br />
+              Bei {frist.pensum} Nachrichten je Arbeitstag sind bis dahin etwa{' '}
+              {frist.schaffbar_mit_pensum} Kontakte erreichbar.{' '}
+              {frist.ampel === 'rot'
+                ? <strong>Das reicht für {frist.offen} nicht. Entweder mehr pro Tag, oder Du entscheidest bewusst, auf einen Teil zu verzichten.</strong>
+                : frist.ampel === 'gelb'
+                  ? 'Das wird knapp, aber es geht.'
+                  : 'Das reicht.'}
+              <br />
+              Nötig wären {frist.noetig_pro_arbeitstag} je Arbeitstag.
+            </>
+          )}
+          {frist.nach_prio.length > 0 && (
+            <div style={{ marginTop: 8, fontSize: 13 }}>
+              {frist.nach_prio.map((z) => (
+                <span key={z.prio} style={{ marginRight: 14 }}>
+                  Prio {z.prio}: {z.offen} offen{z.abgelaufen > 0 ? `, ${z.abgelaufen} abgelaufen` : ''}
+                </span>
+              ))}
+            </div>
+          )}
+          <div style={{ marginTop: 10 }}>
+            <button type="button" className="tab" style={{ padding: 0, color: 'var(--navy)', fontWeight: 600 }}
+              onClick={() => setTab('frist')}>Fristen ansehen und entscheiden</button>
+          </div>
+          <p className="muted" style={{ fontSize: 12, marginTop: 8 }}>{frist.hinweis}</p>
+        </div>
+      )}
 
       {trichter && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, margin: '16px 0' }}>
@@ -111,6 +159,7 @@ export default function AdminAnsprache() {
           ['wiedervorlage', `Wiedervorlage (${daten?.wiedervorlage.length || 0})`],
           ['erledigt', `Angeschrieben (${erledigt?.zahlen.gesamt || 0})`],
           ['nachfolger', `Mögliche Nachfolger (${nachfolger?.zahlen.gesamt || 0})`],
+          ['frist', `Frist (${frist ? frist.offen + frist.abgelaufen : 0})`],
           ['trichter', 'Auswertung'],
           ['ausschluss', `Nicht ansprechen (${ausschluss?.eintraege.length || 0})`],
           ['uebergaben', `Capitalmatch (${uebergaben?.zahlen.gesamt || 0})`]].map(([k, l]) => (
@@ -214,6 +263,99 @@ export default function AdminAnsprache() {
               )}
             </tbody>
           </table>
+        </>
+      )}
+
+      {tab === 'frist' && frist && (
+        <>
+          <p className="muted" style={{ fontSize: 13 }}>
+            Art. 14 Abs. 3 DSGVO verlangt, dass die betroffene Person innerhalb eines Monats
+            informiert wird. Bei uns ist die persönliche LinkedIn-Nachricht diese Information,
+            denn dort steht der Datenschutz-Baustein. Die Frist läuft je Kontakt ab dem Import.
+          </p>
+
+          <div className="kpi-row" style={{ marginTop: 14 }}>
+            <div className="kpi"><div className="num">{frist.informiert}</div><div className="lbl">Informiert</div></div>
+            <div className="kpi"><div className="num">{frist.offen}</div><div className="lbl">Noch offen, Frist läuft</div></div>
+            <div className="kpi">
+              <div className="num" style={{ color: frist.abgelaufen > 0 ? 'var(--danger)' : undefined }}>{frist.abgelaufen}</div>
+              <div className="lbl">Frist abgelaufen</div>
+            </div>
+            <div className="kpi"><div className="num">{frist.noetig_pro_arbeitstag}</div><div className="lbl">Nötig je Arbeitstag</div></div>
+          </div>
+
+          <h3 style={{ color: 'var(--navy)', fontSize: 16, marginTop: 22 }}>Wenn die Zeit nicht reicht</h3>
+          <p style={{ fontSize: 13.5, maxWidth: 780 }}>
+            Es gibt zwei ehrliche Wege: mehr Nachrichten pro Tag, oder bewusst weniger Kontakte führen.
+            Was hier gelöscht wird, landet auf keiner Merkliste. Diese Menschen stehen nicht auf der
+            Liste, weil sie unerwünscht sind, sondern weil der Kalender nicht reicht. Später kannst
+            Du sie jederzeit neu importieren.
+          </p>
+
+          <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap', margin: '14px 0' }}>
+            <div className="field" style={{ flex: '0 0 170px', marginBottom: 0 }}><label>Welche Gruppe</label>
+              <select value={verzichtPrio} onChange={(e) => { setVerzichtPrio(e.target.value); setVorschau(null); }}>
+                <option value="C">nur Prio C</option>
+                <option value="B">nur Prio B</option>
+                <option value="OHNE">ohne Priorität</option>
+                <option value="">alle noch offenen</option>
+              </select></div>
+            <button type="button" className="btn" style={{ width: 'auto', padding: '8px 16px' }}
+              onClick={async () => {
+                try {
+                  setVorschau(await api.get(`/api/ansprache/frist/vorschau?prio=${verzichtPrio}`));
+                } catch (e) { setMsg({ ok: false, text: e.message }); }
+              }}>Vorschau ansehen</button>
+          </div>
+
+          {vorschau && (
+            <>
+              <p style={{ fontSize: 13.5 }}>
+                <strong>{vorschau.anzahl} Kontakte</strong> würden gelöscht
+                {vorschau.anzahl > vorschau.kontakte.length && `, die ersten ${vorschau.kontakte.length} stehen unten`}.
+              </p>
+              <table className="table">
+                <thead><tr><th>Name</th><th>Firma</th><th>Prio</th><th>Aus Liste</th></tr></thead>
+                <tbody>
+                  {vorschau.kontakte.slice(0, 40).map((k) => (
+                    <tr key={k.id}>
+                      <td>{k.vorname} {k.nachname}</td>
+                      <td style={{ fontSize: 13 }}>{k.firma}</td>
+                      <td>{k.vorreg_prio}</td>
+                      <td style={{ fontSize: 12.5 }} className="muted">{k.vorreg_quelle}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <p style={{ marginTop: 12 }}>
+                <button type="button" className="btn" style={{ width: 'auto', padding: '8px 18px', background: 'var(--danger)' }}
+                  disabled={!vorschau.anzahl}
+                  onClick={async () => {
+                    const alle = await api.get(`/api/ansprache/frist/vorschau?prio=${verzichtPrio}`);
+                    if (!window.confirm(
+                      `${alle.anzahl} Kontakte endgültig löschen?\n\n`
+                      + 'Sie landen auf keiner Merkliste und können später neu importiert werden. '
+                      + 'Bereits angeschriebene Kontakte sind nicht dabei.')) return;
+                    if (window.prompt('Zur Bestätigung bitte LÖSCHEN eingeben:') !== 'LÖSCHEN') return;
+                    try {
+                      const d = await api.post('/api/ansprache/frist/verzichten', {
+                        ids: alle.kontakte.map((k) => k.id), bestaetigung: 'LÖSCHEN',
+                      });
+                      setMsg({ ok: true, text: d.message });
+                      setVorschau(null);
+                      await laden();
+                    } catch (e) { setMsg({ ok: false, text: e.message }); }
+                  }}>
+                  {vorschau.anzahl} Kontakte löschen
+                </button>
+                {vorschau.anzahl > 200 && (
+                  <span className="muted" style={{ fontSize: 12.5, marginLeft: 10 }}>
+                    Es werden bis zu 200 auf einmal gelöscht, danach den Knopf erneut drücken.
+                  </span>
+                )}
+              </p>
+            </>
+          )}
         </>
       )}
 
