@@ -22,7 +22,7 @@ export default function ForgotPassword() {
   return (
     <div className="auth-wrap">
       <form className="auth-card" onSubmit={submit}>
-        <Logo variante="dunkel" zusatz="Expert Network" />
+        <Logo variante="dunkel" form="stapel" zusatz="Expert Network" />
         <h1>Passwort vergessen</h1>
         {sent ? (
           <div className="msg msg-success">

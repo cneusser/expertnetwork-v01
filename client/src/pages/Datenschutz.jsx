@@ -13,7 +13,7 @@ const H = ({ children }) => <h2 style={{ fontSize: 17, color: 'var(--navy)', mar
 export default function Datenschutz() {
   return (
     <div style={{ maxWidth: 760, margin: '0 auto', padding: '32px 20px', lineHeight: 1.65, fontSize: 14.5 }}>
-      <Logo variante="dunkel" zusatz="Expert Network" />
+      <Logo variante="dunkel" form="stapel" zusatz="Expert Network" />
       <h1 style={{ color: 'var(--navy)', margin: '18px 0 4px' }}>Datenschutzerklärung</h1>
       <p className="muted" style={{ color: 'var(--grey-400, #8a93a0)' }}>für die Plattform „Phalanx Expert Network“ · Stand: Juli 2026</p>
 

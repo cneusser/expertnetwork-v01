@@ -2,6 +2,12 @@
 
 Versionsschema: v\<Major>.\<Sprint>.\<Patch>. Sprintabschluss endet auf .0, Korrekturen zählen den Patch hoch.
 
+## v1.34.2 — Logo gestapelt auf den Kartenseiten
+
+- Auf der Anmeldung und allen übrigen Kartenseiten steht das Logo jetzt in seiner Originalform, also Blüte über der Wortmarke, mittig auf der Karte. Der Kopf der Anmeldung führt deshalb nur noch die Terminvereinbarung, sonst stünde die Marke zweimal da.
+- Die Landingpages und die Kopfzeile der Anwendung behalten die quere Form mit dem Signet links, dort passt gestapelt nicht hin.
+- Zentriert wird nur das Logo, nicht der Text. Auf Seiten wie Datenschutz stehen lange Absätze in derselben Karte, und zentrierter Fließtext liest sich schlecht.
+
 ## v1.34.1 — Das Original-Logo statt eines Nachbaus
 
 - Der nachgezeichnete Blüten-Nachbau aus v1.34.0 ist raus. Verwendet wird jetzt die Originaldatei aus der Illustrator-Vorlage, unverändert.

@@ -15,13 +15,13 @@ export default function ShareView() {
     api.get(`/api/public/share/${token}`).then(setData).catch((e) => setError(e.message));
   }, [token]);
 
-  if (error) return <div className="auth-wrap"><div className="auth-card"><Logo variante="dunkel" zusatz="Expert Network" /><div className="msg msg-error" style={{ marginTop: 16 }}>{error}</div></div></div>;
-  if (!data) return <div className="auth-wrap"><div className="auth-card"><Logo variante="dunkel" zusatz="Expert Network" /><p className="sub" style={{ marginTop: 16 }}>Laden…</p></div></div>;
+  if (error) return <div className="auth-wrap"><div className="auth-card"><Logo variante="dunkel" form="stapel" zusatz="Expert Network" /><div className="msg msg-error" style={{ marginTop: 16 }}>{error}</div></div></div>;
+  if (!data) return <div className="auth-wrap"><div className="auth-card"><Logo variante="dunkel" form="stapel" zusatz="Expert Network" /><p className="sub" style={{ marginTop: 16 }}>Laden…</p></div></div>;
 
   return (
     <div style={{ maxWidth: 960, margin: '0 auto', padding: '32px 20px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
-        <Logo variante="dunkel" zusatz="Expert Network" />
+        <Logo variante="dunkel" form="stapel" zusatz="Expert Network" />
         <a href={`/api/public/share/${token}/pptx`} className="btn" style={{ width: 'auto', textDecoration: 'none', marginRight: 10 }}>
           <Download size={15} /> Profile als PPTX</a>
         <a href={`/api/public/share/${token}/pdf`} className="btn" style={{ width: 'auto', textDecoration: 'none' }}>

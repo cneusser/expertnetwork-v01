@@ -34,7 +34,7 @@ export default function Bewertung() {
   return (
     <div className="auth-wrap">
       <div className="auth-card">
-        <Logo variante="dunkel" zusatz="Expert Network" />
+        <Logo variante="dunkel" form="stapel" zusatz="Expert Network" />
         <h1>{tr(lang, 'Ihre Bewertung', 'Your feedback')}</h1>
         {fehler && <div className="msg msg-error">{fehler}</div>}
         {done && <div className="msg msg-success">{done}</div>}

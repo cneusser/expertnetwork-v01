@@ -55,7 +55,7 @@ export default function Verfuegbarkeit() {
   return (
     <div className="auth-wrap">
       <div className="auth-card">
-        <Logo variante="dunkel" zusatz="Expert Network" />
+        <Logo variante="dunkel" form="stapel" zusatz="Expert Network" />
         <h1>Verfügbarkeit bestätigen</h1>
         {mode === 'error' && <div className="msg msg-error">{msg || 'Link ungültig oder abgelaufen.'}</div>}
         {mode === 'done' && <div className="msg msg-success">{msg}</div>}

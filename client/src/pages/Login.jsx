@@ -57,14 +57,18 @@ export default function Login() {
 
   return (
     <div className="pxl-buehne">
-      <header className="pxl-buehne-kopf">
-        <Logo variante="dunkel" zusatz="Expert Network" />
+      {/* Das Logo steht gestapelt auf der Karte, wie im Original. Oben
+          deshalb nur der Termin, sonst stuende die Marke zweimal da. */}
+      <header className="pxl-buehne-kopf" style={{ justifyContent: 'flex-end' }}>
         <TerminKnopf text={tr(lang, 'Termin vereinbaren', 'Book a call')} />
       </header>
 
       <div className="pxl-buehne-inhalt pxl-anmelde-flaeche">
       <form className="auth-card" onSubmit={submit}>
-        <span className="pxl-kicker">{tr(lang, 'Privates Expertennetzwerk', 'Private expert network')}</span>
+        <Logo variante="dunkel" form="stapel" zusatz="Expert Network" />
+        <span className="pxl-kicker" style={{ marginTop: 22 }}>
+          {tr(lang, 'Privates Expertennetzwerk', 'Private expert network')}
+        </span>
         <div style={{ textAlign: 'right', fontSize: 12, marginTop: -26 }}>
           {['de', 'en'].map((L) => (
             <button key={L} type="button" onClick={() => setLang(L)}

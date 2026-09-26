@@ -576,3 +576,14 @@ a:hover { text-decoration: underline; }
 .auth-wrap .table td { border-color: rgba(216, 221, 225, .12); }
 /* Breitere Außenseiten wie Datenschutz oder öffentliche Projekte. */
 .auth-wrap > .weit, .auth-wrap > .auth-card.weit { max-width: 880px; }
+
+/* Gestapeltes Logo auf einer Karte: mittig, mit Luft darunter. Nur das Logo
+   wird zentriert, der Text bleibt linksbuendig. Auf Seiten wie Datenschutz
+   oder den oeffentlichen Projektseiten stehen lange Absaetze in derselben
+   Karte, und zentrierter Flieesstext liest sich schlecht. */
+.auth-card > .pxl-logo-stapel {
+  display: flex;
+  margin: 0 auto 6px;
+  width: fit-content;
+}
+.auth-card > .pxl-logo-stapel + .pxl-kicker { text-align: center; }

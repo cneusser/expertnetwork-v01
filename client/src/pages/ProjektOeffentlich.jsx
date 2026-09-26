@@ -37,13 +37,13 @@ export default function ProjektOeffentlich() {
     }
   };
 
-  if (error) return <div className="auth-wrap"><div className="auth-card"><Logo variante="dunkel" zusatz="Expert Network" /><div className="msg msg-error" style={{ marginTop: 16 }}>{error}</div></div></div>;
-  if (!p) return <div className="auth-wrap"><div className="auth-card"><Logo variante="dunkel" zusatz="Expert Network" /><p className="sub" style={{ marginTop: 16 }}>Laden…</p></div></div>;
+  if (error) return <div className="auth-wrap"><div className="auth-card"><Logo variante="dunkel" form="stapel" zusatz="Expert Network" /><div className="msg msg-error" style={{ marginTop: 16 }}>{error}</div></div></div>;
+  if (!p) return <div className="auth-wrap"><div className="auth-card"><Logo variante="dunkel" form="stapel" zusatz="Expert Network" /><p className="sub" style={{ marginTop: 16 }}>Laden…</p></div></div>;
   const fristAbgelaufen = p.bewerbungsfrist && new Date(p.bewerbungsfrist) < new Date();
 
   return (
     <div style={{ maxWidth: 900, margin: '0 auto', padding: '32px 20px' }}>
-      <Logo variante="dunkel" zusatz="Expert Network" />
+      <Logo variante="dunkel" form="stapel" zusatz="Expert Network" />
       <h1 style={{ color: 'var(--navy)', margin: '20px 0 6px', fontSize: 28 }}>{p.name}</h1>
       <p className="muted">
         {p.ort || 'ortsunabhängig'} · {p.arbeitsmodell}{p.remote_anteil != null ? ` (Remote ${p.remote_anteil} %)` : ''} · Referenz {p.referenz}

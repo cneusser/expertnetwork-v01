@@ -46,7 +46,7 @@ export default function RegisterKunde() {
   return (
     <div className="auth-wrap">
       <form className="auth-card" style={{ maxWidth: 620 }} onSubmit={submit}>
-        <Logo variante="dunkel" zusatz="Expert Network" />
+        <Logo variante="dunkel" form="stapel" zusatz="Expert Network" />
         <h1>Als Kunde registrieren</h1>
         <p className="sub">Projekte ausschreiben und kuratierte Expertenprofile erhalten — Freigabe durch die Phalanx GmbH.</p>
         {msg && <div className={`msg ${msg.ok ? 'msg-success' : 'msg-error'}`}>{msg.text}</div>}
