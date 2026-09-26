@@ -18,7 +18,7 @@ export default function VerifyEmail() {
   return (
     <div className="auth-wrap">
       <div className="auth-card">
-        <Logo />
+        <Logo variante="dunkel" zusatz="Expert Network" />
         <h1>E-Mail-Bestätigung</h1>
         {state === 'busy' && <p className="sub">Wird geprüft…</p>}
         {state === 'ok' && (

@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import Logo from '../components/Logo';
 import { useLang, tr } from '../i18n';
 import LegalFooter from '../components/LegalFooter';
+import { TerminKnopf } from '../components/MarkenUmschalter';
 
 export default function Login() {
   const { login } = useAuth();
@@ -55,17 +56,26 @@ export default function Login() {
   };
 
   return (
-    <div className="auth-wrap">
+    <div className="pxl-buehne">
+      <header className="pxl-buehne-kopf">
+        <Logo variante="dunkel" zusatz="Expert Network" />
+        <TerminKnopf text={tr(lang, 'Termin vereinbaren', 'Book a call')} />
+      </header>
+
+      <div className="pxl-buehne-inhalt pxl-anmelde-flaeche">
       <form className="auth-card" onSubmit={submit}>
-        <Logo />
-        <div style={{ textAlign: 'right', fontSize: 12 }}>
+        <span className="pxl-kicker">{tr(lang, 'Privates Expertennetzwerk', 'Private expert network')}</span>
+        <div style={{ textAlign: 'right', fontSize: 12, marginTop: -26 }}>
           {['de', 'en'].map((L) => (
             <button key={L} type="button" onClick={() => setLang(L)}
               style={{ border: 'none', background: 'none', cursor: 'pointer', fontWeight: lang === L ? 700 : 400, color: lang === L ? 'var(--navy)' : 'var(--grey-400, #8a93a0)' }}>{L.toUpperCase()}</button>
           ))}
         </div>
-        <h1>{tr(lang, 'Anmelden', 'Log in')}</h1>
-        <p className="sub">{tr(lang, 'Privates Expertennetzwerk der Phalanx GmbH', 'The private expert network of Phalanx GmbH')}</p>
+        <h1>{tr(lang, 'Willkommen zurück.', 'Welcome back.')}</h1>
+        <p className="sub">
+          {tr(lang, 'Das Expertennetzwerk der Phalanx GmbH. Zugang nur für eingeladene und registrierte Mitglieder.',
+            'The expert network of Phalanx GmbH. Access for invited and registered members only.')}
+        </p>
         {error && <div className="msg msg-error">{error}</div>}
         <div className="field">
           <label htmlFor="email">{tr(lang, 'E-Mail-Adresse', 'Email address')}</label>
@@ -104,6 +114,7 @@ export default function Login() {
         </div>
       </form>
       <LegalFooter />
+      </div>
     </div>
   );
 }

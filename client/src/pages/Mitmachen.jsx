@@ -56,7 +56,7 @@ export default function Mitmachen() {
   return (
     <div style={{ maxWidth: 760, margin: '0 auto', padding: '32px 20px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Logo />
+        <Logo variante="dunkel" zusatz="Expert Network" />
         <span style={{ fontSize: 12 }}>
           {['de', 'en'].map((L) => (
             <button key={L} type="button" onClick={() => setLang(L)}

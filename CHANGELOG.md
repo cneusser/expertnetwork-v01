@@ -2,6 +2,15 @@
 
 Versionsschema: v\<Major>.\<Sprint>.\<Patch>. Sprintabschluss endet auf .0, Korrekturen zählen den Patch hoch.
 
+## v1.34.0 — Marke: Logo, Phalanx-Look, Umschalter
+
+- Das Logo ist jetzt echt vorhanden, als SVG statt als Textzeile: Signet mit den sechs Blütenblättern auf der geschliffenen Scheibe, daneben die Wortmarke in Kapitälchen. Scharf in jeder Größe, ohne zusätzlichen Netzaufruf, in einer hellen und einer dunklen Variante.
+- Die Palette und die Schriftwahl kommen eins zu eins von phalanx.de und capitalmatch.de: `--pxl-navy`, `--pxl-gold`, `--pxl-papier` und die übrigen, Georgia für Überschriften, der goldene Kicker in Versalien. Die bisherigen Variablennamen zeigen jetzt auf diese Palette, deshalb bricht nichts.
+- Alle Außenseiten laufen über den gemeinsamen Container und stehen damit auf der dunklen Phalanx-Bühne: Anmeldung, Mitmachen, Registrierung, Einladung, Partner, Kapitalpartner, Bewertung, Datenschutz und die öffentlichen Projektseiten.
+- Die Arbeitsflächen bleiben bewusst hell. Tabellen und Formulare liest man dort stundenlang, und dafür taugt eine Marketing-Bühne nicht. Gemeinsam sind Logo, Farben und die Schrift der Überschriften.
+- Markenumschalter unten links, auf jeder Seite: phalanx.de, christian-neusser.de, CapitalMatch und Expert Network, der aktuelle hervorgehoben.
+- Terminvereinbarung ist überall erreichbar: im Kopf der Außenseiten, am Fuß der Landingpages und in der Kopfzeile der Anwendung.
+
 ## v1.33.0 — Verfügbarkeit: fragen, wenn es etwas zu fragen gibt
 
 Aufgefallen an einer Akte mit fünf identischen Bestätigungen im Abstand von genau zwei Wochen. Der Experte hatte „verfügbar ab 1.10." gemeldet und konnte jedes Mal nur dasselbe antworten.

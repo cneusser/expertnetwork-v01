@@ -10,6 +10,7 @@ import Logo from '../components/Logo';
 import LegalFooter from '../components/LegalFooter';
 import { useLang, tr } from '../i18n';
 import { api } from '../api/client';
+import { TerminKnopf } from '../components/MarkenUmschalter';
 
 const T = {
   de: {
@@ -77,9 +78,9 @@ export default function PartnerWerden() {
   };
 
   return (
-    <div style={{ maxWidth: 760, margin: '0 auto', padding: '32px 20px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Logo />
+    <div className="pxl-buehne">
+      <div className="pxl-buehne-kopf">
+        <Logo variante="dunkel" zusatz="Expert Network" />
         <span style={{ fontSize: 12 }}>
           {['de', 'en'].map((L) => (
             <button key={L} type="button" onClick={() => setLang(L)}
@@ -88,7 +89,9 @@ export default function PartnerWerden() {
         </span>
       </div>
 
-      <h1 style={{ color: 'var(--navy)', margin: '22px 0 10px' }}>{t.titel}</h1>
+      <div className="pxl-buehne-inhalt" style={{ maxWidth: 820, margin: '0 auto', width: '100%' }}>
+      <span className="pxl-kicker">{lang === 'en' ? 'Grow with us' : 'Gemeinsam ausbauen'}</span>
+      <h1 style={{ margin: '0 0 10px' }}>{t.titel}</h1>
       <p style={{ fontSize: 16, lineHeight: 1.6 }}>{t.intro}</p>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: 14, margin: '24px 0' }}>
@@ -146,8 +149,12 @@ export default function PartnerWerden() {
         {tr(lang, 'Ihr seid ein Provider (Vermittlung, Beratung, Personaldienstleistung) und wollt regelmäßig passende Profile sehen? Schreibt uns über das Formular mit dem Hinweis "Provider", wir richten euch einen Zugang ein.',
           'You are a provider (brokering, consulting, staffing) and want to see matching profiles regularly? Use the form above and mention "provider", we will set up your access.')}
       </p>
-      <p style={{ marginTop: 12 }}><Link to="/login">← {t.zurueck}</Link></p>
+      <div style={{ marginTop: 34, paddingTop: 24, borderTop: '1px solid rgba(216,221,225,.18)', display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
+        <TerminKnopf klasse="pxl-knopf pxl-knopf-leise" text={tr(lang, 'Termin vereinbaren', 'Book a call')} />
+        <Link to="/login">← {t.zurueck}</Link>
+      </div>
       <LegalFooter />
+      </div>
     </div>
   );
 }

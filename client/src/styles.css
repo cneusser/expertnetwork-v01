@@ -1,18 +1,54 @@
-/* Phalanx-CI: Navy/Anthrazit, viel Weißraum, moderner SaaS-Look. */
+/*
+ * Phalanx-Designsystem, v1.34.0.
+ *
+ * Die Palette und die Schriftwahl stammen eins zu eins von phalanx.de und
+ * capitalmatch.de, damit die drei Auftritte erkennbar zusammengehören und man
+ * künftig an einer Stelle nachschlagen kann. Neue Namen mit Vorsilbe pxl,
+ * daneben die alten Namen als Verweis, damit kein bestehendes Stylesheet
+ * bricht.
+ *
+ * Grundgedanke der Aufteilung: Die Außenseiten (Anmeldung, Landingpages)
+ * bekommen die dunkle Bühne mit Serifenschrift, weil dort die Marke wirkt.
+ * Die Arbeitsflächen bleiben hell, weil man dort stundenlang Tabellen liest.
+ * Gemeinsam sind Logo, Farben und die Schrift der Überschriften.
+ */
 :root {
-  --navy: #0f2a4a;
-  --navy-dark: #0a1e36;
-  --anthracite: #1a2332;
-  --grey-600: #5a6472;
+  /* Phalanx-Kern */
+  --pxl-ink: #111820;
+  --pxl-navy: #142536;
+  --pxl-tief: #0f1c28;
+  --pxl-linie: #d8dde1;
+  --pxl-papier: #f7f5f0;
+  --pxl-primaer: #174a6a;
+  --pxl-gold: #c9a96e;
+  --pxl-leise: #5d6670;
+  --pxl-flaeche: #f4f6f7;
+  --pxl-rand: clamp(20px, 7vw, 110px);
+  /* CapitalMatch, für Übergaben und Verweise */
+  --cm-hell: #29abe2;
+  --cm-dunkel: #1a4d8a;
+
+  --pxl-serif: Georgia, 'Times New Roman', serif;
+  --pxl-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+
+  /* Bisherige Namen, jetzt auf die Phalanx-Palette gelegt. */
+  --navy: #174a6a;
+  --navy-dark: #142536;
+  --anthracite: #111820;
+  --grey-600: #5d6670;
   --grey-400: #8a93a0;
-  --grey-200: #e3e6ea;
-  --grey-100: #f4f6f8;
+  --grey-200: #d8dde1;
+  --grey-100: #f4f6f7;
   --white: #ffffff;
-  --accent: #2e6da8;
+  --accent: #174a6a;
   --danger: #b23a48;
   --success: #2e7d5b;
   --radius: 8px;
 }
+
+/* Überschriften in Serif, wie auf phalanx.de und capitalmatch.de. */
+h1, h2, h3, .pxl-wortmarke { font-family: var(--pxl-serif); font-weight: 400; }
+h1 { letter-spacing: -0.2px; }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -258,3 +294,272 @@ a:hover { text-decoration: underline; }
   font-weight: 600;
   margin-bottom: 14px;
 }
+
+/* ============================================================
+   v1.34.0 — Marke: Logo, dunkle Bühne, Kicker, Umschalter
+   ============================================================ */
+
+/* --- Logo ------------------------------------------------- */
+.pxl-logo { display: inline-flex; align-items: center; gap: 11px; white-space: nowrap; }
+.pxl-logo-text { display: flex; flex-direction: column; line-height: 1.1; }
+.pxl-wortmarke {
+  font-family: var(--pxl-serif);
+  font-size: 21px;
+  font-variant: small-caps;
+  letter-spacing: 1.6px;
+  color: var(--pxl-navy);
+}
+.pxl-logo-zusatz {
+  font-family: var(--pxl-sans);
+  font-size: 10.5px;
+  letter-spacing: 2.4px;
+  text-transform: uppercase;
+  color: var(--pxl-leise);
+  margin-top: 2px;
+}
+.pxl-logo-dunkel .pxl-wortmarke { color: var(--pxl-papier); }
+.pxl-logo-dunkel .pxl-logo-zusatz { color: var(--pxl-gold); }
+.pxl-logo-stapel { flex-direction: column; gap: 8px; text-align: center; }
+
+/* --- Dunkle Bühne für die Außenseiten ---------------------- */
+.pxl-buehne {
+  min-height: 100vh;
+  background:
+    radial-gradient(1100px 620px at 14% -8%, rgba(23, 74, 106, .55) 0%, transparent 62%),
+    linear-gradient(160deg, #173049 0%, var(--pxl-navy) 46%, var(--pxl-tief) 100%);
+  color: var(--pxl-papier);
+  display: flex;
+  flex-direction: column;
+}
+.pxl-buehne-kopf {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 20px; flex-wrap: wrap;
+  padding: 26px var(--pxl-rand) 0;
+}
+.pxl-buehne-inhalt {
+  flex: 1;
+  padding: clamp(28px, 6vh, 64px) var(--pxl-rand) 90px;
+  width: 100%;
+}
+.pxl-buehne a { color: var(--pxl-gold); }
+.pxl-buehne h1 { color: var(--pxl-papier); font-size: clamp(30px, 4.6vw, 46px); line-height: 1.16; }
+.pxl-buehne h2 { color: var(--pxl-papier); }
+.pxl-buehne h3 { color: var(--pxl-papier); font-size: 16px; }
+.pxl-buehne p { color: rgba(247, 245, 240, .82); line-height: 1.65; }
+.pxl-buehne .muted { color: rgba(247, 245, 240, .55); }
+
+/* Der kursive Nachsatz, wie auf beiden Websites. */
+.pxl-akzent { font-style: italic; color: var(--pxl-gold); }
+
+/* Kicker: Versalien, gesperrt, gold. Das Erkennungszeichen der Marke. */
+.pxl-kicker {
+  font-family: var(--pxl-serif);
+  font-size: 12.5px;
+  letter-spacing: 3.2px;
+  text-transform: uppercase;
+  color: var(--pxl-gold);
+  display: block;
+  margin-bottom: 14px;
+}
+
+/* Karten auf der Bühne */
+.pxl-buehne .card {
+  background: rgba(247, 245, 240, .045);
+  border: 1px solid rgba(216, 221, 225, .16);
+  color: var(--pxl-papier);
+}
+.pxl-buehne .card h3 { color: var(--pxl-papier); }
+.pxl-buehne .card p { color: rgba(247, 245, 240, .76); }
+
+/* Formulare auf der Bühne */
+.pxl-buehne .field label { color: rgba(247, 245, 240, .8); }
+.pxl-buehne input, .pxl-buehne select, .pxl-buehne textarea {
+  background: rgba(247, 245, 240, .06);
+  border-color: rgba(216, 221, 225, .22);
+  color: var(--pxl-papier);
+}
+.pxl-buehne input::placeholder, .pxl-buehne textarea::placeholder { color: rgba(247, 245, 240, .38); }
+.pxl-buehne input:focus, .pxl-buehne select:focus, .pxl-buehne textarea:focus {
+  border-color: var(--pxl-gold); outline: none;
+}
+
+/* Knöpfe: eckig und ruhig, wie auf den Websites. */
+.pxl-knopf {
+  display: inline-flex; align-items: center; gap: 10px;
+  background: var(--pxl-papier); color: var(--pxl-ink);
+  border: 1px solid var(--pxl-papier); border-radius: 2px;
+  padding: 13px 22px; font-size: 14px; font-weight: 600;
+  cursor: pointer; text-decoration: none; transition: background .15s, color .15s;
+}
+.pxl-knopf:hover { background: var(--pxl-gold); border-color: var(--pxl-gold); text-decoration: none; }
+.pxl-knopf-leise {
+  background: transparent; color: var(--pxl-papier);
+  border-color: rgba(216, 221, 225, .34);
+}
+.pxl-knopf-leise:hover { background: rgba(247, 245, 240, .08); border-color: var(--pxl-gold); color: var(--pxl-gold); }
+/* Auf hellem Grund, für die Arbeitsflächen */
+.pxl-knopf-hell { background: var(--pxl-primaer); color: #fff; border-color: var(--pxl-primaer); }
+.pxl-knopf-hell:hover { background: var(--pxl-navy); border-color: var(--pxl-navy); color: #fff; }
+
+/* --- Markenumschalter unten links -------------------------- */
+.pxl-switch {
+  position: fixed; left: 18px; bottom: 18px; z-index: 60;
+  display: flex; align-items: stretch;
+  background: rgba(17, 24, 32, .93);
+  border: 1px solid rgba(216, 221, 225, .18);
+  border-radius: 3px;
+  overflow: hidden;
+  backdrop-filter: blur(6px);
+  box-shadow: 0 6px 22px rgba(17, 24, 32, .28);
+  font-size: 12.5px;
+}
+.pxl-switch a, .pxl-switch span.pxl-switch-hier {
+  padding: 9px 14px;
+  color: rgba(247, 245, 240, .62);
+  text-decoration: none;
+  border-right: 1px solid rgba(216, 221, 225, .12);
+  white-space: nowrap;
+  transition: background .15s, color .15s;
+}
+.pxl-switch a:last-child, .pxl-switch span:last-child { border-right: none; }
+.pxl-switch a:hover { background: rgba(247, 245, 240, .1); color: var(--pxl-gold); text-decoration: none; }
+.pxl-switch .pxl-switch-hier {
+  color: var(--pxl-papier);
+  background: rgba(247, 245, 240, .1);
+  font-weight: 600;
+  cursor: default;
+}
+@media (max-width: 720px) {
+  .pxl-switch { left: 10px; right: 10px; bottom: 10px; font-size: 11.5px; overflow-x: auto; }
+}
+
+/* --- Terminvereinbarung ------------------------------------ */
+.pxl-termin-kopf {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-size: 13.5px; font-weight: 600; color: var(--pxl-primaer);
+  border: 1px solid var(--pxl-linie); border-radius: 2px;
+  padding: 8px 14px; text-decoration: none; background: #fff;
+}
+.pxl-termin-kopf:hover { background: var(--pxl-flaeche); border-color: var(--pxl-primaer); text-decoration: none; }
+.pxl-buehne .pxl-termin-kopf {
+  background: transparent; color: var(--pxl-papier);
+  border-color: rgba(216, 221, 225, .34);
+}
+.pxl-buehne .pxl-termin-kopf:hover { border-color: var(--pxl-gold); color: var(--pxl-gold); background: rgba(247,245,240,.06); }
+
+/* Abstand unten, damit der Umschalter nichts verdeckt. */
+.main, .pxl-buehne-inhalt { padding-bottom: 76px; }
+
+/* Anmeldekarte auf der Bühne: mittig, ruhig, mit klarer Kante. */
+.pxl-anmelde-flaeche {
+  display: flex; align-items: flex-start; justify-content: center;
+  padding-top: clamp(24px, 7vh, 72px);
+}
+.pxl-anmelde-flaeche .auth-card {
+  width: 100%; max-width: 460px;
+  background: rgba(247, 245, 240, .05);
+  border: 1px solid rgba(216, 221, 225, .18);
+  border-radius: 3px;
+  padding: 34px 32px 30px;
+  box-shadow: 0 18px 50px rgba(15, 28, 40, .35);
+}
+.pxl-anmelde-flaeche .auth-card h1 { font-size: clamp(25px, 3.4vw, 31px); margin-bottom: 8px; }
+.pxl-anmelde-flaeche .auth-card .sub { color: rgba(247, 245, 240, .68); font-size: 14px; margin-bottom: 26px; }
+.pxl-anmelde-flaeche .btn {
+  background: var(--pxl-papier); color: var(--pxl-ink);
+  border: 1px solid var(--pxl-papier); border-radius: 2px; font-weight: 600;
+}
+.pxl-anmelde-flaeche .btn:hover { background: var(--pxl-gold); border-color: var(--pxl-gold); }
+.pxl-anmelde-flaeche .btn:disabled { background: rgba(247,245,240,.3); border-color: transparent; color: rgba(17,24,32,.5); }
+.pxl-anmelde-flaeche .auth-links { color: rgba(247, 245, 240, .6); }
+.pxl-anmelde-flaeche .notice,
+.pxl-buehne .notice {
+  background: rgba(201, 169, 110, .1);
+  border: 1px solid rgba(201, 169, 110, .34);
+  color: rgba(247, 245, 240, .88);
+}
+.pxl-buehne .msg-error { background: rgba(178, 58, 72, .16); border-color: rgba(178, 58, 72, .45); color: #ffd9de; }
+.pxl-buehne .msg-success { background: rgba(46, 125, 91, .16); border-color: rgba(46, 125, 91, .45); color: #d6f2e5; }
+.pxl-buehne .tag {
+  background: rgba(247, 245, 240, .1); color: rgba(247, 245, 240, .82);
+  border: 1px solid rgba(216, 221, 225, .2);
+}
+
+/* Terminknopf in der dunklen Kopfzeile der Anwendung. */
+.pxl-termin-topbar {
+  display: inline-flex; align-items: center; gap: 7px;
+  font-size: 12.5px; font-weight: 600;
+  color: rgba(247, 245, 240, .82); text-decoration: none;
+  border: 1px solid rgba(216, 221, 225, .28); border-radius: 2px;
+  padding: 6px 12px; margin-right: 12px; white-space: nowrap;
+}
+.pxl-termin-topbar:hover {
+  color: var(--pxl-gold); border-color: var(--pxl-gold);
+  background: rgba(247, 245, 240, .07); text-decoration: none;
+}
+/* Das Logo in der Kopfzeile darf nicht umbrechen. */
+.topbar-left .pxl-logo { flex: 0 0 auto; }
+@media (max-width: 900px) {
+  .topbar-left .pxl-logo-zusatz { display: none; }
+  .pxl-termin-topbar { display: none; }
+}
+
+/* ------------------------------------------------------------
+   Alle übrigen Außenseiten (Registrierung, Einladung, Bestätigung,
+   Passwort, Bewertung, öffentliche Projekte, Datenschutz) laufen über
+   .auth-wrap. Statt zwölf Seiten einzeln umzubauen, bekommt der
+   gemeinsame Container die Bühne. So sieht der ganze Außenauftritt
+   gleich aus, und neue Seiten erben es automatisch.
+   ------------------------------------------------------------ */
+.auth-wrap {
+  background:
+    radial-gradient(1100px 620px at 14% -8%, rgba(23, 74, 106, .55) 0%, transparent 62%),
+    linear-gradient(160deg, #173049 0%, var(--pxl-navy) 46%, var(--pxl-tief) 100%);
+  color: var(--pxl-papier);
+  padding-bottom: 80px;
+}
+.auth-wrap .auth-card {
+  background: rgba(247, 245, 240, .05);
+  border: 1px solid rgba(216, 221, 225, .18);
+  border-radius: 3px;
+  box-shadow: 0 18px 50px rgba(15, 28, 40, .35);
+  padding: 34px 32px 30px;
+}
+.auth-wrap .auth-card h1 { color: var(--pxl-papier); font-size: clamp(23px, 3vw, 28px); }
+.auth-wrap .auth-card h2,
+.auth-wrap .auth-card h3 { color: var(--pxl-papier); }
+.auth-wrap .auth-card p,
+.auth-wrap .auth-card li { color: rgba(247, 245, 240, .82); }
+.auth-wrap .auth-card .sub { color: rgba(247, 245, 240, .66); }
+.auth-wrap .auth-card .muted { color: rgba(247, 245, 240, .5); }
+.auth-wrap a { color: var(--pxl-gold); }
+.auth-wrap label { color: rgba(247, 245, 240, .8); }
+.auth-wrap input, .auth-wrap select, .auth-wrap textarea {
+  background: rgba(247, 245, 240, .06);
+  border-color: rgba(216, 221, 225, .22);
+  color: var(--pxl-papier);
+}
+.auth-wrap input::placeholder, .auth-wrap textarea::placeholder { color: rgba(247, 245, 240, .38); }
+.auth-wrap input:focus, .auth-wrap select:focus, .auth-wrap textarea:focus { border-color: var(--pxl-gold); outline: none; }
+.auth-wrap .btn {
+  background: var(--pxl-papier); color: var(--pxl-ink);
+  border: 1px solid var(--pxl-papier); border-radius: 2px; font-weight: 600;
+}
+.auth-wrap .btn:hover { background: var(--pxl-gold); border-color: var(--pxl-gold); }
+.auth-wrap .btn:disabled { background: rgba(247, 245, 240, .28); border-color: transparent; color: rgba(17, 24, 32, .5); }
+.auth-wrap .notice {
+  background: rgba(201, 169, 110, .1);
+  border: 1px solid rgba(201, 169, 110, .34);
+  color: rgba(247, 245, 240, .88);
+}
+.auth-wrap .msg-error { background: rgba(178, 58, 72, .16); border-color: rgba(178, 58, 72, .45); color: #ffd9de; }
+.auth-wrap .msg-success { background: rgba(46, 125, 91, .16); border-color: rgba(46, 125, 91, .45); color: #d6f2e5; }
+.auth-wrap .tag {
+  background: rgba(247, 245, 240, .1); color: rgba(247, 245, 240, .82);
+  border: 1px solid rgba(216, 221, 225, .2);
+}
+.auth-wrap .table { color: rgba(247, 245, 240, .86); }
+.auth-wrap .table th { color: rgba(247, 245, 240, .56); border-color: rgba(216, 221, 225, .18); }
+.auth-wrap .table td { border-color: rgba(216, 221, 225, .12); }
+/* Breitere Außenseiten wie Datenschutz oder öffentliche Projekte. */
+.auth-wrap > .weit, .auth-wrap > .auth-card.weit { max-width: 880px; }

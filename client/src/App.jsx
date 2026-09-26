@@ -11,6 +11,7 @@ import KapitalpartnerWerden from './pages/KapitalpartnerWerden';
 import AdminPartner from './pages/AdminPartner';
 import AdminKapitalpartner from './pages/AdminKapitalpartner';
 import AdminPhalanxOs from './pages/AdminPhalanxOs';
+import MarkenUmschalter from './components/MarkenUmschalter';
 import AdminAbrechnung from './pages/AdminAbrechnung';
 import AdminAnsprache from './pages/AdminAnsprache';
 import Bewertung from './pages/Bewertung';
@@ -96,6 +97,9 @@ export default function App() {
           <Route path="/profil" element={<ProtectedRoute roles={['expert']}><ExpertProfil /></ProtectedRoute>} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+        {/* v1.34.0: Einmal hier, damit der Umschalter auf jeder Seite steht,
+            innen wie außen, ohne dass ihn jede Seite selbst einbinden muss. */}
+        <MarkenUmschalter />
       </BrowserRouter>
     </AuthProvider>
     </LangProvider>

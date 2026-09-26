@@ -13,6 +13,7 @@ import { Banknote, ShieldCheck, Timer } from 'lucide-react';
 import Logo from '../components/Logo';
 import LegalFooter from '../components/LegalFooter';
 import { api } from '../api/client';
+import { TerminKnopf } from '../components/MarkenUmschalter';
 
 const FINANZIERUNG = {
   leasing: 'Leasing',
@@ -96,13 +97,18 @@ export default function KapitalpartnerWerden() {
   ];
 
   return (
-    <div style={{ maxWidth: 880, margin: '0 auto', padding: '32px 20px' }}>
-      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 30 }}>
-        <Logo />
-        <Link to="/login" style={{ fontSize: 14 }}>Zur Anmeldung</Link>
+    <div className="pxl-buehne">
+      <header className="pxl-buehne-kopf">
+        <Logo variante="dunkel" zusatz="Expert Network" />
+        <span style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
+          <TerminKnopf />
+          <Link to="/login" style={{ fontSize: 14 }}>Zur Anmeldung</Link>
+        </span>
       </header>
 
-      <h1 style={{ color: 'var(--navy)' }}>Kapitalpartner im Phalanx-Netzwerk</h1>
+      <div className="pxl-buehne-inhalt" style={{ maxWidth: 940, margin: '0 auto', width: '100%' }}>
+      <span className="pxl-kicker">Kapital für den Mittelstand</span>
+      <h1>Sie finanzieren. <span className="pxl-akzent">Wir kennen den Bedarf.</span></h1>
       <p style={{ color: 'var(--grey-600)', maxWidth: 720, margin: '8px 0 0', lineHeight: 1.6 }}>
         Sie finanzieren Objekte, Anlagen oder Umlaufvermögen und suchen Zugang zu Fällen, die
         wirklich entschieden werden? Dann tragen Sie sich hier ein. Wir vermitteln keine Leads
@@ -221,7 +227,12 @@ export default function KapitalpartnerWerden() {
         </form>
       )}
 
+      <div style={{ marginTop: 40, paddingTop: 26, borderTop: '1px solid rgba(216,221,225,.18)' }}>
+        <p style={{ marginBottom: 14 }}>Lieber erst sprechen? Fünfzehn Minuten reichen für die Einschätzung, ob es passt.</p>
+        <TerminKnopf klasse="pxl-knopf pxl-knopf-leise" text="Termin vereinbaren" />
+      </div>
       <LegalFooter />
+      </div>
     </div>
   );
 }

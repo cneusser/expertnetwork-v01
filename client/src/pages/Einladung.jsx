@@ -112,7 +112,7 @@ export default function Einladung() {
     return (
       <div className="auth-wrap">
         <form className="auth-card" onSubmit={renewSubmit}>
-          <Logo />
+          <Logo variante="dunkel" zusatz="Expert Network" />
           <h1>Einwilligung erneuern</h1>
           {schritt === 2 ? (
             <>
@@ -135,7 +135,7 @@ export default function Einladung() {
   return (
     <div className="auth-wrap">
       <div className="auth-card">
-        <Logo />
+        <Logo variante="dunkel" zusatz="Expert Network" />
         <div style={{ textAlign: 'right', fontSize: 12 }}>
           {['de', 'en'].map((l) => (
             <button key={l} type="button" onClick={() => setLang(l)}

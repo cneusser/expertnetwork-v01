@@ -27,7 +27,7 @@ export default function ResetPassword() {
   return (
     <div className="auth-wrap">
       <form className="auth-card" onSubmit={submit}>
-        <Logo />
+        <Logo variante="dunkel" zusatz="Expert Network" />
         <h1>Neues Passwort vergeben</h1>
         {error && <div className="msg msg-error">{error}</div>}
         {done ? (

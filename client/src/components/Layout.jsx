@@ -4,6 +4,7 @@ import Logo from './Logo';
 import { useLang, tr } from '../i18n';
 import { APP_VERSION } from '../version';
 import { api } from '../api/client';
+import { TerminKnopf } from './MarkenUmschalter';
 
 export default function Layout({ children }) {
   const { user, logout } = useAuth();
@@ -22,7 +23,9 @@ export default function Layout({ children }) {
       )}
       <header className="topbar">
         <div className="topbar-left">
-          <Link to={home} style={{ textDecoration: 'none' }}><Logo inverse /></Link>
+          <Link to={home} style={{ textDecoration: 'none' }}>
+            <Logo variante="dunkel" zusatz="Expert Network" size={30} />
+          </Link>
           <nav className="topnav">
             <NavLink to={home} end>Dashboard</NavLink>
             {isAdmin && <NavLink to="/admin/experten">Experten</NavLink>}
@@ -55,6 +58,7 @@ export default function Layout({ children }) {
               ))}
             </span>
           )}
+          <TerminKnopf klasse="pxl-termin-topbar" text={tr(lang, 'Termin', 'Book a call')} />
           <span>{user?.email} · {user?.role === 'vendor' ? 'Kunde' : isAdmin ? 'Administrator' : tr(lang, 'Experte', 'Expert')}</span>
           <button onClick={logout}>{user?.role === 'expert' ? tr(lang, 'Abmelden', 'Log out') : 'Abmelden'}</button>
         </div>

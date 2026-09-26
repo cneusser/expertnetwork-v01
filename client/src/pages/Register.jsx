@@ -40,7 +40,7 @@ export default function Register() {
     return (
       <div className="auth-wrap">
         <div className="auth-card">
-          <Logo />
+          <Logo variante="dunkel" zusatz="Expert Network" />
           <h1>Fast geschafft</h1>
           <div className="msg msg-success">
             {hinweis || 'Wir haben dir eine E-Mail geschickt. Bitte bestätige deine E-Mail-Adresse über den Link darin.'}
@@ -54,7 +54,7 @@ export default function Register() {
   return (
     <div className="auth-wrap">
       <form className="auth-card" onSubmit={submit}>
-        <Logo />
+        <Logo variante="dunkel" zusatz="Expert Network" />
         <h1>Als Experte registrieren</h1>
         <p className="sub">Du pflegst dein Profil selbst: Verfügbarkeit, Tagessätze, Dokumente.</p>
         {error && <div className="msg msg-error">{error}</div>}
