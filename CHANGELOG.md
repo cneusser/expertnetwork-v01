@@ -2,6 +2,12 @@
 
 Versionsschema: v\<Major>.\<Sprint>.\<Patch>. Sprintabschluss endet auf .0, Korrekturen zählen den Patch hoch.
 
+## v1.34.1 — Das Original-Logo statt eines Nachbaus
+
+- Der nachgezeichnete Blüten-Nachbau aus v1.34.0 ist raus. Verwendet wird jetzt die Originaldatei aus der Illustrator-Vorlage, unverändert.
+- Drei Fassungen in `client/public`: das gestapelte Logo auf weißem Grund, dasselbe freigestellt (nur das äußere Weiß ist transparent, der weiße Kreis in der Blütenmitte bleibt erhalten) und das Signet allein für schmale Leisten.
+- Auf dunklem Grund sitzt das Logo in einem hellen Feld, statt umgefärbt zu werden. Die Wortmarke ist anthrazit und wäre auf Navy nicht lesbar, und ein umgefärbtes Logo ist kein Logo mehr. phalanx.de löst es genauso.
+
 ## v1.34.0 — Marke: Logo, Phalanx-Look, Umschalter
 
 - Das Logo ist jetzt echt vorhanden, als SVG statt als Textzeile: Signet mit den sechs Blütenblättern auf der geschliffenen Scheibe, daneben die Wortmarke in Kapitälchen. Scharf in jeder Größe, ohne zusätzlichen Netzaufruf, in einer hellen und einer dunklen Variante.
