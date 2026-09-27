@@ -33,6 +33,7 @@ export default function Layout({ children }) {
             {isAdmin && <NavLink to="/admin/suche">Suche</NavLink>}
             {isAdmin && <NavLink to="/admin/skills">Skills</NavLink>}
             {isAdmin && <NavLink to="/admin/projekte">Projekte</NavLink>}
+            {isAdmin && <NavLink to="/admin/kunden">Kunden</NavLink>}
             {isAdmin && <NavLink to="/admin/funnel">Funnel</NavLink>}
             {isAdmin && <NavLink to="/admin/partner">Partner</NavLink>}
             {isAdmin && <NavLink to="/admin/kapitalpartner">Kapitalpartner</NavLink>}

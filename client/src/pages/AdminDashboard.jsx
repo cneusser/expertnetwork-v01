@@ -43,10 +43,12 @@ function Zeile({ p, rechts, unten }) {
 export default function AdminDashboard() {
   const [stats, setStats] = useState(null);
   const [akt, setAkt] = useState(null);
+  const [kunden, setKunden] = useState(null);
 
   useEffect(() => {
     api.get('/api/experts/stats').then(setStats).catch(() => {});
     api.get('/api/experts/aktivitaet').then(setAkt).catch(() => {});
+    api.get('/api/kunden?status=wartet').then(setKunden).catch(() => {});
   }, []);
 
   const modules = [
@@ -79,6 +81,16 @@ export default function AdminDashboard() {
             </p>
           )}
         </>
+      )}
+
+      {/* v1.37.0: Ein Kundenkonto entsteht gesperrt. Wer wartet, gehoert
+          nach vorn, sonst merkt es niemand. */}
+      {kunden && kunden.zahlen.wartet_auf_freigabe > 0 && (
+        <div className="notice" style={{ marginBottom: 26 }}>
+          <strong>{kunden.zahlen.wartet_auf_freigabe} Kunde(n) warten auf Freigabe.</strong>{' '}
+          Bis dahin kommen sie nicht in den Kundenbereich.{' '}
+          <Link to="/admin/kunden" style={{ fontWeight: 600 }}>Jetzt freischalten</Link>
+        </div>
       )}
 
       {akt && (

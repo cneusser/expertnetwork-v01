@@ -240,6 +240,26 @@ router.post('/register-kunde', async (req, res) => {
       { templateKey: 'verify-email', einzelkorrespondenz: true });
   } catch (e) { console.error('Mail-Versand fehlgeschlagen (Kunden-Verifizierung):', e.message); }
 
+  // v1.37.0: Das Büro erfährt davon. Ein Kundenkonto entsteht gesperrt und
+  // wartet auf Freigabe. Ohne diese Nachricht könnte jemand wochenlang vor
+  // einer verschlossenen Tür stehen, ohne dass es auffällt.
+  try {
+    const admin = await db('users').where({ tenant_id: tenant.id, role: 'admin' }).orderBy('id').first();
+    if (admin) {
+      const APP_URL = process.env.APP_URL
+        || (process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : 'http://localhost:5173');
+      await getMailProvider().send({
+        to: admin.email,
+        subject: `Neuer Kunde wartet auf Freigabe: ${b.firmenname}`,
+        html: `<p>Ein Unternehmen hat sich als Kunde registriert und wartet auf die Freigabe:</p>
+<p><strong>${b.firmenname}</strong><br />${email}</p>
+<p>Ohne Freigabe kommt der Zugang nicht in den Kundenbereich.</p>
+<p><a href="${APP_URL}/admin/kunden">Zur Kundenverwaltung</a></p>`,
+        text: `Neuer Kunde wartet auf Freigabe: ${b.firmenname} (${email}). ${APP_URL}/admin/kunden`,
+      }, { tenantId: tenant.id, templateKey: 'kunde_wartet_intern', einzelkorrespondenz: true });
+    }
+  } catch (e) { console.error('Hinweis an das Büro fehlgeschlagen:', e.message); }
+
   res.status(201).json({ ok: true, message: 'Registrierung eingegangen. Bitte E-Mail bestätigen — die Phalanx GmbH schaltet Ihren Zugang anschließend frei.' });
 });
 

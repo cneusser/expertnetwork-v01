@@ -11,6 +11,7 @@ import KapitalpartnerWerden from './pages/KapitalpartnerWerden';
 import AdminPartner from './pages/AdminPartner';
 import AdminKapitalpartner from './pages/AdminKapitalpartner';
 import AdminPhalanxOs from './pages/AdminPhalanxOs';
+import AdminKunden from './pages/AdminKunden';
 import MarkenUmschalter from './components/MarkenUmschalter';
 import AdminAbrechnung from './pages/AdminAbrechnung';
 import AdminAnsprache from './pages/AdminAnsprache';
@@ -84,6 +85,7 @@ export default function App() {
           <Route path="/admin/partner" element={<ProtectedRoute roles={['admin', 'tenant_owner']}><AdminPartner /></ProtectedRoute>} />
           <Route path="/admin/kapitalpartner" element={<ProtectedRoute roles={['admin', 'tenant_owner']}><AdminKapitalpartner /></ProtectedRoute>} />
           <Route path="/admin/phalanx-os" element={<ProtectedRoute roles={['admin', 'tenant_owner']}><AdminPhalanxOs /></ProtectedRoute>} />
+          <Route path="/admin/kunden" element={<ProtectedRoute roles={['admin', 'tenant_owner']}><AdminKunden /></ProtectedRoute>} />
           <Route path="/admin/abrechnung" element={<ProtectedRoute roles={['admin', 'tenant_owner']}><AdminAbrechnung /></ProtectedRoute>} />
           <Route path="/admin/ansprache" element={<ProtectedRoute roles={['admin', 'tenant_owner']}><AdminAnsprache /></ProtectedRoute>} />
           <Route path="/admin/projekte/:id" element={<ProtectedRoute roles={['admin', 'tenant_owner']}><AdminProjectDetail /></ProtectedRoute>} />

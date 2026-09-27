@@ -2,6 +2,18 @@
 
 Versionsschema: v\<Major>.\<Sprint>.\<Patch>. Sprintabschluss endet auf .0, Korrekturen zählen den Patch hoch.
 
+## v1.37.0 — Die Nachfrageseite: Kunden verwalten
+
+Beim Blick in den Bestand fiel etwas auf, das niemandem auffallen konnte, solange sich kein Kunde registrierte: Ein Kundenkonto entsteht mit `is_approved = false`, und das Kundenportal weist es genau deshalb ab. Freigeben ließ es sich nirgends. Wer sich angemeldet hätte, wäre auf unbestimmte Zeit ausgesperrt gewesen.
+
+- Neuer Bereich „Kunden" mit Verzeichnis und Akte. Bisher gab es Kundenkonten, Kundenprofile, Kundenprojekte und Kundenrechnungen, aber keine Stelle, an der man seine Kunden sieht.
+- **Freigabe und Sperre**, der Teil der komplett fehlte. Beim Freischalten bekommt der Kunde eine Nachricht, denn er wartet darauf.
+- Wer wartet, steht ganz oben: auf der Kundenseite, auf dem Dashboard und als Mail ans Büro, sobald sich jemand registriert.
+- Die Akte bündelt, was verstreut lag: Stammdaten und Ansprechpartner, eingereichte Anfragen, vorgelegte Profile samt Rückmeldung des Kunden, laufende Mandate und gestellte Rechnungen mit Umsatz und offenem Betrag.
+- Beträge bleiben durchgehend in Cent und werden erst für die Anzeige umgerechnet.
+- Stammdaten lassen sich pflegen, wenn am Telefon etwas Neues gesagt wird.
+- Route `/api/kunden`, Test `v137.test.js`, darunter der ganze Weg von der Registrierung über die Freigabe bis ins Portal.
+
 ## v1.36.0 — Die Art.-14-Frist rechnet mit
 
 Die Monatsfrist aus Art. 14 Abs. 3 DSGVO stand bisher nur im Wochenplan. Ein Dokument rechnet aber nicht mit, und 766 Kontakte mit je eigener Frist behält niemand im Kopf.
