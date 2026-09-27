@@ -2,6 +2,19 @@
 
 Versionsschema: v\<Major>.\<Sprint>.\<Patch>. Sprintabschluss endet auf .0, Korrekturen zählen den Patch hoch.
 
+## v1.38.0 — Der Bericht: was über die Zeit passiert
+
+Jeder Bereich hatte seine eigenen Zahlen. Das Dashboard den Pool, das Ansprache-Cockpit den Trichter, die Abrechnung den Umsatz. Was fehlte, war der Blick über die Zeit. Ob ein Netzwerk wächst, sieht man nicht an einem Stichtag, sondern an der Reihe der Monate.
+
+- Neuer Bereich „Bericht" mit vier Ebenen in der Reihenfolge, in der das Geschäft entsteht: Netzwerk (wer kommt dazu), Ansprache (wer wird angesprochen, wer antwortet), Nachfrage (Anfragen, vorgelegte Profile, Rückmeldungen), Geschäft (Mandate, Umsatz, Marge).
+- Zeitraum frei wählbar bis 24 Monate zurück, ohne Angabe die letzten sechs Monate.
+- Verglichen wird der letzte volle Monat gegen den davor. Der laufende Monat taugt nicht zum Vergleich, er ist ja noch nicht vorbei.
+- **Nullen bleiben stehen.** Ein Monat ohne Mandat ist ein Ergebnis und keine Lücke, die man verstecken müsste. In der Aufbauphase ist eine ehrliche Null aussagekräftiger als eine geschönte Kennzahl, und der Bericht sagt das auch so.
+- Der Bericht als einseitiges PDF im Haus-Look, passend zu den Belegen aus v1.23.0. Ein Bericht, den man nicht in zwei Minuten überblickt, wird nicht gelesen.
+- Storniertes bleibt draußen, Gutschriften an Experten gelten als Auszahlung, die Differenz ist die Marge. Alle Beträge in Cent, wie überall.
+- Rechnung und Darstellung sind getrennt: `baueBericht()` ist eine reine Funktion, die JSON-Route und PDF-Export gemeinsam nutzen. So kann keine Ansicht andere Zahlen zeigen als die andere.
+- Zeitzonen: Monate werden in Ortszeit gebildet. Über `toISOString` gerechnet rutscht der Monatserste in jeder Zeitzone östlich von UTC in den Vormonat, und dann steht ein Ereignis vom 1. Oktober im September. Bei einem Monatsbericht ist das genau der Fehler, den niemand bemerkt und der trotzdem alle Zahlen verschiebt.
+
 ## v1.37.0 — Die Nachfrageseite: Kunden verwalten
 
 Beim Blick in den Bestand fiel etwas auf, das niemandem auffallen konnte, solange sich kein Kunde registrierte: Ein Kundenkonto entsteht mit `is_approved = false`, und das Kundenportal weist es genau deshalb ab. Freigeben ließ es sich nirgends. Wer sich angemeldet hätte, wäre auf unbestimmte Zeit ausgesperrt gewesen.

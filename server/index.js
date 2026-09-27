@@ -93,6 +93,7 @@ app.use('/api/ansprache', require('./routes/ansprache'));
 app.use('/api/kapitalpartner', require('./routes/kapitalpartner').router);
 app.use('/api/phalanx-os', require('./routes/phalanxos'));
 app.use('/api/kunden', require('./routes/kunden'));
+app.use('/api/bericht', require('./routes/bericht').router);
 app.use('/api', require('./routes/handover')); // Uebergabe an Capitalmatch (Admin + Maschine)
 
 // Produktion: gebauten Client ausliefern (ein Railway-Service für beides).
