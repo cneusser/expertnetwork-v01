@@ -124,7 +124,7 @@ export default function KapitalpartnerWerden() {
         ))}
       </div>
 
-      <h2 style={{ fontSize: 20, color: 'var(--navy)', marginBottom: 6 }}>Ihre Angaben</h2>
+      <h2 style={{ fontSize: 20, marginBottom: 6 }}>Ihre Angaben</h2>
       <p style={{ color: 'var(--grey-400)', fontSize: 13, marginBottom: 16 }}>
         Nur das Nötigste. Alles Weitere besprechen wir im Gespräch.
       </p>

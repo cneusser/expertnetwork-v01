@@ -122,7 +122,7 @@ export default function Einladung() {
           ) : (
             <>
               {msg && <div className="msg msg-error">{msg}</div>}
-              <div style={{ maxHeight: 200, overflowY: 'auto', fontSize: 13, background: 'var(--grey-100, #f4f6f8)', padding: 12, borderRadius: 6, margin: '12px 0', whiteSpace: 'pre-wrap' }}>{consentText}</div>
+              <div className="lesetext" style={{ maxHeight: 200, margin: '12px 0' }}>{consentText}</div>
               <button className="btn" disabled={busy}>{busy ? 'Bitte warten…' : 'Einwilligung erneuern'}</button>
             </>
           )}
@@ -152,7 +152,7 @@ export default function Einladung() {
           <>
             <p style={{ fontSize: 14, lineHeight: 1.55 }}>{t.intro}</p>
             {t.hinweisDe && <p className="muted" style={{ fontSize: 12 }}>{t.hinweisDe}</p>}
-            <div style={{ maxHeight: 220, overflowY: 'auto', fontSize: 13, background: 'var(--grey-100, #f4f6f8)', padding: 12, borderRadius: 6, margin: '12px 0', whiteSpace: 'pre-wrap' }}>{consentText || 'Laden…'}</div>
+            <div className="lesetext" style={{ maxHeight: 220, margin: '12px 0' }}>{consentText || 'Laden…'}</div>
             <label style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 14, margin: '10px 0 16px', cursor: 'pointer' }}>
               <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} style={{ marginTop: 3 }} />
               <span>{t.consentLabel}</span>
@@ -173,7 +173,7 @@ export default function Einladung() {
               <input type="password" value={password2} onChange={(e) => setPassword2(e.target.value)} />
             </div>
             <div style={{ display: 'flex', gap: 10 }}>
-              <button type="button" className="btn" style={{ background: 'transparent', color: 'var(--navy)', border: '1px solid var(--grey-200)' }}
+              <button type="button" className="btn btn-zweitrangig"
                 onClick={() => setSchritt(0)}>{t.zurueck}</button>
               <button className="btn" disabled={busy} onClick={abschliessen}>{busy ? t.warten : t.anlegen}</button>
             </div>

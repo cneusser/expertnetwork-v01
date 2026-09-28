@@ -465,9 +465,12 @@ a:hover { text-decoration: underline; }
 
 /* Anmeldekarte auf der Bühne: mittig, ruhig, mit klarer Kante. */
 .pxl-anmelde-flaeche {
-  display: flex; align-items: flex-start; justify-content: center;
+  display: flex; flex-direction: column; align-items: center;
   padding-top: clamp(24px, 7vh, 72px);
 }
+/* Die Fußzeile ist ein Geschwister der Karte. In einer Reihe stand sie
+   deshalb daneben statt darunter. */
+.pxl-anmelde-flaeche > p { width: 100%; max-width: 460px; }
 .pxl-anmelde-flaeche .auth-card {
   width: 100%; max-width: 460px;
   background: rgba(247, 245, 240, .05);
@@ -491,6 +494,59 @@ a:hover { text-decoration: underline; }
   border: 1px solid rgba(201, 169, 110, .34);
   color: rgba(247, 245, 240, .88);
 }
+/* Hinweis mit Kante. Der Partnerkasten hatte seinen hellen Grund fest
+   verdrahtet, die Schrift aber von der Karte geerbt. Auf der dunklen Bühne
+   stand damit heller Text auf hellem Grund, also nichts Lesbares. */
+.hinweis-kante {
+  padding: 12px 14px; border-radius: 6px; font-size: 13px; line-height: 1.5;
+  background: var(--grey-100, #f4f6f8); border-left: 3px solid var(--navy);
+  color: var(--grey-700, #2b3440);
+}
+.pxl-buehne .hinweis-kante, .auth-wrap .hinweis-kante {
+  background: rgba(247, 245, 240, .07);
+  border-left-color: var(--pxl-gold);
+  color: rgba(247, 245, 240, .86);
+}
+.pxl-buehne .hinweis-kante strong, .auth-wrap .hinweis-kante strong { color: var(--pxl-papier); }
+
+/* Längerer Text zum Mitlesen, etwa die Einwilligung. Auf hellem Grund ein
+   abgesetztes Feld, auf der Bühne ein aufgehelltes. Wichtig ist nur, dass die
+   Schrift zum Grund passt: Ein Einwilligungstext, den man nicht lesen kann,
+   ist keine Einwilligung. */
+.lesetext {
+  overflow-y: auto; font-size: 13px; line-height: 1.55; white-space: pre-wrap;
+  padding: 12px; border-radius: 6px;
+  background: var(--grey-100, #f4f6f8); color: var(--grey-700, #2b3440);
+}
+.auth-wrap .lesetext, .pxl-buehne .lesetext {
+  background: rgba(15, 28, 40, .45);
+  border: 1px solid rgba(216, 221, 225, .16);
+  color: rgba(247, 245, 240, .84);
+}
+
+.pxl-sprache, .pxl-sprache-aktiv {
+  border: none; background: none; cursor: pointer; padding: 0 3px;
+  color: var(--grey-400, #8a93a0); font-size: 12px;
+}
+.pxl-sprache-aktiv { font-weight: 700; color: var(--navy); }
+.pxl-buehne .pxl-sprache { color: rgba(247, 245, 240, .45); }
+.pxl-buehne .pxl-sprache-aktiv { color: var(--pxl-papier); }
+
+/* Zweitrangiger Knopf auf der Bühne: Umriss statt Fläche, aber lesbar.
+   Vorher stand hier Navy auf Navy. */
+.btn-zweitrangig {
+  background: transparent; color: var(--navy); border: 1px solid var(--grey-200);
+}
+.pxl-anmelde-flaeche .btn-zweitrangig, .pxl-buehne .btn-zweitrangig,
+.auth-wrap .btn-zweitrangig {
+  background: transparent; color: rgba(247, 245, 240, .9);
+  border: 1px solid rgba(216, 221, 225, .32);
+}
+.pxl-anmelde-flaeche .btn-zweitrangig:hover, .pxl-buehne .btn-zweitrangig:hover,
+.auth-wrap .btn-zweitrangig:hover {
+  background: rgba(247, 245, 240, .07); border-color: var(--pxl-gold); color: var(--pxl-gold);
+}
+
 .pxl-buehne .msg-error { background: rgba(178, 58, 72, .16); border-color: rgba(178, 58, 72, .45); color: #ffd9de; }
 .pxl-buehne .msg-success { background: rgba(46, 125, 91, .16); border-color: rgba(46, 125, 91, .45); color: #d6f2e5; }
 .pxl-buehne .tag {

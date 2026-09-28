@@ -70,7 +70,7 @@ export default function Verfuegbarkeit() {
               </div>
             ) : <p className="sub">Noch keine Verfügbarkeit hinterlegt.</p>}
             {latest && <button className="btn" onClick={confirm}>Ja, unverändert — bestätigen</button>}
-            <button className="btn" style={{ marginTop: 10, background: 'transparent', color: 'var(--navy)', border: '1px solid var(--grey-200)' }}
+            <button className="btn btn-zweitrangig" style={{ marginTop: 10 }}
               onClick={() => setMode('edit')}>Ändern…</button>
           </>
         )}

@@ -52,7 +52,7 @@ export default function RegisterKunde() {
         {msg && <div className={`msg ${msg.ok ? 'msg-success' : 'msg-error'}`}>{msg.text}</div>}
         {!done && (
           <>
-            <h3 style={{ margin: '6px 0 10px', color: 'var(--navy)' }}>Firmenprofil</h3>
+            <h3 style={{ margin: '6px 0 10px' }}>Firmenprofil</h3>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 14px' }}>
               {field('Firmenname *', 'firmenname')}
               {field('Branche', 'branche', 'text', false)}
@@ -61,7 +61,7 @@ export default function RegisterKunde() {
               {field('PLZ', 'plz', 'text', false)}
               {field('Ort', 'ort', 'text', false)}
             </div>
-            <h3 style={{ margin: '6px 0 10px', color: 'var(--navy)' }}>Ansprechpartner</h3>
+            <h3 style={{ margin: '6px 0 10px' }}>Ansprechpartner</h3>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 14px' }}>
               <div className="field">
                 <label>Anrede *</label>

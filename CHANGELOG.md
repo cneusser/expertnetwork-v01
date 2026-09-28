@@ -2,6 +2,19 @@
 
 Versionsschema: v\<Major>.\<Sprint>.\<Patch>. Sprintabschluss endet auf .0, Korrekturen zählen den Patch hoch.
 
+## v1.38.1 — Lesbar auf dunklem Grund
+
+Mit v1.34.0 sind die Außenseiten auf die dunkle Bühne gezogen. Ein paar Stellen hatten ihre Farben aber fest verdrahtet und färbten weiter für hellen Grund. Das Ergebnis war heller Text auf hellem Kasten und dunkelblaue Schrift auf dunkelblauem Grund.
+
+- Der Kasten „Assoziierte Partner" auf der Anmeldeseite hatte seinen hellen Grund fest gesetzt, die Schrift aber von der dunklen Karte geerbt. Er war schlicht nicht zu lesen.
+- **Der Einwilligungstext im Einladungsassistenten ebenfalls.** Das war der schwerwiegendste Fall: Ein Text, dem jemand zustimmen soll, muss lesbar sein, sonst ist die Zustimmung keine.
+- Die Knöpfe „Mit Phalanx OS anmelden", „Später" im Einladungsassistenten und der Zweitknopf auf der Verfügbarkeitsseite standen in Navy auf Navy.
+- Der Sprachumschalter DE/EN zeigte die gerade aktive Sprache dunkel auf dunkel, also genau die, die man sehen wollte.
+- Die Zeile „Phalanx GmbH · Impressum · Datenschutz" stand rechts neben der Anmeldekarte statt darunter. Die Fläche war als Reihe gesetzt, und die Fußzeile ist ein Geschwister der Karte.
+- Überschriften auf der Kundenregistrierung und der Kapitalpartnerseite waren aus demselben Grund unsichtbar.
+
+Statt weiter Farben in einzelne Bausteine zu schreiben, gibt es jetzt drei Klassen, die hell und dunkel beide kennen: `hinweis-kante`, `lesetext` und `btn-zweitrangig`. Neue Seiten erben das, ohne dass jemand daran denken muss.
+
 ## v1.38.0 — Der Bericht: was über die Zeit passiert
 
 Jeder Bereich hatte seine eigenen Zahlen. Das Dashboard den Pool, das Ansprache-Cockpit den Trichter, die Abrechnung den Umsatz. Was fehlte, war der Blick über die Zeit. Ob ein Netzwerk wächst, sieht man nicht an einem Stichtag, sondern an der Reihe der Monate.

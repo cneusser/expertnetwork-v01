@@ -72,7 +72,7 @@ export default function Login() {
         <div style={{ textAlign: 'right', fontSize: 12, marginTop: -26 }}>
           {['de', 'en'].map((L) => (
             <button key={L} type="button" onClick={() => setLang(L)}
-              style={{ border: 'none', background: 'none', cursor: 'pointer', fontWeight: lang === L ? 700 : 400, color: lang === L ? 'var(--navy)' : 'var(--grey-400, #8a93a0)' }}>{L.toUpperCase()}</button>
+              className={lang === L ? 'pxl-sprache-aktiv' : 'pxl-sprache'}>{L.toUpperCase()}</button>
           ))}
         </div>
         <h1>{tr(lang, 'Willkommen zurück.', 'Welcome back.')}</h1>
@@ -99,8 +99,8 @@ export default function Login() {
         {/* v1.32.0: Nur fuer Verwaltungskonten. Fuer Experten bleibt der
             regulaere Weg, weil dort die Einwilligung dranhaengt. */}
         {pxEnabled && (
-          <button type="button" className="btn"
-            style={{ marginTop: 10, background: 'transparent', color: 'var(--navy)', border: '1px solid var(--grey-200)' }}
+          <button type="button"
+            className="btn btn-zweitrangig" style={{ marginTop: 10 }}
             onClick={() => { window.location.href = '/api/auth/phalanx'; }}>
             {tr(lang, 'Mit Phalanx OS anmelden', 'Sign in with Phalanx OS')}
           </button>
@@ -116,7 +116,7 @@ export default function Login() {
             'If you received an invitation and have not set a password yet, do not log in here. Have your access link sent instead.')}{' '}
           <Link to="/forgot-password">{tr(lang, 'Zugang schicken lassen', 'Send me my access link')}</Link>
         </div>
-        <div style={{ marginTop: 16, padding: '12px 14px', background: 'var(--grey-100, #f4f6f8)', borderLeft: '3px solid var(--navy)', borderRadius: 6, fontSize: 13, lineHeight: 1.5 }}>
+        <div className="hinweis-kante" style={{ marginTop: 16 }}>
           <strong>{tr(lang, 'Assoziierte Partner', 'Associated partners')}</strong><br />
           {tr(lang,
             'Interim Manager mit eigenem Netzwerk? Verdiene an Empfehlungen, Projekten und gemeinsamer Umsetzung mit.',
