@@ -14,6 +14,7 @@ const { buildBelegPdf, belegeCsv } = require('../utils/billingPdf');
 const { getTemplate, render } = require('../utils/mailTemplates');
 const { getMailProvider } = require('../providers/mail');
 const phalanxProjekte = require('../utils/phalanxProjekte');
+const phalanxZeiten = require('../utils/phalanxZeiten');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -284,6 +285,76 @@ router.put('/mandate/:id/projektnummer', async (req, res) => {
       ? `Zugeordnet zu ${nummer} ${projekt.name}.`
       : `Zugeordnet zu ${nummer} ${projekt.name}. Das Projekt ist in Phalanx OS abgeschlossen.`,
   });
+});
+
+/* ------------- v1.40.0: Stunden an Phalanx OS übergeben ------------------ */
+
+/**
+ * Einen einzelnen Nachweis übergeben, auf Knopfdruck.
+ *
+ * Wiederholt aufgerufen entsteht drüben kein zweiter Eintrag, sondern der
+ * vorhandene wird aktualisiert. Deshalb darf der Knopf auch zweimal gedrückt
+ * werden, ohne dass jemand die Luft anhält.
+ */
+router.post('/nachweis/:id/uebergeben', async (req, res) => {
+  const n = await db('timesheets').where({ id: req.params.id, tenant_id: req.user.tenantId }).first();
+  if (!n) return res.status(404).json({ error: 'Leistungsnachweis nicht gefunden' });
+
+  const mandat = await ladeMandat(n.engagement_id, req.user.tenantId);
+  if (!mandat?.phalanx_projekt_nummer) {
+    return res.status(400).json({ error: 'Das Mandat ist keinem Phalanx-OS-Projekt zugeordnet.' });
+  }
+  if (!phalanxZeiten.eingerichtet()) {
+    return res.status(503).json({ error: 'Der Projektabgleich ist nicht eingerichtet.' });
+  }
+
+  const e = await phalanxZeiten.gleicheAb({
+    db, tenantId: req.user.tenantId, nurNachweisId: n.id,
+    audit: (eintrag) => req.audit(eintrag),
+  });
+
+  if (e.abgerechnet) {
+    return res.status(409).json({
+      error: `In Phalanx OS ist dieser Zeitraum bereits abgerechnet und wird nicht mehr verändert. ${e.meldungen[0] || ''}`.trim(),
+      ...e,
+    });
+  }
+  if (e.fehler) return res.status(502).json({ error: e.meldungen[0] || 'Übergabe fehlgeschlagen', ...e });
+
+  await req.audit({
+    action: 'phalanx.zeit_uebergeben', resource: 'timesheet', resourceId: n.id,
+    newValue: { periode: n.periode, nummer: mandat.phalanx_projekt_nummer, storniert: Boolean(e.storniert) },
+  });
+  res.locals.auditLogged = true;
+
+  res.json({
+    ok: true, ...e,
+    message: e.storniert ? `${n.periode} drüben auf null gesetzt und als storniert vermerkt.`
+      : e.unveraendert ? `${n.periode} war schon auf dem Stand, nichts zu tun.`
+        : `${n.periode} an Phalanx OS übergeben.`,
+  });
+});
+
+/** Alle übergabefähigen Nachweise auf einmal, von Hand angestoßen. */
+router.post('/phalanx-abgleich', requireRole('admin'), async (req, res) => {
+  if (!phalanxZeiten.eingerichtet()) {
+    return res.status(503).json({ error: 'Der Projektabgleich ist nicht eingerichtet.' });
+  }
+  const e = await phalanxZeiten.gleicheAb({
+    db, tenantId: req.user.tenantId, audit: (eintrag) => req.audit(eintrag),
+  });
+  await req.audit({
+    action: 'phalanx.zeiten_abgleich_von_hand', resource: 'timesheet',
+    newValue: { geprueft: e.geprueft, uebergeben: e.uebergeben, fehler: e.fehler },
+  });
+  res.locals.auditLogged = true;
+
+  const teile = [`${e.geprueft} geprüft`, `${e.uebergeben} übergeben`];
+  if (e.storniert) teile.push(`${e.storniert} storniert`);
+  if (e.unveraendert) teile.push(`${e.unveraendert} unverändert`);
+  if (e.abgerechnet) teile.push(`${e.abgerechnet} drüben schon abgerechnet`);
+  if (e.fehler) teile.push(`${e.fehler} mit Fehler`);
+  res.json({ ok: !e.fehler, ...e, message: `${teile.join(', ')}.` });
 });
 
 /** Nachweis freigeben (Voraussetzung für die Abrechnung). */

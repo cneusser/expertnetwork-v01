@@ -5,7 +5,7 @@
  * Belege ansehen, versenden, auf bezahlt setzen, für die Buchhaltung exportieren.
  */
 import { useEffect, useState } from 'react';
-import { Receipt, Plus, FileText, Send, Download, Check, Link2 } from 'lucide-react';
+import { Receipt, Plus, FileText, Send, Download, Check, Link2, Upload } from 'lucide-react';
 import Layout from '../components/Layout';
 import { api } from '../api/client';
 
@@ -158,6 +158,15 @@ export default function AdminAbrechnung() {
             </div>
           )}
 
+          {osProjekte?.length > 0 && mandate?.some((m) => m.phalanx_projekt_nummer) && (
+            <p style={{ fontSize: 13, margin: '0 0 12px' }}>
+              <button type="button" className="tab" style={{ padding: 0, color: 'var(--navy)' }}
+                onClick={() => wrap(() => api.post('/api/billing/phalanx-abgleich', {}))}>
+                <Upload size={14} style={{ verticalAlign: '-2px' }} /> Alle Stunden nach Phalanx OS abgleichen
+              </button>{' '}
+              <span className="muted">Läuft ohnehin einmal täglich. Der Knopf ist für den Fall, dass es jetzt sein soll.</span>
+            </p>
+          )}
           {mandate?.map((m) => <MandatKarte key={m.id} m={m} wrap={wrap} pdfOeffnen={pdfOeffnen} osProjekte={osProjekte} />)}
           {mandate && !mandate.length && !kandidaten.length && (
             <p className="muted">Noch keine Mandate. Sobald eine Bewerbung im Funnel auf besetzt steht, taucht sie hier zur Anlage auf.</p>
@@ -230,7 +239,7 @@ function MandatKarte({ m, wrap, pdfOeffnen, osProjekte }) {
       <PhalanxZuordnung m={m} wrap={wrap} osProjekte={osProjekte} />
 
       <table className="table" style={{ marginTop: 8 }}>
-        <thead><tr><th>Zeitraum</th><th>Tage</th><th>Spesen</th><th>Status</th><th /></tr></thead>
+        <thead><tr><th>Zeitraum</th><th>Tage</th><th>Spesen</th><th>Status</th><th>Phalanx OS</th><th /></tr></thead>
         <tbody>
           {m.nachweise.map((n) => (
             <tr key={n.id}>
@@ -238,6 +247,14 @@ function MandatKarte({ m, wrap, pdfOeffnen, osProjekte }) {
               <td>{String(n.tage).replace('.', ',')}</td>
               <td>{n.spesen_eur ? `${n.spesen_eur} EUR` : ''}</td>
               <td><span className={`status status-${NACHWEIS_BADGE[n.status]}`}>{NACHWEIS_LABEL[n.status]}</span></td>
+              <td style={{ fontSize: 12.5, whiteSpace: 'nowrap' }}>
+                {!m.phalanx_projekt_nummer ? <span className="muted">—</span>
+                  : n.phalanx_fehler ? <span style={{ color: 'var(--danger)' }} title={n.phalanx_fehler}>hängt</span>
+                    : n.phalanx_storniert ? <span className="muted">storniert</span>
+                      : n.phalanx_gesendet_am ? <span style={{ color: 'var(--success)' }}>übergeben</span>
+                        : ['eingereicht', 'freigegeben', 'abgerechnet'].includes(n.status)
+                          ? <span className="muted">offen</span> : <span className="muted">—</span>}
+              </td>
               <td style={{ whiteSpace: 'nowrap' }}>
                 {['offen', 'eingereicht'].includes(n.status) && (
                   <button type="button" className="tab" style={{ padding: 0, color: 'var(--navy)' }}
@@ -252,10 +269,17 @@ function MandatKarte({ m, wrap, pdfOeffnen, osProjekte }) {
                       wrap(() => api.post(`/api/billing/nachweis/${n.id}/abrechnen`, {}));
                     }}>Abrechnen</button>
                 )}
+                {m.phalanx_projekt_nummer && ['eingereicht', 'freigegeben', 'abgerechnet'].includes(n.status) && (
+                  <button type="button" className="tab" style={{ padding: 0, marginLeft: 8, color: 'var(--navy)' }}
+                    title="Stunden an Phalanx OS übergeben. Zweimal gedrückt entsteht drüben kein zweiter Eintrag."
+                    onClick={() => wrap(() => api.post(`/api/billing/nachweis/${n.id}/uebergeben`, {}))}>
+                    <Upload size={13} style={{ verticalAlign: '-2px' }} /> {n.phalanx_gesendet_am ? 'Erneut' : 'Übergeben'}
+                  </button>
+                )}
               </td>
             </tr>
           ))}
-          {!m.nachweise.length && <tr><td colSpan={5} className="muted">Noch keine Leistungsnachweise.</td></tr>}
+          {!m.nachweise.length && <tr><td colSpan={6} className="muted">Noch keine Leistungsnachweise.</td></tr>}
         </tbody>
       </table>
 

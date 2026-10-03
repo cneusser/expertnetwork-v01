@@ -154,6 +154,11 @@ async function start() {
   // Tageslauf, PHALANX_SYNC_INTERVALL_MIN=0 schaltet ihn ab.
   const { laufAlleMandanten } = require('./sync/phalanxpool');
   registerIntervallJob('phalanx-pool-sync', process.env.PHALANX_SYNC_INTERVALL_MIN || 30, laufAlleMandanten);
+
+  // v1.40.0: Stunden nach Phalanx OS. Einmal am Tag reicht, Leistungsnachweise
+  // ändern sich nicht im Minutentakt. Wer früher will, drückt den Knopf.
+  const { laufAlleMandanten: zeitenLauf } = require('./sync/phalanxzeiten');
+  registerJob('phalanx-zeiten', zeitenLauf);
   startScheduler();
   app.listen(PORT, () => console.log(`Phalanx Expert Network Server auf Port ${PORT}`));
 }

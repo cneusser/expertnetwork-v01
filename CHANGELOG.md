@@ -2,6 +2,22 @@
 
 Versionsschema: v\<Major>.\<Sprint>.\<Patch>. Sprintabschluss endet auf .0, Korrekturen zählen den Patch hoch.
 
+## v1.40.0 — Projektabgleich, Stufe 2 und 3: die Stunden
+
+Was in Stufe 1 zugeordnet wurde, wird jetzt übergeben. Auf Knopfdruck und einmal täglich von allein, mit derselben Funktion: Ein zweiter Weg, der dasselbe anders macht, ist ein zweiter Weg, der anders kaputtgeht.
+
+**Zur Form der Zeit, denn hier treffen zwei Welten aufeinander.** Phalanx OS führt Zeiten als Minuten an einem Tag, ExpertNetwork als Tage in einem Monat, weil die Interim-Abrechnung auf Tagessätzen beruht und hier niemand Stundenzettel schreibt. Aus 12,5 Tagen im September wird deshalb **ein** Eintrag über 6.000 Minuten, datiert auf den Monatsletzten, mit der Periode in der Beschreibung. Das sieht drüben grob aus, und das ist Absicht: Die Alternative wäre gewesen, die Tage auf Arbeitstage zu verteilen. Dann stünden in der Projektakte zwölf schöne Einträge, von denen kein einziger stimmt. Zahlen, die genauer aussehen als sie sind, richten mehr Schaden an als grobe Zahlen, denen man die Grobheit ansieht.
+
+- **Wiederholsicher.** `extern_kennung` ist die Zeilennummer des Nachweises und ändert sich nie. Drüben entsteht daraus eine eindeutige `source_ref`, und eine zweimal gesendete Zeile aktualisiert den vorhandenen Eintrag, statt einen zweiten anzulegen. Die Absicherung liegt in der Datenbank der Gegenstelle, nicht in unserem Code: Eine Prüfung im Code lässt sich umgehen, eine Eindeutigkeit in der Tabelle nicht.
+- **Ein abgerechneter Eintrag ist unantastbar.** Antwortet Phalanx OS mit 409, wird nichts verändert, der Grund steht am Nachweis und im Protokoll. Eine Rechnung, deren Positionen sich nachträglich ändern, ist schlimmer als eine fehlende Korrektur.
+- **Gelöscht wird über die Schnittstelle nichts.** Eine zurückgenommene Zeile geht als null Minuten mit Stornovermerk hinaus. Sonst fehlte in der Abrechnung eine Position, die jemand schon gesehen hat.
+- **Kein Klarname, keine Mailadresse, kein Honorarsatz.** Nach drüben geht ein Kürzel aus drei Buchstaben des Vor- und Nachnamens: Martin Schumacher wird MARSCH. Einmal vergeben, bleibt es, auch bei Namenswechsel, denn drüben hängen Zeiteinträge daran. Das Kürzel ist pseudonym, nicht anonym, und das ist nötig: Sonst könnte in der Projektakte niemand mehr sagen, wessen Stunden das sind.
+- Die Nutzlast wird **vor jedem Versand** gegen die echten Daten dieses Experten geprüft, nicht gegen eine erfundene Liste. Ein Feld, das jemand in zwei Jahren gutgemeint ergänzt, fällt damit sofort auf, statt still mitzureisen.
+- Offene Nachweise gehen nicht hinaus. Was der Experte noch bearbeitet, hat in einer fremden Projektakte nichts verloren.
+- Der Tageslauf schickt nur, was sich geändert hat, und ein einzelner Fehlschlag bricht ihn nicht ab.
+
+Offen bleibt bewusst: Tagesgenaue Erfassung. Sollte sie kommen, ändert sich nur der Erzeuger der Nutzlast, die Wiederholsicherheit bleibt wie sie ist.
+
 ## v1.39.0 — Projektabgleich mit Phalanx OS, Stufe 1: die Zuordnung
 
 Phalanx OS ist die führende Akte für Projekte, Nummern, Zeiten und Abrechnung. ExpertNetwork führt Experten, Anfragen und Mandate. Was fehlte, war die Verbindung: Ein Mandat gehört fast immer zu einem Projekt, das drüben geführt wird.
