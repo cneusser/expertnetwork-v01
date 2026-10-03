@@ -11,6 +11,7 @@ const express = require('express');
 const { db } = require('../db/knex');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const phalanxOs = require('../utils/phalanxOs');
+const phalanxProjekte = require('../utils/phalanxProjekte');
 const pool = require('../sync/phalanxpool');
 
 const router = express.Router();
@@ -106,6 +107,42 @@ router.post('/melden', async (req, res) => {
   });
   res.locals.auditLogged = true;
   res.json({ ok: true, ...ergebnis, message: `${ergebnis.gemeldet} von ${ergebnis.offen} zurückgemeldet.` });
+});
+
+/* ----------------------- v1.39.0: Projekte lesen ------------------------ */
+
+/**
+ * Die Projektliste für die Auswahl am Mandat.
+ *
+ * Abgeschlossene Projekte bleiben in der Antwort und sind gekennzeichnet.
+ * Nachträgliche Stunden auf ein abgeschlossenes Projekt kommen vor, und sie
+ * sollen nicht daran scheitern, dass das Projekt aus der Liste verschwunden
+ * ist.
+ */
+router.get('/projekte', async (req, res) => {
+  if (!phalanxProjekte.eingerichtet()) {
+    return res.status(503).json({
+      error: 'Der Projektabgleich ist nicht eingerichtet',
+      fehlend: phalanxProjekte.fehlendeVariablen(),
+    });
+  }
+  try {
+    const liste = await phalanxProjekte.projekte({ frisch: req.query.frisch === '1' });
+    res.json({ projekte: liste, kategorien: phalanxProjekte.KATEGORIEN });
+  } catch (e) {
+    // Ein abgelehnter Schlüssel wird protokolliert. Das ist der Fall, bei dem
+    // jemand nachsehen muss, und ohne Spur sieht ihn niemand.
+    if (e.code === 'schluessel_abgelehnt') {
+      await req.audit({ action: 'phalanx.projekte_abgelehnt', resource: 'phalanx_projekte', newValue: { grund: e.message } });
+      res.locals.auditLogged = true;
+    }
+    res.status(e.code === 'nicht_eingerichtet' ? 503 : 502).json({ error: e.message, code: e.code || 'fehler' });
+  }
+});
+
+/** Lebenszeichen für die Projektschnittstelle, getrennt vom Datenpool. */
+router.get('/projekte/ping', async (_req, res) => {
+  res.json(await phalanxProjekte.ping());
 });
 
 module.exports = router;

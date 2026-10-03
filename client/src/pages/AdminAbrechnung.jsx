@@ -5,7 +5,7 @@
  * Belege ansehen, versenden, auf bezahlt setzen, für die Buchhaltung exportieren.
  */
 import { useEffect, useState } from 'react';
-import { Receipt, Plus, FileText, Send, Download, Check } from 'lucide-react';
+import { Receipt, Plus, FileText, Send, Download, Check, Link2 } from 'lucide-react';
 import Layout from '../components/Layout';
 import { api } from '../api/client';
 
@@ -25,6 +25,9 @@ export default function AdminAbrechnung() {
   const [neu, setNeu] = useState(null);
   const [tab, setTab] = useState('mandate');
   const [zeitraum, setZeitraum] = useState({ von: '', bis: '' });
+  // v1.39.0: Die Projekte aus Phalanx OS, einmal für die ganze Seite. Fehlt
+  // die Anbindung, bleibt die Liste leer und die Abrechnung läuft weiter.
+  const [osProjekte, setOsProjekte] = useState(null);
 
   const laden = async () => {
     try {
@@ -37,6 +40,11 @@ export default function AdminAbrechnung() {
     } catch (e) { setMsg({ ok: false, text: e.message }); }
   };
   useEffect(() => { laden(); }, [zeitraum.von, zeitraum.bis]);
+  useEffect(() => {
+    api.get('/api/phalanx-os/projekte')
+      .then((d) => setOsProjekte(d.projekte || []))
+      .catch(() => setOsProjekte([]));
+  }, []);
 
   const wrap = async (fn) => {
     try { const d = await fn(); setMsg({ ok: true, text: d?.message || 'Erledigt.' }); await laden(); }
@@ -150,7 +158,7 @@ export default function AdminAbrechnung() {
             </div>
           )}
 
-          {mandate?.map((m) => <MandatKarte key={m.id} m={m} wrap={wrap} pdfOeffnen={pdfOeffnen} />)}
+          {mandate?.map((m) => <MandatKarte key={m.id} m={m} wrap={wrap} pdfOeffnen={pdfOeffnen} osProjekte={osProjekte} />)}
           {mandate && !mandate.length && !kandidaten.length && (
             <p className="muted">Noch keine Mandate. Sobald eine Bewerbung im Funnel auf besetzt steht, taucht sie hier zur Anlage auf.</p>
           )}
@@ -205,7 +213,7 @@ export default function AdminAbrechnung() {
   );
 }
 
-function MandatKarte({ m, wrap, pdfOeffnen }) {
+function MandatKarte({ m, wrap, pdfOeffnen, osProjekte }) {
   const [periode, setPeriode] = useState(heutePeriode);
   const [tage, setTage] = useState('');
   const [spesen, setSpesen] = useState('');
@@ -218,6 +226,8 @@ function MandatKarte({ m, wrap, pdfOeffnen }) {
         {m.gebuehr_modell === 'gu_anteil' ? `Aufschlag ${m.gebuehr_prozent} Prozent` : `Erfolgshonorar ${m.gebuehr_prozent} Prozent auf ${m.plan_tage || 0} geplante Tage`} ·
         USt {m.ust_prozent} Prozent
       </p>
+
+      <PhalanxZuordnung m={m} wrap={wrap} osProjekte={osProjekte} />
 
       <table className="table" style={{ marginTop: 8 }}>
         <thead><tr><th>Zeitraum</th><th>Tage</th><th>Spesen</th><th>Status</th><th /></tr></thead>
@@ -275,6 +285,72 @@ function MandatKarte({ m, wrap, pdfOeffnen }) {
           ))}
         </p>
       )}
+    </div>
+  );
+}
+
+/**
+ * v1.39.0 — Zuordnung des Mandats zu einem Projekt in Phalanx OS.
+ *
+ * Ausgewählt, nicht abgetippt. Eine fünfstellige Nummer von Hand einzugeben
+ * geht ein paar Dutzend Mal gut und dann einmal daneben, und eine Stunde auf
+ * dem falschen Projekt findet niemand wieder.
+ *
+ * Abgeschlossene Projekte stehen mit in der Liste, gekennzeichnet.
+ * Nachträgliche Stunden darauf kommen vor.
+ */
+function PhalanxZuordnung({ m, wrap, osProjekte }) {
+  const [offen, setOffen] = useState(false);
+  const [wahl, setWahl] = useState(m.phalanx_projekt_nummer || '');
+  const zugeordnet = m.phalanx_projekt_nummer;
+  const projekt = m.phalanx_projekt;
+
+  // Keine Anbindung, keine Liste. Dann sagen wir das, statt ein leeres
+  // Auswahlfeld anzubieten, das nach einem Fehler aussieht.
+  if (osProjekte !== null && !osProjekte.length && !zugeordnet) {
+    return (
+      <p className="muted" style={{ fontSize: 12.5, margin: '6px 0 2px' }}>
+        <Link2 size={13} style={{ verticalAlign: '-2px' }} /> Phalanx OS ist für den Projektabgleich noch nicht eingerichtet.
+      </p>
+    );
+  }
+
+  if (!offen) {
+    return (
+      <p style={{ fontSize: 13, margin: '6px 0 2px' }}>
+        <Link2 size={13} style={{ verticalAlign: '-2px' }} />{' '}
+        {zugeordnet ? (
+          <>
+            <strong>{zugeordnet}</strong>
+            {projekt ? ` ${projekt.name}` : ''}
+            {projekt && !projekt.offen && <span className="status status-inaktiv" style={{ marginLeft: 6 }}>abgeschlossen</span>}
+            {!projekt && <span className="muted"> (Name gerade nicht abrufbar)</span>}
+          </>
+        ) : <span className="muted">Keinem Phalanx-OS-Projekt zugeordnet</span>}
+        {' '}
+        <button type="button" className="tab" style={{ padding: 0, marginLeft: 6, color: 'var(--navy)' }}
+          onClick={() => setOffen(true)}>{zugeordnet ? 'Ändern' : 'Zuordnen'}</button>
+      </p>
+    );
+  }
+
+  return (
+    <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', margin: '8px 0' }}>
+      <select value={wahl} onChange={(e) => setWahl(e.target.value)} style={{ maxWidth: 420 }}>
+        <option value="">Keine Zuordnung</option>
+        {(osProjekte || []).map((p) => (
+          <option key={p.nummer} value={p.nummer}>
+            {p.nummer} · {p.name}{p.kategorie ? ` (${p.kategorie})` : ''}{p.offen ? '' : ' — abgeschlossen'}
+          </option>
+        ))}
+      </select>
+      <button type="button" className="btn" style={{ width: 'auto', padding: '7px 14px', marginBottom: 0 }}
+        onClick={async () => {
+          await wrap(() => api.put(`/api/billing/mandate/${m.id}/projektnummer`, { nummer: wahl || null }));
+          setOffen(false);
+        }}>Speichern</button>
+      <button type="button" className="tab" style={{ padding: 0, color: 'var(--grey-600)' }}
+        onClick={() => { setWahl(m.phalanx_projekt_nummer || ''); setOffen(false); }}>Abbrechen</button>
     </div>
   );
 }

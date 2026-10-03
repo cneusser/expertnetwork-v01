@@ -13,6 +13,7 @@ const { berechne, verkaufssatzCent, naechsteBelegNr } = require('../utils/billin
 const { buildBelegPdf, belegeCsv } = require('../utils/billingPdf');
 const { getTemplate, render } = require('../utils/mailTemplates');
 const { getMailProvider } = require('../providers/mail');
+const phalanxProjekte = require('../utils/phalanxProjekte');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -130,6 +131,22 @@ router.get('/mandate', async (req, res) => {
     m.nachweise = await db('timesheets').where({ engagement_id: m.id }).orderBy('periode', 'desc');
     m.belege = await db('invoices').where({ engagement_id: m.id }).orderBy('id', 'desc');
   }
+
+  // v1.39.0: Den Namen zur Projektnummer dazustellen, aus Phalanx OS geholt
+  // und nicht hier gespeichert. Ist die Gegenstelle gerade nicht erreichbar,
+  // bleibt die Liste trotzdem benutzbar: Dann steht nur die Nummer da. Eine
+  // Abrechnungsübersicht darf nicht ausfallen, weil ein fremdes System hustet.
+  const mitNummer = mandate.filter((m) => m.phalanx_projekt_nummer);
+  if (mitNummer.length && phalanxProjekte.eingerichtet()) {
+    try {
+      const liste = await phalanxProjekte.projekte();
+      const nachNummer = new Map(liste.map((p) => [p.nummer, p]));
+      for (const m of mitNummer) m.phalanx_projekt = nachNummer.get(m.phalanx_projekt_nummer) || null;
+    } catch {
+      for (const m of mitNummer) m.phalanx_projekt = null;
+    }
+  }
+
   res.json({ mandate });
 });
 
@@ -182,6 +199,91 @@ router.put('/mandate/:id', async (req, res) => {
   if (!Object.keys(patch).length) return res.status(400).json({ error: 'Nichts zu ändern' });
   await db('engagements').where({ id: mandat.id }).update(patch);
   res.json({ ok: true, message: 'Mandat aktualisiert.' });
+});
+
+/* -------------- v1.39.0: Zuordnung zu einem Phalanx-OS-Projekt ------------- */
+
+/**
+ * Die Projektnummer am Mandat setzen oder lösen.
+ *
+ * Die Nummer gehört Phalanx OS. Hier wird sie nur getragen, nie erzeugt, und
+ * beim Speichern gegen die Gegenstelle geprüft. Eine unbekannte Nummer wird
+ * abgewiesen und nicht etwa drüben angelegt: Wer hier Nummern erfände, hätte
+ * am Ende zwei Projektverzeichnisse, die sich widersprechen.
+ *
+ * Name, Kategorie und Phase werden nicht gespeichert, sondern bei jeder
+ * Anzeige frisch geholt. Eine Kopie hier wäre nach der ersten Umbenennung
+ * drüben falsch.
+ */
+router.put('/mandate/:id/projektnummer', async (req, res) => {
+  const mandat = await ladeMandat(req.params.id, req.user.tenantId);
+  if (!mandat) return res.status(404).json({ error: 'Mandat nicht gefunden' });
+
+  const roh = req.body?.nummer;
+  const vorher = mandat.phalanx_projekt_nummer || null;
+
+  // Leer bedeutet lösen. Das muss gehen, ohne Phalanx OS zu fragen, sonst
+  // lässt sich eine falsche Zuordnung bei gestörter Verbindung nicht zurücknehmen.
+  if (roh === null || roh === undefined || String(roh).trim() === '') {
+    await db('engagements').where({ id: mandat.id })
+      .update({ phalanx_projekt_nummer: null, phalanx_sync_fehler: null });
+    await req.audit({
+      action: 'phalanx.projektnummer_geloest', resource: 'engagement', resourceId: mandat.id,
+      oldValue: { nummer: vorher }, newValue: { nummer: null },
+    });
+    res.locals.auditLogged = true;
+    return res.json({ ok: true, nummer: null, message: 'Zuordnung gelöst.' });
+  }
+
+  const nummer = String(roh).trim();
+  if (!phalanxProjekte.nummerGueltig(nummer)) {
+    return res.status(400).json({
+      error: 'Eine Projektnummer hat fünf Ziffern und beginnt mit 10, 20, 30 oder 40.',
+    });
+  }
+  if (!phalanxProjekte.eingerichtet()) {
+    return res.status(503).json({
+      error: 'Der Projektabgleich ist nicht eingerichtet, die Nummer lässt sich nicht prüfen.',
+      fehlend: phalanxProjekte.fehlendeVariablen(),
+    });
+  }
+
+  let projekt;
+  try {
+    projekt = await phalanxProjekte.finde(nummer);
+  } catch (e) {
+    // Nicht speichern, wenn wir nicht prüfen konnten. Eine ungeprüfte Nummer
+    // sieht aus wie eine geprüfte, und genau das wäre das Problem.
+    await db('engagements').where({ id: mandat.id }).update({ phalanx_sync_fehler: e.message });
+    if (e.code === 'schluessel_abgelehnt') {
+      await req.audit({ action: 'phalanx.projekte_abgelehnt', resource: 'engagement', resourceId: mandat.id, newValue: { grund: e.message } });
+      res.locals.auditLogged = true;
+    }
+    return res.status(502).json({ error: `Nummer nicht prüfbar: ${e.message}`, code: e.code || 'fehler' });
+  }
+
+  if (!projekt) {
+    return res.status(404).json({
+      error: `Phalanx OS kennt die Projektnummer ${nummer} nicht. Bitte dort anlegen und die Nummer von dort übernehmen.`,
+    });
+  }
+
+  await db('engagements').where({ id: mandat.id }).update({
+    phalanx_projekt_nummer: nummer,
+    phalanx_sync_fehler: null,
+  });
+  await req.audit({
+    action: 'phalanx.projektnummer_gesetzt', resource: 'engagement', resourceId: mandat.id,
+    oldValue: { nummer: vorher }, newValue: { nummer },
+  });
+  res.locals.auditLogged = true;
+
+  res.json({
+    ok: true, nummer, projekt,
+    message: projekt.offen
+      ? `Zugeordnet zu ${nummer} ${projekt.name}.`
+      : `Zugeordnet zu ${nummer} ${projekt.name}. Das Projekt ist in Phalanx OS abgeschlossen.`,
+  });
 });
 
 /** Nachweis freigeben (Voraussetzung für die Abrechnung). */

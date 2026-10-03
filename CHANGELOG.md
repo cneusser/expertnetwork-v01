@@ -2,6 +2,24 @@
 
 Versionsschema: v\<Major>.\<Sprint>.\<Patch>. Sprintabschluss endet auf .0, Korrekturen zählen den Patch hoch.
 
+## v1.39.0 — Projektabgleich mit Phalanx OS, Stufe 1: die Zuordnung
+
+Phalanx OS ist die führende Akte für Projekte, Nummern, Zeiten und Abrechnung. ExpertNetwork führt Experten, Anfragen und Mandate. Was fehlte, war die Verbindung: Ein Mandat gehört fast immer zu einem Projekt, das drüben geführt wird.
+
+Diese Stufe stellt nur die Zuordnung her. Noch werden keine Stunden übergeben. Allein eine saubere Zuordnung ist schon die halbe Miete, und sie lässt sich prüfen, bevor Zahlen fließen.
+
+- Die Projektnummer sitzt **am Mandat**, nicht am Experten. Ein Experte arbeitet im Lauf der Zeit für mehrere Projekte, am Experten wäre die Nummer schon beim zweiten Mandat falsch.
+- Ausgewählt statt abgetippt. Die Liste kommt aus Phalanx OS, gruppiert nach Kategorie (Kapitalisierung 10, StartUp 20, Beratung 30, Akademie 40).
+- **Abgeschlossene Projekte bleiben wählbar**, gekennzeichnet. Nachträgliche Stunden auf ein abgeschlossenes Projekt kommen vor und sollen nicht daran scheitern, dass das Projekt aus der Auswahl verschwunden ist.
+- Beim Speichern wird die Nummer gegen Phalanx OS geprüft. Eine unbekannte Nummer wird abgewiesen und drüben **nicht angelegt**. Wer hier Nummern erfände, hätte am Ende zwei Projektverzeichnisse, die sich widersprechen.
+- Projektname, Kategorie und Phase gehören Phalanx OS. Sie werden angezeigt, aber nicht kopiert: Eine Kopie wäre nach der ersten Umbenennung drüben falsch, und niemand würde es merken.
+- Konnte nicht geprüft werden, wird nicht gespeichert. Eine ungeprüfte Nummer sieht aus wie eine geprüfte, und genau das wäre das Problem. Der Grund steht am Mandat.
+- Lösen geht immer, auch bei gestörter Verbindung. Eine falsche Zuordnung muss man zurücknehmen können.
+- Fällt Phalanx OS aus, bleibt die Abrechnung benutzbar. Dann steht nur die Nummer da statt Nummer und Name. Eine Abrechnungsübersicht darf nicht ausfallen, weil ein fremdes System hustet.
+- Der Schlüssel (`PHALANX_OS_API_KEY`) steht ausschließlich in der Umgebung, wird nie protokolliert und taucht in keiner Antwort und keiner Fehlermeldung auf. Ein abgelehnter Schlüssel hinterlässt einen Protokolleintrag, denn das ist der Fall, bei dem jemand nachsehen muss.
+
+Getrennt von der Datenpool-Anbindung aus v1.32.0: Der Pool läuft über OIDC mit Client-Geheimnis, der Projektabgleich über einen Bearer-Schlüssel. Zwei Verfahren, zwei Dateien. In einer Datei stünden zwei Arten von Geheimnis nebeneinander, und spätestens beim Protokollieren verwechselt das jemand.
+
 ## v1.38.1 — Lesbar auf dunklem Grund
 
 Mit v1.34.0 sind die Außenseiten auf die dunkle Bühne gezogen. Ein paar Stellen hatten ihre Farben aber fest verdrahtet und färbten weiter für hellen Grund. Das Ergebnis war heller Text auf hellem Kasten und dunkelblaue Schrift auf dunkelblauem Grund.
