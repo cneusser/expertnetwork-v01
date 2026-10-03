@@ -123,6 +123,9 @@ Zwei Strecken zum Phalanx OS, beide abgeschaltet, solange die Umgebungsvariablen
 
 ```
 PHALANX_OS_BASE_URL=https://phalanx-os-production.up.railway.app
+#   Nur Schema und Host, kein Pfad. Nicht die Rücksprungadresse dieser
+#   Anwendung eintragen: Dann fragt ExpertNetwork die Discovery bei sich
+#   selbst ab und meldet 401.
 PHALANX_OS_CLIENT_ID=<aus Phalanx OS, Verwaltung, SSO-Clients>
 PHALANX_OS_CLIENT_SECRET=<ebenda, nie ins Repo>
 PHALANX_OS_API_KEY=<ebenda, nie ins Repo>

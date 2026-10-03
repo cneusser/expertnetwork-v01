@@ -69,6 +69,15 @@ export default function AdminPhalanxOs() {
       {daten && (
         <div className="card" style={{ marginBottom: 18 }}>
           <h3>Verbindung</h3>
+          {/* v1.40.1: Eine Basis, die auf uns selbst oder auf einen Pfad zeigt,
+              führt zu einer 401 und damit zur Suche an der falschen Stelle.
+              Steht sie falsch, sagen wir es hier, vor jedem Prüfknopf. */}
+          {daten.basis_problem && (
+            <div className="msg msg-error" style={{ marginTop: 8, marginBottom: 10 }}>
+              <strong>Die Basis-Adresse stimmt nicht.</strong><br />
+              {daten.basis_problem}
+            </div>
+          )}
           <p className="muted" style={{ fontSize: 13, marginTop: 6 }}>
             Basis: {daten.basis_url || 'nicht gesetzt'}<br />
             Rücksprungadresse: <code>{daten.redirect_uri}</code><br />

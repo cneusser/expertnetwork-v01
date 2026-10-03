@@ -64,6 +64,15 @@ async function aufruf(pfad) {
     e.code = 'nicht_eingerichtet';
     throw e;
   }
+  // Dieselbe Basis wie der Datenpool, also dieselbe Stolperstelle.
+  const { basisProblem } = require('./phalanxOs');
+  const problem = basisProblem();
+  if (problem) {
+    const e = new Error(problem);
+    e.code = 'basis_falsch';
+    throw e;
+  }
+
   let res;
   try {
     res = await fetch(`${BASIS()}${pfad}`, {

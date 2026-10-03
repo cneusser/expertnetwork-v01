@@ -36,6 +36,7 @@ router.get('/', async (req, res) => {
     eingerichtet: phalanxOs.eingerichtet(),
     fehlende_variablen: phalanxOs.fehlendeVariablen(),
     basis_url: process.env.PHALANX_OS_BASE_URL || null,
+    basis_problem: phalanxOs.basisProblem(),
     redirect_uri: phalanxOs.redirectUri(),
     tags: pool.TAGS(),
     intervall_minuten: Number(process.env.PHALANX_SYNC_INTERVALL_MIN || 30),

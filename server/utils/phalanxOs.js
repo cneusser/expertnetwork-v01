@@ -27,6 +27,38 @@ const APP_URL = () => process.env.APP_URL
 const eingerichtet = () => Boolean(
   BASIS() && process.env.PHALANX_OS_CLIENT_ID && process.env.PHALANX_OS_CLIENT_SECRET,
 );
+
+/**
+ * v1.40.1 — Ist die Basis plausibel?
+ *
+ * Aus gegebenem Anlass: Stand in PHALANX_OS_BASE_URL die Rücksprungadresse
+ * dieser Anwendung, fragte ExpertNetwork die Discovery bei sich selbst ab und
+ * bekam 401. Die Meldung lautete dann "Discovery fehlgeschlagen (401)", und
+ * damit sucht man an der falschen Stelle.
+ *
+ * Die Prüfung kostet nichts und spart eine Stunde. Sie meldet nur, was
+ * sicher falsch ist, und rät nicht herum.
+ */
+function basisProblem() {
+  const roh = (process.env.PHALANX_OS_BASE_URL || '').trim();
+  if (!roh) return null; // fehlt, das meldet fehlendeVariablen()
+
+  let u;
+  try {
+    u = new URL(roh);
+  } catch {
+    return 'PHALANX_OS_BASE_URL ist keine gültige Adresse. Erwartet wird die reine Adresse von Phalanx OS, etwa https://phalanx-os-production.up.railway.app';
+  }
+
+  const eigene = (() => { try { return new URL(APP_URL()).host; } catch { return null; } })();
+  if (eigene && u.host === eigene) {
+    return `PHALANX_OS_BASE_URL zeigt auf diese Anwendung selbst (${u.host}). Dort steht die Adresse von Phalanx OS, nicht unsere eigene.`;
+  }
+  if (u.pathname && u.pathname !== '/') {
+    return `PHALANX_OS_BASE_URL enthält einen Pfad (${u.pathname}). Erwartet wird nur Schema und Host, etwa https://phalanx-os-production.up.railway.app. Die Rücksprungadresse gehört in Phalanx OS, nicht hierher.`;
+  }
+  return null;
+}
 const redirectUri = () => process.env.PHALANX_OS_REDIRECT_URI || `${APP_URL()}/api/auth/phalanx/callback`;
 
 /* ------------------------- Discovery und Schlüssel ------------------------- */
@@ -39,10 +71,14 @@ async function discovery({ frisch = false } = {}) {
   if (discoveryCache && !frisch && discoveryCache.geholt > Date.now() - 3600000) return discoveryCache.daten;
   if (!BASIS()) throw new Error('PHALANX_OS_BASE_URL fehlt');
 
-  const res = await fetch(`${BASIS()}/.well-known/openid-configuration`, {
-    signal: AbortSignal.timeout(8000),
-  });
-  if (!res.ok) throw new Error(`Discovery fehlgeschlagen (${res.status})`);
+  const problem = basisProblem();
+  if (problem) throw new Error(problem);
+
+  const url = `${BASIS()}/.well-known/openid-configuration`;
+  const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
+  // Die abgefragte Adresse gehört in die Meldung. Ohne sie sieht man nicht,
+  // dass überhaupt die falsche Stelle gefragt wurde.
+  if (!res.ok) throw new Error(`Discovery fehlgeschlagen (${res.status}) bei ${url}`);
   const daten = await res.json();
   for (const pflicht of ['issuer', 'authorization_endpoint', 'token_endpoint', 'jwks_uri']) {
     if (!daten[pflicht]) throw new Error(`Discovery unvollständig, ${pflicht} fehlt`);
@@ -251,7 +287,7 @@ function fehlendeVariablen() {
 function cacheLeeren() { discoveryCache = null; jwksCache = null; tokenCache = null; }
 
 module.exports = {
-  eingerichtet, redirectUri, fehlendeVariablen, discovery,
+  eingerichtet, redirectUri, fehlendeVariablen, basisProblem, discovery,
   anmeldeStart, anmeldeAbschluss,
   poolToken, poolAufruf, kontakte, meldeKontakt, ping, cacheLeeren,
 };

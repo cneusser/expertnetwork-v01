@@ -2,6 +2,17 @@
 
 Versionsschema: v\<Major>.\<Sprint>.\<Patch>. Sprintabschluss endet auf .0, Korrekturen zählen den Patch hoch.
 
+## v1.40.1 — Sag, was wirklich fehlt
+
+Die Anbindung an Phalanx OS meldete „Discovery fehlgeschlagen (401)". Tatsächlich stand in `PHALANX_OS_BASE_URL` die Rücksprungadresse dieser Anwendung, also fragte ExpertNetwork die Discovery bei sich selbst ab. Mit „401" sucht man an der falschen Stelle, und zwar lange.
+
+- Die Basis-Adresse wird jetzt geprüft, bevor überhaupt jemand gefragt wird. Zeigt sie auf diese Anwendung selbst oder enthält sie einen Pfad, steht genau das da, samt dem, was stattdessen hingehört.
+- Die Verwaltungsseite zeigt den Hinweis über den Prüfknöpfen, nicht erst als Ergebnis eines Versuchs.
+- Scheitert die Discovery doch, steht die abgefragte Adresse in der Meldung. Ohne sie sieht man nicht, dass die falsche Stelle gefragt wurde.
+- Der Projektabgleich aus v1.39.0 nutzt dieselbe Basis und damit dieselbe Prüfung.
+
+Eine Fehlermeldung, die nur den Statuscode nennt, ist eine halbe Fehlermeldung.
+
 ## v1.40.0 — Projektabgleich, Stufe 2 und 3: die Stunden
 
 Was in Stufe 1 zugeordnet wurde, wird jetzt übergeben. Auf Knopfdruck und einmal täglich von allein, mit derselben Funktion: Ein zweiter Weg, der dasselbe anders macht, ist ein zweiter Weg, der anders kaputtgeht.
