@@ -2,12 +2,14 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api/client';
+import { AnschriftFelder } from '../components/Anschrift';
 import Logo from '../components/Logo';
 import LegalFooter from '../components/LegalFooter';
 
 export default function RegisterKunde() {
   const [f, setF] = useState({
-    firmenname: '', branche: '', telefon: '', strasse: '', plz: '', ort: '',
+    firmenname: '', branche: '', telefon: '', strasse: '', hausnummer: '',
+    adresszusatz: '', plz: '', ort: '', land: 'DE',
     anrede: 'herr', titel: '', vorname: '', nachname: '', position: '',
     email: '', password: '', consent: false,
   });
@@ -23,7 +25,11 @@ export default function RegisterKunde() {
     try {
       const d = await api.post('/api/auth/register-kunde', {
         firmenname: f.firmenname, branche: f.branche || null, telefon: f.telefon || null,
-        adresse: { strasse: f.strasse, plz: f.plz, ort: f.ort },
+        // v1.41.0: getrennte Felder nach gemeinsamem Standard
+        adresse: {
+          strasse: f.strasse, hausnummer: f.hausnummer, adresszusatz: f.adresszusatz || null,
+          plz: f.plz, ort: f.ort, land: (f.land || 'DE').toUpperCase(),
+        },
         ansprechpartner: { anrede: f.anrede, titel: f.titel || null, vorname: f.vorname, nachname: f.nachname, position: f.position || null },
         email: f.email, password: f.password, consent: f.consent,
       });
@@ -57,9 +63,9 @@ export default function RegisterKunde() {
               {field('Firmenname *', 'firmenname')}
               {field('Branche', 'branche', 'text', false)}
               {field('Telefon', 'telefon', 'text', false)}
-              {field('Straße und Hausnummer', 'strasse', 'text', false)}
-              {field('PLZ', 'plz', 'text', false)}
-              {field('Ort', 'ort', 'text', false)}
+              {/* v1.41.0: Straße und Hausnummer getrennt, PLZ als Text.
+                  Als Zahl würde aus 01067 eine 1067. */}
+              <AnschriftFelder werte={f} setzen={(name, wert) => setF((alt) => ({ ...alt, [name]: wert }))} />
             </div>
             <h3 style={{ margin: '6px 0 10px' }}>Ansprechpartner</h3>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 14px' }}>

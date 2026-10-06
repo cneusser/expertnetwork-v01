@@ -2,6 +2,24 @@
 
 Versionsschema: v\<Major>.\<Sprint>.\<Patch>. Sprintabschluss endet auf .0, Korrekturen zählen den Patch hoch.
 
+## v1.41.0 — Adressen in Feldern statt in einem Textfeld
+
+Die Anschrift lag bisher in einem freien Objekt, mit der Hausnummer irgendwo in der Straße. Damit lässt sich nicht nach Ort gruppieren, nicht sauber adressieren und nichts mit Phalanx OS abgleichen. Jetzt gibt es acht Felder, und zwar dieselben, die Phalanx OS und CapitalMatch führen: `strasse`, `hausnummer`, `adresszusatz`, `plz`, `ort`, `land`, `adresse_quelle`, `adresse_am`.
+
+Drei Entscheidungen, die man leicht falsch trifft:
+
+- **`plz` ist Text, keine Zahl.** Als Zahl wird 01067 zu 1067, und Dresden liegt dann nirgends.
+- **`hausnummer` ist Text, keine Zahl.** „28a", „3-5" und „7 b" sind keine Zahlen, und genau die kommen vor.
+- **`land` sind zwei Zeichen nach ISO-3166-1.** „Deutschland", „deutschland" und „GER" sind drei Schreibweisen desselben Landes, und wer sie zulässt, sortiert hinterher drei Gruppen.
+
+Die **Anzeigezeile wird gerechnet, nicht gespeichert**: Straße mit Hausnummer, Zusatz, Postleitzahl und Ort, das Land nur bei ausländischen Anschriften. Eine gespeicherte Anzeigezeile ist am Tag nach der ersten Korrektur falsch, und niemand sieht es.
+
+**Vorhandene Adressen werden nicht automatisch zerlegt.** Es gibt einen Vorschlagslauf mit Trockenlauf: Er zeigt erst, was herauskäme, und legt dann Vorschläge ab, die ein Mensch bestätigt. Sicher sind nur eindeutige Fälle. Gemeldet werden: fehlende Hausnummer, Postfach, mehrere Postleitzahlen in einem Feld, ausländisches Format, Ziffern im Straßennamen („Straße des 17. Juni 135" ist der Fall, an den man nicht denkt). Das Original bleibt in `adresse_roh` stehen, auch nach der Bestätigung: Wenn in einem halben Jahr jemand fragt, was da vorher stand, soll die Antwort nicht „weg" lauten.
+
+Eine falsch zerlegte Adresse sieht ordentlich aus und ist trotzdem falsch, und auf einer Rechnung merkt man das erst, wenn sie zurückkommt. Deshalb gibt es nur zwei Ausgänge, sicher und melden, und kein „wahrscheinlich", das am Ende doch jemand durchwinkt.
+
+**Zur Schnittstelle:** Phalanx OS führt den Bestand. Expert Network liest die Firmenanschrift über den bestehenden Abgleich und schreibt sie nie zurück. Eine drüben geänderte Adresse wird als Vorschlag gemeldet, nicht übernommen, auch nicht in ein leeres Feld: Eine Rechnungsanschrift, die sich von allein ändert, merkt niemand. Nur Firmenanschriften, ausdrücklich privat Markiertes bleibt draußen. Kein Löschen, kein automatisches Zusammenführen.
+
 ## v1.40.1 — Sag, was wirklich fehlt
 
 Die Anbindung an Phalanx OS meldete „Discovery fehlgeschlagen (401)". Tatsächlich stand in `PHALANX_OS_BASE_URL` die Rücksprungadresse dieser Anwendung, also fragte ExpertNetwork die Discovery bei sich selbst ab. Mit „401" sucht man an der falschen Stelle, und zwar lange.

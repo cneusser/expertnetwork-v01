@@ -18,6 +18,7 @@ const express = require('express');
 const { z } = require('zod');
 const { db } = require('../db/knex');
 const { requireAuth, requireRole } = require('../middleware/auth');
+const { anzeigeZeilen } = require('../utils/adresse');
 
 const router = express.Router();
 router.use(requireAuth, requireRole('admin'));
@@ -44,6 +45,8 @@ router.get('/', async (req, res) => {
     .where('v.tenant_id', t)
     .select('v.id', 'v.user_id', 'v.firmenname', 'v.branche', 'v.telefon',
       'v.adresse_json', 'v.ansprechpartner_json', 'v.created_at',
+      'v.strasse', 'v.hausnummer', 'v.adresszusatz', 'v.plz', 'v.ort', 'v.land',
+      'v.adresse_quelle', 'v.adresse_am',
       'u.email', 'u.is_approved', 'u.email_verified_at');
 
   if (status === 'wartet') q.andWhere('u.is_approved', false);
@@ -90,6 +93,11 @@ router.get('/', async (req, res) => {
       ansprechpartner: name(ap) || null,
       ansprechpartner_position: ap.position || null,
       adresse: alsObjekt(k.adresse_json),
+      // v1.41.0: Die Anzeigezeile wird gerechnet, nie gespeichert. Eine
+      // gespeicherte Zeile ist nach der ersten Korrektur falsch.
+      anschrift: { strasse: k.strasse, hausnummer: k.hausnummer, adresszusatz: k.adresszusatz,
+        plz: k.plz, ort: k.ort, land: k.land },
+      anschrift_zeilen: anzeigeZeilen(k),
       projekte: projekte[k.user_id] || { gesamt: 0, offen: 0 },
       mandate: mandate[k.user_id] || { gesamt: 0, aktiv: 0 },
       wartet_tage: k.is_approved ? null
@@ -154,6 +162,7 @@ router.get('/:id(\\d+)', async (req, res) => {
       ...kunde,
       ansprechpartner: { ...ap, anzeige: name(ap) || null },
       adresse: alsObjekt(kunde.adresse_json),
+      anschrift_zeilen: anzeigeZeilen(kunde),
     },
     projekte,
     freigaben,
@@ -242,6 +251,13 @@ const profilSchema = z.object({
   branche: z.string().max(120).nullable().optional(),
   telefon: z.string().max(40).nullable().optional(),
   adresse_json: z.object({}).passthrough().optional(),
+  // v1.41.0: getrennte Felder, plz und hausnummer als Text
+  strasse: z.string().max(200).nullable().optional(),
+  hausnummer: z.string().max(20).nullable().optional(),
+  adresszusatz: z.string().max(200).nullable().optional(),
+  plz: z.string().max(10).nullable().optional(),
+  ort: z.string().max(120).nullable().optional(),
+  land: z.string().length(2).nullable().optional(),
   ansprechpartner_json: z.object({}).passthrough().optional(),
 });
 
@@ -253,6 +269,11 @@ router.put('/:id(\\d+)', async (req, res) => {
 
   const patch = { ...parsed.data };
   if (patch.adresse_json) patch.adresse_json = JSON.stringify(patch.adresse_json);
+  if (['strasse', 'hausnummer', 'adresszusatz', 'plz', 'ort', 'land'].some((f) => patch[f] !== undefined)) {
+    patch.adresse_quelle = 'erfasst';
+    patch.adresse_am = new Date();
+    if (patch.land) patch.land = String(patch.land).toUpperCase();
+  }
   if (patch.ansprechpartner_json) patch.ansprechpartner_json = JSON.stringify(patch.ansprechpartner_json);
   if (!Object.keys(patch).length) return res.status(400).json({ error: 'Keine Änderungen übergeben' });
 

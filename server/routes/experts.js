@@ -3,6 +3,7 @@ const multer = require('multer');
 const { z } = require('zod');
 const { db } = require('../db/knex');
 const { requireAuth, requireRole } = require('../middleware/auth');
+const { anzeigeZeilen } = require('../utils/adresse');
 const storage = require('../providers/storage');
 const { isPdfBuffer } = require('../utils/isPdf');
 const { signPurposeToken } = require('../utils/tokens');
@@ -1148,6 +1149,19 @@ async function detail(req, res, expert) {
   ]);
   res.json({
     expert,
+    // v1.41.0: Die Anschrift getrennt, plus die gerechnete Anzeige. Die Zeile
+    // wird nirgends gespeichert, sonst wäre sie nach der ersten Korrektur falsch.
+    anschrift: {
+      strasse: expert.strasse, hausnummer: expert.hausnummer,
+      adresszusatz: expert.adresszusatz, plz: expert.plz,
+      ort: expert.adresse_ort, land: expert.adresse_land,
+      quelle: expert.adresse_quelle, am: expert.adresse_am,
+    },
+    anschrift_zeilen: anzeigeZeilen({
+      strasse: expert.strasse, hausnummer: expert.hausnummer,
+      adresszusatz: expert.adresszusatz, plz: expert.plz,
+      ort: expert.adresse_ort, land: expert.adresse_land,
+    }),
     konto,
     educations,
     career_steps: careerSteps,
@@ -1382,6 +1396,15 @@ const profileSchema = z.object({
   firma: z.string().max(150).nullable().optional(),
   berufsbezeichnung: z.string().max(200).nullable().optional(),
   kurzprofil: z.string().max(3000).nullable().optional(),
+  // v1.41.0: Getrennte Felder nach gemeinsamem Standard. plz und hausnummer
+  // sind Text: 01067 wäre als Zahl 1067, und "28a" ist keine Zahl.
+  strasse: z.string().max(200).nullable().optional(),
+  hausnummer: z.string().max(20).nullable().optional(),
+  adresszusatz: z.string().max(200).nullable().optional(),
+  plz: z.string().max(10).nullable().optional(),
+  adresse_ort: z.string().max(120).nullable().optional(),
+  adresse_land: z.string().length(2).nullable().optional(),
+  // Das alte Feld bleibt annehmbar, solange nicht alles umgestellt ist.
   adresse_json: z.object({
     strasse: z.string().max(150).optional(),
     plz: z.string().max(12).optional(),
@@ -1423,6 +1446,14 @@ async function updateProfile(req, res, expert, { allowStatus }) {
   const data = { ...parsed.data };
   if (!allowStatus) delete data.status; // Experten können sich nicht selbst freigeben
   if (data.adresse_json) data.adresse_json = JSON.stringify(data.adresse_json);
+  // Wer die Adresse von Hand ändert, setzt damit auch die Herkunft: Ab jetzt
+  // ist sie erfasst und nicht mehr zerlegt oder aus dem Pool.
+  const adressfeld = ['strasse', 'hausnummer', 'adresszusatz', 'plz', 'adresse_ort', 'adresse_land'];
+  if (adressfeld.some((f) => data[f] !== undefined)) {
+    data.adresse_quelle = 'erfasst';
+    data.adresse_am = new Date();
+    if (data.adresse_land) data.adresse_land = String(data.adresse_land).toUpperCase();
+  }
   if (data.sprachen_json) data.sprachen_json = JSON.stringify(data.sprachen_json);
   if (!Object.keys(data).length) return res.status(400).json({ error: 'Keine Änderungen übergeben' });
 
@@ -1553,7 +1584,10 @@ router.get('/me/dashboard', async (req, res) => {
   const checks = {
     kurzprofil: Boolean(expert.kurzprofil),
     kontakt: Boolean(expert.mobil || expert.telefon),
-    adresse: Boolean(expert.adresse_json && JSON.stringify(expert.adresse_json).length > 10),
+    // v1.41.0: Vollständig heißt jetzt, dass die getrennten Felder stehen.
+    // Das alte Sammelfeld zählt mit, solange die Zerlegung läuft.
+    adresse: Boolean((expert.strasse && expert.adresse_ort)
+      || (expert.adresse_json && JSON.stringify(expert.adresse_json).length > 10)),
     skills: Number(skillCount.c) >= 5,
     tagessatz: Number(rateCount.c) > 0,
     verfuegbarkeit: Number(availCount.c) > 0,

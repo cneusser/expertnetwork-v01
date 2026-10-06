@@ -26,6 +26,7 @@ const { db } = require('../db/knex');
 const phalanxOs = require('../utils/phalanxOs');
 const { findePerson } = require('../utils/vorregistrierung');
 const { nameKey, linkedinKey, emailKey } = require('../utils/normalisieren');
+const { landCode, gleich, istBefuellt, anzeigeZeile } = require('../utils/adresse');
 
 const VORREG = 'vorregistriert';
 
@@ -49,6 +50,40 @@ function adresseMitEinwilligung(kontakt) {
     email: emailKey(mit || alle.map(raus).find(Boolean)),
     werbeeinwilligung: Boolean(mit),
   };
+}
+
+/**
+ * v1.41.0 — Die Firmenanschrift aus einem Pool-Kontakt.
+ *
+ * Nur Firmenanschriften. Eine Privatanschrift gehört einem Menschen und nicht
+ * in einen Projektdatenbestand, und wenn sie im Pool steht, ist das kein
+ * Grund, sie auch hier zu führen.
+ *
+ * Phalanx OS führt den Bestand, hier wird nur gelesen. Zurückgeschrieben wird
+ * nie: Zwei Systeme, die beide schreiben dürfen, haben nach drei Wochen zwei
+ * verschiedene Adressen, und niemand weiß mehr, welche gilt.
+ */
+function firmenanschrift(kontakt) {
+  const quellen = Array.isArray(kontakt.addresses) ? kontakt.addresses : [];
+  const a = quellen.find((x) => {
+    const art = String(x?.type || x?.art || '').toLowerCase();
+    // Ohne Angabe nehmen wir an, es sei eine Firmenanschrift: Der Pool führt
+    // Geschäftskontakte. Ausdrücklich privat Markiertes bleibt draußen.
+    return !['privat', 'private', 'home', 'wohnung'].includes(art);
+  }) || null;
+  if (!a) return null;
+
+  const t = (w, n) => (w == null ? null : String(w).trim().slice(0, n) || null);
+  const land = landCode(a.land ?? a.country ?? a.country_code, 'DE');
+  const felder = {
+    strasse: t(a.strasse ?? a.street, 200),
+    hausnummer: t(a.hausnummer ?? a.house_number ?? a.number, 20),
+    adresszusatz: t(a.adresszusatz ?? a.addition ?? a.line2, 200),
+    plz: t(a.plz ?? a.zip ?? a.postal_code, 10),
+    ort: t(a.ort ?? a.city, 120),
+    land: land || 'DE',
+  };
+  return felder.strasse && felder.ort ? felder : null;
 }
 
 function prioAusTags(tags = []) {
@@ -76,6 +111,7 @@ function lesbar(kontakt) {
     firma: (position?.company || feld(kontakt, 'Firma') || '').toString().trim().slice(0, 150) || null,
     berufsbezeichnung: (feld(kontakt, 'LinkedIn-Position') || position?.title || '').toString().trim().slice(0, 200) || null,
     prio: prioAusTags(tags),
+    anschrift: firmenanschrift(kontakt),
     tags,
     updated_at: kontakt.updated_at || null,
   };
@@ -223,6 +259,37 @@ async function anreichern(profil, k) {
   if (!profil.vorreg_prio && k.prio) patch.vorreg_prio = k.prio;
 
   await db('experts').where({ id: profil.id }).update(patch);
+
+  // v1.41.0: Die Anschrift wird nie still übernommen, auch nicht in ein
+  // leeres Feld. Eine Rechnungsanschrift, die sich von allein ändert, merkt
+  // niemand, und das ist genau die Sorte Fehler, die teuer wird. Sie geht
+  // deshalb als Vorschlag in die Liste, die ein Mensch durchsieht.
+  if (profil.anschrift_vorschlag !== false && k.anschrift) {
+    const vorhanden = {
+      strasse: profil.strasse, hausnummer: profil.hausnummer,
+      adresszusatz: profil.adresszusatz, plz: profil.plz,
+      ort: profil.adresse_ort, land: profil.adresse_land,
+    };
+    if (!gleich(vorhanden, k.anschrift)) {
+      const offen = await db('adresse_vorschlag').where({
+        tenant_id: profil.tenant_id, subjekt_typ: 'expert', subjekt_id: profil.id,
+        herkunft: 'pool', status: 'offen',
+      }).first();
+      const satz = {
+        tenant_id: profil.tenant_id, subjekt_typ: 'expert', subjekt_id: profil.id,
+        herkunft: 'pool', original: istBefuellt(vorhanden) ? anzeigeZeile(vorhanden) : null,
+        vorschlag_json: JSON.stringify(k.anschrift),
+        // Aus dem Pool kommt die Adresse schon in Feldern. Trotzdem nur ein
+        // Vorschlag: sicher heißt übernehmbar, nicht übernommen.
+        einstufung: 'sicher',
+        grund: istBefuellt(vorhanden) ? 'in Phalanx OS geändert' : 'aus Phalanx OS, hier noch leer',
+        status: 'offen',
+      };
+      if (offen) await db('adresse_vorschlag').where({ id: offen.id }).update(satz);
+      else await db('adresse_vorschlag').insert(satz);
+    }
+  }
+
   // Nur melden, wenn wirklich etwas dazukam, nicht bei jedem Durchlauf.
   return Object.keys(patch).length > 2 ? 'angereichert' : null;
 }

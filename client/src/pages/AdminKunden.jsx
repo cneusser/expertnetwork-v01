@@ -12,6 +12,7 @@ import { Link } from 'react-router-dom';
 import { Building2, Check, Ban, ExternalLink } from 'lucide-react';
 import Layout from '../components/Layout';
 import { api } from '../api/client';
+import { Anschrift } from '../components/Anschrift';
 
 const fmt = (d) => (d ? new Date(d).toLocaleDateString('de-DE') : '—');
 const euro = (cent) => `${((Number(cent) || 0) / 100).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
@@ -161,8 +162,8 @@ export default function AdminKunden() {
             {akte.kunde.ansprechpartner.anzeige || 'ohne Ansprechpartner'}
             {akte.kunde.ansprechpartner.position && `, ${akte.kunde.ansprechpartner.position}`}
             <br />{akte.kunde.email}{akte.kunde.telefon && ` · ${akte.kunde.telefon}`}
-            {akte.kunde.adresse?.strasse && (
-              <><br />{akte.kunde.adresse.strasse}, {akte.kunde.adresse.plz} {akte.kunde.adresse.ort}</>
+            {(akte.kunde.strasse || akte.kunde.adresse?.strasse) && (
+              <><br /><Anschrift a={akte.kunde.strasse ? akte.kunde : akte.kunde.adresse} /></>
             )}
             <br />Konto seit {fmt(akte.kunde.konto_seit)}
           </p>

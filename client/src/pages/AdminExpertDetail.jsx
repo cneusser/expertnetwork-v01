@@ -8,6 +8,7 @@ import AuditTable from '../components/AuditTable';
 import KiCvAssistent from '../components/KiCvAssistent';
 import FotoAvatar from '../components/FotoAvatar';
 import { api } from '../api/client';
+import { Anschrift } from '../components/Anschrift';
 
 const KAT_LABEL = {
   cv: 'Lebenslauf', executive_profil: 'Executive Profil', one_pager: 'One-Pager',
@@ -290,7 +291,11 @@ export default function AdminExpertDetail() {
           <div className="card">
             <h3>Kontakt</h3>
             <p>
-              {adresse.strasse}, {adresse.plz} {adresse.ort}, {adresse.land}<br />
+              {/* v1.41.0: aus den getrennten Feldern gerechnet. Das alte
+                  Sammelfeld greift nur, solange die Zerlegung läuft. */}
+              <Anschrift a={data.anschrift?.strasse ? data.anschrift : {
+                strasse: adresse.strasse, plz: adresse.plz, ort: adresse.ort, land: adresse.land,
+              }} /><br />
               Mobil: {expert.mobil || '—'}<br />
               E-Mail: <a href={`mailto:${expert.email}`}>{expert.email}</a><br />
               Web: <a href={expert.webseite} target="_blank" rel="noreferrer">{expert.webseite}</a><br />
