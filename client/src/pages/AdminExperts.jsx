@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Users, Trash2 } from 'lucide-react';
 import Layout from '../components/Layout';
 import { api } from '../api/client';
+import { externeUrl } from '../utils/url';
 
 const AVAIL_LABEL = { sofort: 'Sofort verfügbar', ab_datum: 'Ab Datum', teilweise: 'Teilweise', ausgebucht: 'Ausgebucht' };
 
@@ -425,7 +426,7 @@ export default function AdminExperts() {
                   {e.pool_contact_id && (
                     <>{' '}<span className="tag" title="Aus dem Phalanx-OS-Datenpool übernommen">Phalanx-Netzwerk</span>
                       {e.linkedin && (
-                        <>{' '}<a href={`https://${String(e.linkedin).replace(/^https?:\/\//, '')}`}
+                        <>{' '}<a href={externeUrl(e.linkedin)}
                           target="_blank" rel="noreferrer" title="LinkedIn-Profil öffnen">LinkedIn</a></>
                       )}
                     </>

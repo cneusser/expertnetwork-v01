@@ -8,6 +8,7 @@ import AuditTable from '../components/AuditTable';
 import KiCvAssistent from '../components/KiCvAssistent';
 import FotoAvatar from '../components/FotoAvatar';
 import { api } from '../api/client';
+import { externeUrl } from '../utils/url';
 import { Anschrift } from '../components/Anschrift';
 
 const KAT_LABEL = {
@@ -298,8 +299,14 @@ export default function AdminExpertDetail() {
               }} /><br />
               Mobil: {expert.mobil || '—'}<br />
               E-Mail: <a href={`mailto:${expert.email}`}>{expert.email}</a><br />
-              Web: <a href={expert.webseite} target="_blank" rel="noreferrer">{expert.webseite}</a><br />
-              LinkedIn: <a href={expert.linkedin} target="_blank" rel="noreferrer">{expert.linkedin}</a>
+              {/* v1.41.1: ohne Schema hält der Browser den Wert für einen
+                  relativen Pfad und landet wieder in dieser Anwendung. */}
+              Web: {expert.webseite
+                ? <a href={externeUrl(expert.webseite)} target="_blank" rel="noreferrer">{expert.webseite}</a>
+                : <span className="muted">—</span>}<br />
+              LinkedIn: {expert.linkedin
+                ? <a href={externeUrl(expert.linkedin)} target="_blank" rel="noreferrer">{expert.linkedin}</a>
+                : <span className="muted">—</span>}
             </p>
           </div>
           <div className="card">

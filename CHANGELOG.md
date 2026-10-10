@@ -2,6 +2,14 @@
 
 Versionsschema: v\<Major>.\<Sprint>.\<Patch>. Sprintabschluss endet auf .0, Korrekturen zählen den Patch hoch.
 
+## v1.41.1 — Links führen dorthin, wo sie hinzeigen
+
+Der LinkedIn-Link in der Expertenakte führte zurück in die eigene Anwendung. Gespeichert ist dort `linkedin.com/in/jemand`, ohne `https://`, und einen solchen Wert hält der Browser für einen relativen Pfad: Aus dem Klick wurde `experts.phalanx.de/admin/experten/linkedin.com/in/jemand`.
+
+- Eine Funktion für alle Profil- und Webadressen, die das Schema ergänzt, wenn es fehlt, und ein vorhandenes stehen lässt.
+- Es gab dafür schon drei verschiedene Schreibweisen an anderen Stellen, und eine davon hätte bei einer Adresse mit Schema `https://https://…` erzeugt. Ausgerechnet die Expertenakte hatte gar keine. Jetzt überall dieselbe.
+- Nur `http` und `https` kommen durch. Ein gespeichertes `javascript:` landet in keinem Link, auch wenn das niemand absichtlich einträgt.
+
 ## v1.41.0 — Adressen in Feldern statt in einem Textfeld
 
 Die Anschrift lag bisher in einem freien Objekt, mit der Hausnummer irgendwo in der Straße. Damit lässt sich nicht nach Ort gruppieren, nicht sauber adressieren und nichts mit Phalanx OS abgleichen. Jetzt gibt es acht Felder, und zwar dieselben, die Phalanx OS und CapitalMatch führen: `strasse`, `hausnummer`, `adresszusatz`, `plz`, `ort`, `land`, `adresse_quelle`, `adresse_am`.

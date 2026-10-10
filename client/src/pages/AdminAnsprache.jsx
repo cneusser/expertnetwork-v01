@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import Layout from '../components/Layout';
 import { api } from '../api/client';
+import { externeUrl } from '../utils/url';
 
 const REAKTION = { offen: 'offen', interesse: 'Interesse', spaeter: 'später', absage: 'Absage', keine: 'keine Reaktion' };
 const BADGE = { offen: 'eingeladen', interesse: 'freigegeben', spaeter: 'registriert', absage: 'inaktiv', keine: 'inaktiv' };
@@ -380,7 +381,7 @@ export default function AdminAnsprache() {
                   <td>
                     <Link to={`/admin/experten/${p.id}`}><strong>{p.vorname} {p.nachname}</strong></Link>
                     {p.linkedin && (
-                      <>{' '}<a href={`https://${p.linkedin}`} target="_blank" rel="noreferrer" title="LinkedIn-Profil öffnen">
+                      <>{' '}<a href={externeUrl(p.linkedin)} target="_blank" rel="noreferrer" title="LinkedIn-Profil öffnen">
                         <ExternalLink size={13} style={{ verticalAlign: '-2px' }} /></a></>
                     )}
                     <br /><span className="muted" style={{ fontSize: 12 }}>{p.firma}</span>
@@ -455,7 +456,7 @@ export default function AdminAnsprache() {
                   <td>
                     <Link to={`/admin/experten/${p.id}`}><strong>{p.vorname} {p.nachname}</strong></Link>
                     {p.linkedin && (
-                      <>{' '}<a href={`https://${p.linkedin}`} target="_blank" rel="noreferrer" title="LinkedIn-Profil öffnen">
+                      <>{' '}<a href={externeUrl(p.linkedin)} target="_blank" rel="noreferrer" title="LinkedIn-Profil öffnen">
                         <ExternalLink size={13} style={{ verticalAlign: '-2px' }} /></a></>
                     )}
                     <br /><span className="muted" style={{ fontSize: 12 }}>{p.firma}</span>
@@ -533,7 +534,7 @@ export default function AdminAnsprache() {
                   <td>
                     <Link to={`/admin/experten/${p.id}`}><strong>{p.vorname} {p.nachname}</strong></Link>
                     {p.linkedin && (
-                      <>{' '}<a href={`https://${p.linkedin}`} target="_blank" rel="noreferrer" title="LinkedIn-Profil öffnen">
+                      <>{' '}<a href={externeUrl(p.linkedin)} target="_blank" rel="noreferrer" title="LinkedIn-Profil öffnen">
                         <ExternalLink size={13} style={{ verticalAlign: '-2px' }} /></a></>
                     )}
                     <br /><span className="muted" style={{ fontSize: 12 }}>{p.firma}</span>

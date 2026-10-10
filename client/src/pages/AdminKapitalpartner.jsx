@@ -10,6 +10,7 @@ import { useEffect, useState } from 'react';
 import { Banknote, ExternalLink, Trash2 } from 'lucide-react';
 import Layout from '../components/Layout';
 import { api } from '../api/client';
+import { externeUrl } from '../utils/url';
 
 const FINANZIERUNG = {
   leasing: 'Leasing', mietkauf: 'Mietkauf', sale_and_lease_back: 'Sale and lease back',
@@ -116,7 +117,7 @@ export default function AdminKapitalpartner() {
                   <button type="button" className="tab" style={{ padding: 0, color: 'var(--navy)', fontWeight: 600, textAlign: 'left' }}
                     onClick={() => setOffen(offen === p.id ? null : p.id)}>{p.firmenname}</button>
                   {p.webseite && (
-                    <>{' '}<a href={p.webseite.startsWith('http') ? p.webseite : `https://${p.webseite}`}
+                    <>{' '}<a href={externeUrl(p.webseite)}
                       target="_blank" rel="noreferrer" title="Webseite öffnen">
                       <ExternalLink size={12} style={{ verticalAlign: '-1px' }} /></a></>
                   )}
