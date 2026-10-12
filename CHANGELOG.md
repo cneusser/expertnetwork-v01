@@ -2,6 +2,22 @@
 
 Versionsschema: v\<Major>.\<Sprint>.\<Patch>. Sprintabschluss endet auf .0, Korrekturen zählen den Patch hoch.
 
+## v1.42.0 — Projektanfragen einlesen
+
+Anfragen kommen in jedem Format: als Rundmail eines Personaldienstleisters mit Feldern und Aufzählungen, als formlose Mail eines Endkunden, als Dreizeiler aus einem Telefonat. Bisher hieß das, jede von Hand in ein Projekt zu übertragen. Jetzt reicht Einfügen oder Hochladen.
+
+Der Ablauf hat bewusst drei Schritte statt einem: **lesen, prüfen, übernehmen.** Ein einziger Knopf wäre schneller und einmal im Monat peinlich, denn eine schief gelesene Anfrage sieht genauso ordentlich aus wie eine richtig gelesene.
+
+- **Regeln zuerst, Sprachmodell danach.** Referenznummer, Datum, Dauer und Auslastung liest ein regulärer Ausdruck zuverlässiger als jedes Modell. Das Modell kommt für das, was Bedeutung braucht: worum es geht, was Pflicht ist und was wünschenswert. Fällt es aus, entsteht trotzdem ein brauchbarer Entwurf.
+- **Was nicht dasteht, wird nicht erfunden.** Fehlende Angaben stehen als Lücke da. Besonders der Tagessatz: Die meisten Anfragen nennen keinen, und eine erfundene Zahl wäre schlimmer als ein leeres Feld, weil sie aussieht wie eine Information. „Budget: 2026" ist eine Jahreszahl und kein Satz.
+- Der **Rohtext bleibt gespeichert**. Wenn in vier Wochen jemand fragt, ob da wirklich „WP-Examen" stand oder ob die Maschine das hinzugedichtet hat, ist die Antwort nachlesbar.
+- Dieselbe **Referenz ein zweites Mal** wird bemerkt. Entweder ist die Suche neu aufgelegt, oder der Vermittler schickt die Rundmail erneut.
+- **Abgelehnte Anfragen bleiben stehen, mit Grund.** Wenn dreimal „passt nicht zum Pool" dasteht, weißt du, welcher Vermittler dich falsch einsortiert hat.
+- Suchbegriffe werden abgeleitet und beim Übernehmen angelegt. Bei einer Anfrage aus fremder Nische entstehen neue Begriffe, und das ist richtig: Beim nächsten Mal findet das Matching mehr.
+- Eingang per Einfügen, PDF, Word oder Textdatei. Word wird über das bereits vorhandene jszip ausgepackt, ohne neue Abhängigkeit.
+
+Angeschrieben wird weiterhin niemand automatisch. Erst entsteht das Projekt, dann siehst du die Treffer.
+
 ## v1.41.1 — Links führen dorthin, wo sie hinzeigen
 
 Der LinkedIn-Link in der Expertenakte führte zurück in die eigene Anwendung. Gespeichert ist dort `linkedin.com/in/jemand`, ohne `https://`, und einen solchen Wert hält der Browser für einen relativen Pfad: Aus dem Klick wurde `experts.phalanx.de/admin/experten/linkedin.com/in/jemand`.
