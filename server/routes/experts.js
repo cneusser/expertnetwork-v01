@@ -85,7 +85,49 @@ async function enrich(expertIds) {
   return { avail, rates: rateMap };
 }
 
-/** Frische-Score je Experte (dynamisch, nie gespeichert). */
+/**
+ * v1.42.1 — Frische für viele Profile auf einmal.
+ *
+ * Die Einzelfassung darunter macht zwei Abfragen je Person. In einer Liste
+ * über den ganzen Bestand sind das bei 780 Profilen 1.560 Abfragen, alle
+ * gleichzeitig abgeschickt. Der Verbindungspool hat zehn Verbindungen, und
+ * die Liste lud irgendwann gar nicht mehr.
+ *
+ * Genau dieser Fehler war in den Kennzahlen schon einmal behoben worden, in
+ * der Liste aber übersehen. Jetzt hier: zwei Abfragen für alle zusammen.
+ */
+async function freshnessAlle(ids, availMap) {
+  if (!ids.length) return {};
+
+  const [rates, cvs] = await Promise.all([
+    db('rates').whereIn('expert_id', ids).orderBy([{ column: 'expert_id' }, { column: 'created_at', order: 'desc' }]),
+    db('documents').whereIn('expert_id', ids).andWhere('kategorie', 'cv')
+      .orderBy([{ column: 'expert_id' }, { column: 'uploaded_at', order: 'desc' }]),
+  ]);
+
+  const juengste = (zeilen) => {
+    const m = {};
+    for (const z of zeilen) if (!m[z.expert_id]) m[z.expert_id] = z; // sortiert, also der erste
+    return m;
+  };
+  const rateMap = juengste(rates);
+  const cvMap = juengste(cvs);
+
+  const out = {};
+  for (const id of ids) {
+    const avails = availMap[id] || [];
+    const latestAvail = avails.slice().sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0];
+    out[id] = freshness({
+      availabilityConfirmedAt: latestAvail?.confirmed_at,
+      rateCreatedAt: rateMap[id]?.created_at,
+      cvUploadedAt: cvMap[id]?.uploaded_at,
+      availability: latestAvail,
+    });
+  }
+  return out;
+}
+
+/** Frische-Score je Experte (dynamisch, nie gespeichert). Für Einzelabrufe. */
 async function freshnessFor(expertId, avails) {
   const latestAvail = (avails || []).slice().sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0];
   const latestRate = await db('rates').where({ expert_id: expertId }).orderBy('created_at', 'desc').first();
@@ -109,14 +151,21 @@ router.get('/', requireRole('admin'), async (req, res) => {
         .select('expert_id', 'skills.name', 'skills.kategorie')
     : [];
   const { avail, rates } = await enrich(ids);
+  const frische = await freshnessAlle(ids, avail);
+
+  // Skills vorsortieren: filter() in der Schleife ist bei 780 Profilen und
+  // ein paar tausend Skills quadratisch.
+  const skillMap = {};
+  for (const s of skills) (skillMap[s.expert_id] = skillMap[s.expert_id] || []).push(s);
+
   res.json({
-    experts: await Promise.all(experts.map(async (e) => ({
+    experts: experts.map((e) => ({
       ...e,
-      skills: skills.filter((s) => s.expert_id === e.id),
+      skills: skillMap[e.id] || [],
       availabilities: avail[e.id] || [],
       rates: Object.values(rates[e.id] || {}),
-      freshness: await freshnessFor(e.id, avail[e.id]),
-    }))),
+      freshness: frische[e.id],
+    })),
   });
 });
 

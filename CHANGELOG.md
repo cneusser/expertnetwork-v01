@@ -2,6 +2,15 @@
 
 Versionsschema: v\<Major>.\<Sprint>.\<Patch>. Sprintabschluss endet auf .0, Korrekturen zählen den Patch hoch.
 
+## v1.42.1 — Die Expertenliste lädt wieder
+
+Die Liste blieb bei „Laden…" stehen. Sie holte Tagessätze und Lebenslauf je Person einzeln, und zwar für alle gleichzeitig: bei 780 Profilen über 1.500 Abfragen auf einmal. Der Verbindungspool hat zehn Verbindungen, der Rest wartete, und ab einer bestimmten Bestandsgröße kam die Antwort nie.
+
+- Zwei Sammelabfragen für alle statt zwei je Person.
+- Die Skills werden einmal vorsortiert statt für jedes Profil neu durchsucht. Bei 780 Profilen und einigen tausend Skills war das quadratisch.
+
+Genau dieser Fehler war in den Kennzahlen schon einmal behoben worden, in der Liste aber übersehen. Solche Stellen fallen nicht beim Bauen auf, sondern erst, wenn der Bestand wächst.
+
 ## v1.42.0 — Projektanfragen einlesen
 
 Anfragen kommen in jedem Format: als Rundmail eines Personaldienstleisters mit Feldern und Aufzählungen, als formlose Mail eines Endkunden, als Dreizeiler aus einem Telefonat. Bisher hieß das, jede von Hand in ein Projekt zu übertragen. Jetzt reicht Einfügen oder Hochladen.
