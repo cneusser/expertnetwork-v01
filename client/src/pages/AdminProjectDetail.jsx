@@ -78,39 +78,9 @@ export default function AdminProjectDetail() {
         <p className="muted" style={{ marginTop: 8 }}>Zeigt Projekt + alle „Für Kunden freigegeben"-Profile — ideal für Kunden ohne eigenen Zugang. Jeder Zugriff wird protokolliert.</p>
       </div>
 
-      <h2 style={{ fontSize: 18, color: 'var(--navy)', margin: '18px 0 10px' }}>Pipeline ({applications.length})</h2>
-      {applications.length ? (
-        <table className="table">
-          <thead><tr><th>Kandidat</th><th>Match</th><th>Begründung</th><th>Nachricht</th><th>Status</th></tr></thead>
-          <tbody>
-            {applications.map((a) => (
-              <tr key={a.id}>
-                <td><Link to={`/admin/experten/${a.expert_id}`}><strong>{a.vorname} {a.nachname}</strong></Link><br />
-                  <span className="muted">{a.berufsbezeichnung?.split('—')[0]}</span></td>
-                <td><strong>{a.matching_score ?? '—'} %</strong></td>
-                <td style={{ fontSize: 12.5, maxWidth: 320 }}>{a.begruendung}</td>
-                <td style={{ fontSize: 12.5, maxWidth: 200 }}>{a.nachricht || '—'}</td>
-                <td>
-                  <select value={a.status}
-                    onChange={async (e) => { await api.put(`/api/projects/${id}/applications/${a.id}`, { status: e.target.value }); load(); }}>
-                    {APP_STATUS.map((s) => <option key={s} value={s}>{s.replace('_', ' ')}</option>)}
-                  </select>
-                  {vendor && (
-                    releases.some((r) => r.expert_id === a.expert_id)
-                      ? <div className="muted" style={{ marginTop: 4 }}>✓ für Kunden freigegeben</div>
-                      : <button type="button" className="tab" style={{ padding: '4px 0', color: 'var(--accent)' }}
-                          onClick={() => release(a.expert_id)}>Für Kunden freigeben</button>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      ) : <p className="sub">Noch keine Kandidaten in der Pipeline.</p>}
-
-      {/* v1.43.0: Der direkte Weg zum Kunden, ohne Umweg über eine Freigabe.
-          Ankreuzen, Vorlage bauen, Link verschicken. */}
-      <Vorlagenleiste projektId={id} matches={matches} applications={applications} />
+      {/* v1.44.0: Eine Liste. Hier wird ausgewählt und gehandelt, nicht in
+          einer zweiten Liste darunter. */}
+      <Pipeline projektId={id} applications={applications} neuLaden={load} />
 
       <h2 style={{ fontSize: 18, color: 'var(--navy)', margin: '26px 0 10px' }}>Matching-Vorschläge</h2>
       {matches.length ? (
@@ -152,15 +122,204 @@ export default function AdminProjectDetail() {
 }
 
 /**
- * v1.43.0 — Profile zu einer Vorlage zusammenstellen.
+ * v1.44.0 — Die Pipeline, und alles, was man mit einer Auswahl daraus tut.
  *
- * Die Auswahl steht hier und nicht in der Pipeline: Wer einem Kunden Profile
- * vorlegt, trifft eine Auswahl für diesen einen Kunden, und die hat mit dem
- * Stand der Pipeline nichts zu tun.
+ * Vorher standen hier zwei Listen: die Pipeline und darunter noch einmal
+ * dieselben Menschen zum Ankreuzen. Das war ein Baufehler. Wer in der
+ * Pipeline steht, ist ausgewählt, und was man mit der Auswahl macht, steht
+ * darüber.
+ *
+ * Die Strecke in einer Zeile:
+ *   vorgeschlagen → angefragt → interessiert → vorgelegt → im Gespräch
  */
-function Vorlagenleiste({ projektId, matches, applications }) {
-  const [offen, setOffen] = useState(false);
+const STUFE = {
+  vorgeschlagen: { label: 'vorgeschlagen', farbe: 'eingeladen' },
+  beworben: { label: 'hat sich beworben', farbe: 'eingeladen' },
+  angefragt: { label: 'angefragt', farbe: 'registriert' },
+  interessiert: { label: 'hat Interesse', farbe: 'freigegeben' },
+  abgesagt: { label: 'abgesagt', farbe: 'inaktiv' },
+  vorgelegt: { label: 'beim Kunden', farbe: 'registriert' },
+  im_gespraech: { label: 'im Gespräch', farbe: 'freigegeben' },
+  angeboten: { label: 'Angebot', farbe: 'freigegeben' },
+  besetzt: { label: 'besetzt', farbe: 'freigegeben' },
+  abgelehnt: { label: 'abgelehnt', farbe: 'inaktiv' },
+};
+
+function Pipeline({ projektId, applications, neuLaden }) {
   const [gewaehlt, setGewaehlt] = useState([]);
+  const [aktion, setAktion] = useState(null); // fragen | vorlegen
+  const [msg, setMsg] = useState(null);
+  const [busy, setBusy] = useState(false);
+
+  const umschalten = (id, an) => setGewaehlt((g) => (an ? [...g, id] : g.filter((x) => x !== id)));
+  const gewaehlteZeilen = applications.filter((a) => gewaehlt.includes(a.id));
+
+  return (
+    <>
+      <h2 style={{ fontSize: 18, color: 'var(--navy)', margin: '18px 0 10px' }}>
+        Pipeline ({applications.length})
+      </h2>
+      {msg && <div className={`msg ${msg.ok ? 'msg-success' : 'msg-error'}`}>{msg.text}</div>}
+
+      {!applications.length ? (
+        <p className="sub">Noch keine Kandidaten. Nimm unten aus den Vorschlägen jemanden auf.</p>
+      ) : (
+        <>
+          <table className="table">
+            <thead><tr>
+              <th style={{ width: 28 }} />
+              <th>Kandidat</th><th>Match</th><th>Rückmeldung</th><th>Stand</th>
+            </tr></thead>
+            <tbody>
+              {applications.map((a) => {
+                const st = STUFE[a.status] || { label: a.status, farbe: 'eingeladen' };
+                return (
+                  <tr key={a.id}>
+                    <td>
+                      <input type="checkbox" checked={gewaehlt.includes(a.id)}
+                        onChange={(e) => umschalten(a.id, e.target.checked)} />
+                    </td>
+                    <td>
+                      <Link to={`/admin/experten/${a.expert_id}`}><strong>{a.vorname} {a.nachname}</strong></Link><br />
+                      <span className="muted">{a.berufsbezeichnung?.split('—')[0]}</span>
+                    </td>
+                    <td><strong>{a.matching_score ?? '—'} %</strong></td>
+                    <td style={{ fontSize: 12.5, maxWidth: 280 }}>
+                      {a.antwort === 'interessiert' && (
+                        <>
+                          <span style={{ color: 'var(--success)' }}>Interesse</span>
+                          {a.verfuegbar_ab && <>, ab {a.verfuegbar_ab}</>}
+                          {a.auslastung && <>, {a.auslastung}</>}
+                          {a.wunsch_satz_eur && <><br />Wunschsatz {a.wunsch_satz_eur} EUR</>}
+                          {a.antwort_notiz && <><br /><span className="muted">{a.antwort_notiz}</span></>}
+                        </>
+                      )}
+                      {a.antwort === 'abgesagt' && (
+                        <>
+                          <span className="muted">Abgesagt</span>
+                          {a.antwort_notiz && <><br /><span className="muted">{a.antwort_notiz}</span></>}
+                        </>
+                      )}
+                      {!a.antwort && a.anfrage_am && (
+                        <span className="muted">gefragt am {new Date(a.anfrage_am).toLocaleDateString('de-DE')}, wartet</span>
+                      )}
+                      {!a.antwort && !a.anfrage_am && <span className="muted">—</span>}
+                    </td>
+                    <td>
+                      <span className={`status status-${st.farbe}`}>{st.label}</span>
+                      <br />
+                      <select value={a.status} style={{ marginTop: 4, fontSize: 12 }}
+                        onChange={async (e) => {
+                          await api.put(`/api/projects/${projektId}/applications/${a.id}`, { status: e.target.value });
+                          neuLaden();
+                        }}>
+                        {APP_STATUS.map((s) => (
+                          <option key={s} value={s}>{STUFE[s]?.label || s.replace('_', ' ')}</option>
+                        ))}
+                      </select>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', margin: '14px 0 8px' }}>
+            <span className="muted" style={{ fontSize: 13 }}>
+              {gewaehlt.length ? `${gewaehlt.length} gewählt:` : 'Zum Handeln ankreuzen'}
+            </span>
+            <button type="button" className="btn" style={{ width: 'auto', padding: '8px 16px', marginBottom: 0 }}
+              disabled={!gewaehlt.length || busy} onClick={() => setAktion('fragen')}>
+              <Send size={14} style={{ verticalAlign: '-2px' }} /> Anonym anfragen
+            </button>
+            <button type="button" className="btn" style={{ width: 'auto', padding: '8px 16px', marginBottom: 0 }}
+              disabled={!gewaehlt.length || busy} onClick={() => setAktion('vorlegen')}>
+              Profile vorlegen
+            </button>
+            {gewaehlt.length > 0 && (
+              <button type="button" className="tab" style={{ color: 'var(--grey-600)' }}
+                onClick={() => setGewaehlt([])}>Auswahl aufheben</button>
+            )}
+          </div>
+
+          {aktion === 'fragen' && (
+            <Anfragen projektId={projektId} zeilen={gewaehlteZeilen} busy={busy} setBusy={setBusy}
+              fertig={(t) => { setAktion(null); setGewaehlt([]); setMsg(t); neuLaden(); }}
+              abbrechen={() => setAktion(null)} />
+          )}
+          {aktion === 'vorlegen' && (
+            <Vorlegen projektId={projektId} zeilen={gewaehlteZeilen}
+              fertig={() => { setAktion(null); setGewaehlt([]); neuLaden(); }}
+              abbrechen={() => setAktion(null)} />
+          )}
+        </>
+      )}
+    </>
+  );
+}
+
+/**
+ * Die Kandidaten anonym fragen, bevor ihr Profil zum Kunden geht.
+ *
+ * Spart die peinlichste Lage im Geschäft: ein vorgelegtes Profil, dessen
+ * Inhaber gerade woanders unterschrieben hat.
+ */
+function Anfragen({ projektId, zeilen, busy, setBusy, fertig, abbrechen }) {
+  const [frist, setFrist] = useState(7);
+  const [fehler, setFehler] = useState('');
+  const ohneMail = zeilen.filter((z) => !z.email);
+  const schonGefragt = zeilen.filter((z) => z.antwort);
+
+  return (
+    <div className="card" style={{ margin: '12px 0' }}>
+      <h3>Anonym anfragen</h3>
+      <p className="muted" style={{ fontSize: 13, marginTop: 4 }}>
+        {zeilen.length} Kandidaten bekommen die Aufgabe, den Zeitraum und die Anforderungen.
+        Wer der Kunde ist, steht nicht drin. Gefragt wird nach Interesse und Verfügbarkeit.
+      </p>
+      {fehler && <div className="msg msg-error">{fehler}</div>}
+      {ohneMail.length > 0 && (
+        <p className="muted" style={{ fontSize: 12.5 }}>
+          Ohne Mailadresse und damit übersprungen: {ohneMail.map((z) => `${z.vorname} ${z.nachname}`).join(', ')}
+        </p>
+      )}
+      {schonGefragt.length > 0 && (
+        <p className="muted" style={{ fontSize: 12.5 }}>
+          Haben schon geantwortet und werden nicht erneut behelligt: {schonGefragt.length}
+        </p>
+      )}
+
+      <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end', flexWrap: 'wrap', marginTop: 10 }}>
+        <div className="field" style={{ flex: '0 0 150px', marginBottom: 0 }}>
+          <label>Antwort bis in Tagen</label>
+          <input type="number" min={1} max={60} value={frist} onChange={(e) => setFrist(Number(e.target.value))} />
+        </div>
+        <button type="button" className="btn" style={{ width: 'auto', padding: '9px 18px', marginBottom: 0 }}
+          disabled={busy} onClick={async () => {
+            setBusy(true); setFehler('');
+            try {
+              const d = await api.post(`/api/kandidatenanfrage/projekt/${projektId}/fragen`, {
+                application_ids: zeilen.map((z) => z.id), frist_tage: frist,
+              });
+              fertig({ ok: true, text: d.message });
+            } catch (e) { setFehler(e.message); } finally { setBusy(false); }
+          }}>
+          {busy ? 'Verschickt…' : 'Anfrage verschicken'}
+        </button>
+        <button type="button" className="tab" style={{ color: 'var(--grey-600)' }} onClick={abbrechen}>Abbrechen</button>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * v1.43.0, umgebaut in v1.44.0 — Die gewählten Profile vorlegen.
+ *
+ * Die Auswahl kommt aus der Pipeline und wird hier nicht noch einmal
+ * getroffen. Wer schon abgesagt hat, wird vorher benannt: Ein abgesagtes
+ * Profil vorzulegen kostet beim Kunden mehr, als es bringt.
+ */
+function Vorlegen({ projektId, zeilen, fertig, abbrechen }) {
   const [empf, setEmpf] = useState({ firma: '', name: '', email: '' });
   const [aufschlag, setAufschlag] = useState(20);
   const [anschreiben, setAnschreiben] = useState('');
@@ -168,46 +327,21 @@ function Vorlagenleiste({ projektId, matches, applications }) {
   const [busy, setBusy] = useState(false);
   const [fehler, setFehler] = useState('');
 
-  // Kandidaten aus Pipeline und Matching, ohne Doppelte.
-  const kandidaten = [];
-  const gesehen = new Set();
-  for (const a of applications || []) {
-    if (gesehen.has(a.expert_id)) continue;
-    gesehen.add(a.expert_id);
-    kandidaten.push({ id: a.expert_id, name: `${a.vorname} ${a.nachname}`, rolle: a.berufsbezeichnung, quelle: 'Pipeline' });
-  }
-  for (const m of matches || []) {
-    if (gesehen.has(m.expert.id)) continue;
-    gesehen.add(m.expert.id);
-    kandidaten.push({ id: m.expert.id, name: `${m.expert.vorname} ${m.expert.nachname}`,
-      rolle: m.expert.berufsbezeichnung, quelle: `${m.score} %` });
-  }
-
-  if (!offen) {
-    return (
-      <div style={{ margin: '22px 0' }}>
-        <button type="button" className="btn" style={{ width: 'auto', padding: '9px 18px' }}
-          onClick={() => setOffen(true)} disabled={!kandidaten.length}>
-          <Send size={15} style={{ verticalAlign: '-2px' }} /> Profile vorlegen
-        </button>
-        {!kandidaten.length && <span className="muted" style={{ marginLeft: 10 }}>Erst Kandidaten, dann Vorlage.</span>}
-      </div>
-    );
-  }
+  const abgesagt = zeilen.filter((z) => z.antwort === 'abgesagt');
+  const ohneZusage = zeilen.filter((z) => z.antwort !== 'interessiert' && z.antwort !== 'abgesagt');
 
   if (ergebnis) {
     return (
-      <div className="card" style={{ margin: '22px 0', borderLeft: '3px solid var(--success)' }}>
+      <div className="card" style={{ margin: '12px 0', borderLeft: '3px solid var(--success)' }}>
         <h3>Vorlage steht</h3>
         <p>{ergebnis.message}</p>
         {ergebnis.link ? (
-          <p>
-            Link für den Kunden:<br />
-            <a href={ergebnis.link} target="_blank" rel="noreferrer"><code>{ergebnis.link}</code></a>
-          </p>
+          <p>Link für den Kunden:<br />
+            <a href={ergebnis.link} target="_blank" rel="noreferrer"><code>{ergebnis.link}</code></a></p>
         ) : (
           <p className="muted">Noch ein Entwurf. Erst nach dem Freigeben trägt der Link.</p>
         )}
+        {fehler && <div className="msg msg-error">{fehler}</div>}
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 10 }}>
           {!ergebnis.link && (
             <button type="button" className="btn" style={{ width: 'auto', padding: '8px 16px', marginBottom: 0 }}
@@ -219,19 +353,18 @@ function Vorlagenleiste({ projektId, matches, applications }) {
                 } catch (e) { setFehler(e.message); } finally { setBusy(false); }
               }}>Freigeben, Link gilt ab dann</button>
           )}
-          <a className="tab" style={{ color: 'var(--navy)' }} href={`/api/vorlagen/${ergebnis.id}`} onClick={(e) => e.preventDefault()}>
+          <span className="muted" style={{ alignSelf: 'center', fontSize: 13 }}>
             {ergebnis.profile} Profile · Aufschlag {ergebnis.aufschlag} Prozent
-          </a>
+          </span>
           <button type="button" className="tab" style={{ color: 'var(--grey-600)' }}
-            onClick={() => { setErgebnis(null); setOffen(false); setGewaehlt([]); }}>Fertig</button>
+            onClick={fertig}>Fertig</button>
         </div>
-        {fehler && <div className="msg msg-error" style={{ marginTop: 10 }}>{fehler}</div>}
       </div>
     );
   }
 
   return (
-    <div className="card" style={{ margin: '22px 0' }}>
+    <div className="card" style={{ margin: '12px 0' }}>
       <h3>Profile vorlegen</h3>
       <p className="muted" style={{ fontSize: 13, marginTop: 4 }}>
         Anonyme Kurzprofile mit Tagessatz und einer Einschätzung zur Anfrage. Der Kunde bekommt
@@ -239,18 +372,35 @@ function Vorlagenleiste({ projektId, matches, applications }) {
       </p>
       {fehler && <div className="msg msg-error">{fehler}</div>}
 
-      <div style={{ margin: '12px 0' }}>
-        {kandidaten.map((k) => (
-          <label key={k.id} style={{ display: 'block', padding: '5px 0', fontSize: 13.5 }}>
-            <input type="checkbox" style={{ marginRight: 8 }}
-              checked={gewaehlt.includes(k.id)}
-              onChange={(e) => setGewaehlt((g) => (e.target.checked ? [...g, k.id] : g.filter((x) => x !== k.id)))} />
-            <strong>{k.name}</strong> <span className="muted">{k.rolle} · {k.quelle}</span>
-          </label>
+      <div style={{ margin: '12px 0', fontSize: 13.5 }}>
+        {zeilen.map((z) => (
+          <div key={z.id} style={{ padding: '3px 0' }}>
+            <strong>{z.vorname} {z.nachname}</strong>{' '}
+            <span className="muted">{z.berufsbezeichnung?.split('—')[0]}</span>
+            {z.antwort === 'interessiert' && (
+              <span className="status status-freigegeben" style={{ marginLeft: 6 }}>hat zugesagt</span>
+            )}
+            {z.antwort === 'abgesagt' && (
+              <span className="status status-inaktiv" style={{ marginLeft: 6 }}>hat abgesagt</span>
+            )}
+          </div>
         ))}
       </div>
 
-      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+      {abgesagt.length > 0 && (
+        <div className="msg msg-error" style={{ fontSize: 13 }}>
+          {abgesagt.length === 1 ? 'Einer der Gewählten hat abgesagt' : `${abgesagt.length} der Gewählten haben abgesagt`}.
+          Ein abgesagtes Profil vorzulegen kostet beim Kunden mehr, als es bringt.
+        </div>
+      )}
+      {abgesagt.length === 0 && ohneZusage.length > 0 && (
+        <p className="muted" style={{ fontSize: 12.5 }}>
+          {ohneZusage.length === 1 ? 'Einer hat' : `${ohneZusage.length} haben`} noch nicht zugesagt. Du kannst
+          trotzdem vorlegen, nur weißt du dann nicht, ob er noch zu haben ist.
+        </p>
+      )}
+
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 10 }}>
         <div className="field" style={{ flex: '1 1 200px' }}><label>Empfänger (Firma)</label>
           <input value={empf.firma} onChange={(e) => setEmpf({ ...empf, firma: e.target.value })} placeholder="SOLCOM" /></div>
         <div className="field" style={{ flex: '1 1 180px' }}><label>Name</label>
@@ -270,12 +420,12 @@ function Vorlagenleiste({ projektId, matches, applications }) {
 
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
         <button type="button" className="btn" style={{ width: 'auto', padding: '9px 18px', marginBottom: 0 }}
-          disabled={busy || !gewaehlt.length} onClick={async () => {
+          disabled={busy || !zeilen.length} onClick={async () => {
             setBusy(true); setFehler('');
             try {
               const d = await api.post('/api/vorlagen', {
                 project_id: Number(projektId),
-                expert_ids: gewaehlt,
+                expert_ids: zeilen.map((z) => z.expert_id),
                 empfaenger: { firma: empf.firma || null, name: empf.name || null, email: empf.email || null },
                 aufschlag_prozent: aufschlag,
                 anschreiben: anschreiben || null,
@@ -284,10 +434,10 @@ function Vorlagenleiste({ projektId, matches, applications }) {
                 profile: d.positionen.length, aufschlag: d.vorlage.aufschlag_prozent });
             } catch (e) { setFehler(e.message); } finally { setBusy(false); }
           }}>
-          {busy ? 'Baut…' : `${gewaehlt.length || 'Keine'} Profile zusammenstellen`}
+          {busy ? 'Baut…' : `${zeilen.length} ${zeilen.length === 1 ? 'Profil' : 'Profile'} zusammenstellen`}
         </button>
         <button type="button" className="tab" style={{ color: 'var(--grey-600)' }}
-          onClick={() => setOffen(false)}>Abbrechen</button>
+          onClick={abbrechen}>Abbrechen</button>
       </div>
     </div>
   );

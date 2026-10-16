@@ -2,6 +2,23 @@
 
 Versionsschema: v\<Major>.\<Sprint>.\<Patch>. Sprintabschluss endet auf .0, Korrekturen zählen den Patch hoch.
 
+## v1.44.0 — Eine Liste, und die Kandidaten werden zuerst gefragt
+
+Zwei Korrekturen, eine davon an meinem eigenen Bau von gestern.
+
+**Die Pipeline ist die Liste.** In v1.43.0 stand darunter eine zweite Auswahl mit denselben Menschen zum Ankreuzen. Das war ein Baufehler. Wer in der Pipeline steht, ist ausgewählt; was man mit der Auswahl macht, steht jetzt darüber: anonym anfragen oder Profile vorlegen.
+
+**Der Status bildet die ganze Strecke ab**, nicht nur ihr Ende: vorgeschlagen, angefragt, hat Interesse (oder abgesagt), beim Kunden, im Gespräch, Angebot, besetzt. Die Reihenfolge ist eine Richtung, kein Zwang: Wer jemanden ohne Vorabfrage direkt vorlegen will, kann das.
+
+**Die Kandidatenanfrage, immer anonym.** Vor dem Vorlegen wird gefragt: Interesse, und ab wann. Das spart die peinlichste Lage im Geschäft, nämlich ein vorgelegtes Profil, dessen Inhaber gerade woanders unterschrieben hat.
+
+- **Der Kandidat erfährt nicht, wer der Kunde ist.** Keine Geheimniskrämerei, sondern die Geschäftsgrundlage: Wer weiß, wer sucht, kann direkt anrufen.
+- Geprüft wird gegen die **tatsächlich bekannten Namen**, also die aus der Anfrage, aus erstellten Vorlagen und vom eingetragenen Kunden. Steht einer davon in der Projektbeschreibung, geht gar nichts hinaus, und die Meldung sagt, in welchem Feld er steht. Lieber eine Fehlermeldung als eine Mail, die das Geschäft kostet.
+- Der Kandidat antwortet **ohne Login** unter seinem Link. Die Alternative wäre gewesen: erst anmelden, dann antworten. Die Hälfte hätte das Passwort nicht zur Hand gehabt, und eine ausgebliebene Antwort sieht aus wie Desinteresse.
+- Verfügbarkeit als **Text, nicht als Datum**. „Ab Mitte November" und „sofort, aber nur drei Tage" sind Antworten, die ein Datumsfeld zerstören würde.
+- Eine Erinnerung nutzt denselben Link. Ein zweiter Token würde den ersten entwerten, und manche antworten auf die erste Mail eine Woche später.
+- Wer abgesagt hat, wird vor dem Vorlegen benannt. Ein abgesagtes Profil vorzulegen kostet beim Kunden mehr, als es bringt.
+
 ## v1.43.0 — Profile vorlegen, ohne Umweg über eine Freigabe
 
 Der Weg zum Kunden führte über eine Freigabe je Profil. Das war für Kunden mit Portalzugang gedacht und hieß missverständlich: Freigegeben wurde nie ein Klarname, sondern ausgewählt, wer vorgelegt wird. Für einen Vermittler, der nie ein Konto anlegt, war der Weg schlicht falsch.

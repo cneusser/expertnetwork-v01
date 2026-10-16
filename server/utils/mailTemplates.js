@@ -289,6 +289,42 @@ Phalanx GmbH`,
   },
 };
 
+/**
+ * v1.44.0 — Die anonyme Projektanfrage an einen Kandidaten.
+ *
+ * Kein Kundenname, kein Vermittler, kein Budget. Was drinsteht, reicht für
+ * eine Entscheidung über Interesse und Zeit, und mehr soll es nicht.
+ */
+DEFAULTS.projekt_anfrage = {
+  name: 'Projektanfrage an einen Kandidaten',
+  subject: 'Passt das zu dir? {{projekt_titel}}',
+  body_text: `Hallo {{vorname}},
+
+wir haben eine Anfrage hereinbekommen, bei der ich an dich gedacht habe.
+
+{{projekt_titel}}
+{{projekt_rahmen}}
+
+{{projekt_beschreibung}}
+
+{{projekt_anforderungen}}
+
+Zwei Fragen dazu: Hast du grundsätzlich Interesse, und ab wann hättest du Zeit?
+
+Hier kannst du direkt antworten, das dauert eine Minute:
+{{antwort_link}}
+
+Wenn es nicht passt, sag auch das gern kurz über denselben Link. Dann weiß ich Bescheid und melde mich beim nächsten Mal mit etwas Passenderem.
+
+Antwort bitte bis {{frist}}.
+
+Viele Grüße
+Christian
+
+Dr. Christian Neusser · Phalanx GmbH
+neusser@phalanx.de · +49 9131 920 60 75`,
+};
+
 const EDITABLE_KEYS = Object.keys(DEFAULTS);
 
 /** Liefert die wirksame Vorlage (DB-Override oder Standard). */

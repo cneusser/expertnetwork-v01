@@ -9,7 +9,18 @@ const { freshness } = require('../utils/freshness');
 const router = express.Router();
 router.use(requireAuth);
 
-const APP_STATUS = ['vorgeschlagen', 'beworben', 'im_gespraech', 'angeboten', 'abgelehnt', 'besetzt'];
+/**
+ * v1.44.0 — Der Status bildet die ganze Strecke ab, nicht nur das Ende.
+ *
+ * vorgeschlagen → angefragt → interessiert (oder abgesagt) → vorgelegt →
+ * im_gespraech → angeboten → besetzt (oder abgelehnt).
+ *
+ * "beworben" bleibt für den Fall, dass jemand sich selbst meldet. Die
+ * Reihenfolge ist eine Richtung, kein Zwang: Wer jemanden ohne Vorabfrage
+ * direkt vorlegen will, soll das können.
+ */
+const APP_STATUS = ['vorgeschlagen', 'beworben', 'angefragt', 'interessiert', 'abgesagt',
+  'vorgelegt', 'im_gespraech', 'angeboten', 'abgelehnt', 'besetzt'];
 
 const projectSchema = z.object({
   name: z.string().min(2).max(150),
@@ -146,20 +157,23 @@ router.get('/funnel', requireRole('admin'), async (req, res) => {
     .where('p.tenant_id', req.user.tenantId)
     .select('r.project_id', 'r.expert_id', 'p.name as projekt', 'p.referenz',
       'e.vorname', 'e.nachname', 'e.berufsbezeichnung', 'r.created_at');
-  const stufen = ['vorgeschlagen', 'beworben', 'im_gespraech', 'angeboten', 'besetzt', 'abgelehnt', 'zurueckgezogen'];
+  const stufen = ['vorgeschlagen', 'beworben', 'angefragt', 'interessiert', 'vorgelegt',
+    'im_gespraech', 'angeboten', 'besetzt', 'abgesagt', 'abgelehnt', 'zurueckgezogen'];
   const STAGNANT_TAGE = 30; // Capitalmatch-Regel: laufende Vorgaenge ohne Bewegung markieren
   const funnel = Object.fromEntries(stufen.map((s) => [s, []]));
   const now = Date.now();
   for (const r of rows) {
     const seit = r.stage_changed_at ? new Date(r.stage_changed_at).getTime() : now;
     const tage_in_stufe = Math.max(0, Math.floor((now - seit) / 86400000));
-    const laufend = ['vorgeschlagen', 'beworben', 'im_gespraech', 'angeboten'].includes(r.status);
+    const laufend = ['vorgeschlagen', 'beworben', 'angefragt', 'interessiert', 'vorgelegt',
+      'im_gespraech', 'angeboten'].includes(r.status);
     (funnel[r.status] = funnel[r.status] || []).push({
       ...r, tage_in_stufe, stagnant: laufend && tage_in_stufe > STAGNANT_TAGE,
     });
   }
   // Conversion: wie viele haben Stufe X erreicht (Reihenfolge bis 'besetzt')
-  const reihenfolge = ['vorgeschlagen', 'beworben', 'im_gespraech', 'angeboten', 'besetzt'];
+  const reihenfolge = ['vorgeschlagen', 'angefragt', 'interessiert', 'vorgelegt',
+    'im_gespraech', 'angeboten', 'besetzt'];
   const counts = Object.fromEntries(stufen.map((s) => [s, funnel[s].length]));
   const reached = {};
   reihenfolge.forEach((s, i) => {
@@ -248,7 +262,10 @@ router.get('/:id(\\d+)', requireRole('admin'), async (req, res) => {
   const applications = await db('applications')
     .join('experts', 'experts.id', 'applications.expert_id')
     .where('applications.project_id', project.id)
-    .select('applications.*', 'experts.vorname', 'experts.nachname', 'experts.berufsbezeichnung');
+    // v1.44.0: Die Mailadresse wird gebraucht, um zu zeigen, wer überhaupt
+    // angefragt werden kann. applications.* bringt die Antwortfelder mit.
+    .select('applications.*', 'experts.vorname', 'experts.nachname',
+      'experts.berufsbezeichnung', 'experts.email');
 
   // Matching-Vorschläge: freigegebene Experten ohne Bewerbung, sortiert nach Score
   const appliedIds = applications.map((a) => a.expert_id);

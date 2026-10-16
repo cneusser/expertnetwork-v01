@@ -95,6 +95,7 @@ app.use('/api/phalanx-os', require('./routes/phalanxos'));
 app.use('/api/adressen', require('./routes/adressen'));
 app.use('/api/anfragen', require('./routes/anfragen'));
 app.use('/api/vorlagen', require('./routes/vorlagen'));
+app.use('/api/kandidatenanfrage', require('./routes/kandidatenanfrage'));
 app.use('/api/kunden', require('./routes/kunden'));
 app.use('/api/bericht', require('./routes/bericht').router);
 app.use('/api', require('./routes/handover')); // Uebergabe an Capitalmatch (Admin + Maschine)
