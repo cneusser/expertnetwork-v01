@@ -2,6 +2,15 @@
 
 Versionsschema: v\<Major>.\<Sprint>.\<Patch>. Sprintabschluss endet auf .0, Korrekturen zählen den Patch hoch.
 
+## v1.45.1 — Der Funnel kennt die neuen Stufen
+
+Mit v1.44.0 kamen vier Stufen dazu (angefragt, hat zugesagt, abgesagt, beim Kunden). Der Server kannte sie, der Funnel nur ihre Namen nicht, und zeigte deshalb vier Spalten ohne Überschrift.
+
+- Die vier Stufen sind nachgetragen, in der Spaltenansicht, im Auswahlfeld und in der Conversion-Zeile, die jetzt die Strecke zeigt, die tatsächlich läuft.
+- Abgesagt und abgelehnt stehen bewusst nicht in der Kette: Das sind Ausgänge und keine Zwischenstufen.
+- Auch die Expertenansicht kannte sie nicht. Dort stehen sie aus seiner Sicht: „Dein Profil liegt beim Kunden" statt „vorgelegt".
+- Damit das nicht wieder passiert, gibt es einen Rückfall: Eine unbekannte Stufe bekommt ihren technischen Namen lesbar gemacht, statt gar nichts zu zeigen. Eine leere Überschrift sieht aus wie ein Fehler, ein ungewohntes Wort nur ungewohnt.
+
 ## v1.45.0 — Wer steckt gerade wo
 
 Die Pipeline zeigt ein Projekt mit seinen Kandidaten. Diese Ansicht dreht es um: ein Mensch und seine laufenden Projekte. Das ist die Frage, die man sich stellt, wenn jemand anruft, und bisher musste man dafür jedes Projekt einzeln aufmachen.

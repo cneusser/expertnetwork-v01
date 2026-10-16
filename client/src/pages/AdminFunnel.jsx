@@ -5,12 +5,29 @@ import { Filter } from 'lucide-react';
 import Layout from '../components/Layout';
 import { api } from '../api/client';
 
+/**
+ * v1.45.1: Die vier Stufen aus v1.44.0 waren hier nicht nachgetragen, deshalb
+ * standen vier Spalten ohne Überschrift da. Der Server kennt die Stufen, der
+ * Funnel kannte nur ihre Namen nicht.
+ *
+ * Damit das nicht wieder passiert, gibt es unten einen Rückfall: Eine Stufe
+ * ohne Eintrag bekommt ihren technischen Namen lesbar gemacht, statt gar
+ * nichts zu zeigen. Eine leere Überschrift sieht aus wie ein Fehler, ein
+ * ungewohntes Wort nur ungewohnt.
+ */
 const LABEL = {
-  vorgeschlagen: 'Vorgeschlagen', beworben: 'Beworben', im_gespraech: 'Im Gespräch',
+  vorgeschlagen: 'Vorgeschlagen', beworben: 'Beworben',
+  angefragt: 'Angefragt', interessiert: 'Hat zugesagt', abgesagt: 'Abgesagt',
+  vorgelegt: 'Beim Kunden', im_gespraech: 'Im Gespräch',
   angeboten: 'Angeboten', besetzt: 'Besetzt', abgelehnt: 'Abgelehnt', zurueckgezogen: 'Zurückgezogen',
 };
+
+/** Fällt eine Stufe durch, wird aus "im_gespraech" wenigstens "Im gespraech". */
+const label = (s) => LABEL[s] || String(s).replace(/_/g, ' ').replace(/^./, (c) => c.toUpperCase());
 const FARBE = {
-  vorgeschlagen: 'var(--grey-400, #8a93a0)', beworben: '#0f5aa8', im_gespraech: '#8a6d00',
+  vorgeschlagen: 'var(--grey-400, #8a93a0)', beworben: '#0f5aa8',
+  angefragt: '#0f5aa8', interessiert: '#1d7a3e', abgesagt: '#8a93a0',
+  vorgelegt: '#8a6d00', im_gespraech: '#8a6d00',
   angeboten: '#6a3fa0', besetzt: '#1d7a3e', abgelehnt: '#b23a48', zurueckgezogen: '#8a93a0',
 };
 
@@ -46,8 +63,10 @@ export default function AdminFunnel() {
 
       {data.reached && projektFilter === 'alle' && (
         <p className="muted" style={{ fontSize: 13, margin: '0 0 12px' }}>
-          Conversion: {['vorgeschlagen', 'beworben', 'im_gespraech', 'angeboten', 'besetzt']
-            .map((s) => `${LABEL[s]} ${data.reached[s] ?? 0}`).join(' → ')}
+          {/* Die Kette, wie sie seit v1.44.0 tatsächlich läuft. Abgesagt und
+              abgelehnt sind Ausgänge und gehören nicht in die Reihe. */}
+          Conversion: {['vorgeschlagen', 'angefragt', 'interessiert', 'vorgelegt', 'im_gespraech', 'angeboten', 'besetzt']
+            .map((s) => `${label(s)} ${data.reached[s] ?? 0}`).join(' → ')}
           {' '}· Stagnation ab {data.stagnant_tage} Tagen ohne Bewegung
         </p>
       )}
@@ -57,7 +76,7 @@ export default function AdminFunnel() {
           return (
             <div key={s} className="card" style={{ padding: 12 }}>
               <h3 style={{ fontSize: 13, color: FARBE[s], display: 'flex', justifyContent: 'space-between' }}>
-                {LABEL[s]} <span>{karten.length}</span>
+                {label(s)} <span>{karten.length}</span>
               </h3>
               {karten.map((k) => (
                 <div key={k.id} style={{ borderLeft: `3px solid ${FARBE[s]}`, padding: '6px 8px', margin: '8px 0', background: 'var(--grey-100, #f4f6f8)', borderRadius: 4, fontSize: 13 }}>
@@ -78,7 +97,7 @@ export default function AdminFunnel() {
                         await api.post(`/api/projects/funnel/${k.id}`, { status: ev.target.value });
                         api.get('/api/projects/funnel').then(setData);
                       }}>
-                      {data.stufen.map((st) => <option key={st} value={st}>{LABEL[st]}</option>)}
+                      {data.stufen.map((st) => <option key={st} value={st}>{label(st)}</option>)}
                     </select>
                     <input type="text" placeholder="Nächster Schritt…" defaultValue={k.next_step || ''}
                       style={{ fontSize: 11, flex: 1, minWidth: 60, border: '1px solid var(--grey-200, #e3e6ea)', borderRadius: 4, padding: '3px 5px' }}

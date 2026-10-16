@@ -6,8 +6,25 @@ import { api } from '../api/client';
 import { useLang, tr } from '../i18n';
 
 const fmtDate = (d) => (d ? new Date(d).toLocaleDateString('de-DE') : '—');
-const APP_LABEL = { vorgeschlagen: 'Von Phalanx vorgeschlagen', beworben: 'Beworben', im_gespraech: 'Im Gespräch', angeboten: 'Angebot erhalten', abgelehnt: 'Nicht berücksichtigt', besetzt: 'Besetzt' };
-const APP_LABEL_EN = { vorgeschlagen: 'Suggested by Phalanx', beworben: 'Applied', im_gespraech: 'In discussion', angeboten: 'Offer received', abgelehnt: 'Not selected', besetzt: 'Filled' };
+/**
+ * v1.45.1: Die Stufen aus v1.44.0 nachgetragen, aus der Sicht des Experten
+ * formuliert. "vorgelegt" heißt für ihn nicht "vorgelegt", sondern dass sein
+ * Profil beim Kunden liegt, und genau das will er wissen.
+ */
+const APP_LABEL = {
+  vorgeschlagen: 'Von Phalanx vorgeschlagen', beworben: 'Beworben',
+  angefragt: 'Anfrage an dich läuft', interessiert: 'Du hast Interesse gemeldet',
+  abgesagt: 'Du hast abgesagt', vorgelegt: 'Dein Profil liegt beim Kunden',
+  im_gespraech: 'Im Gespräch', angeboten: 'Angebot erhalten',
+  abgelehnt: 'Nicht berücksichtigt', besetzt: 'Besetzt',
+};
+const APP_LABEL_EN = {
+  vorgeschlagen: 'Suggested by Phalanx', beworben: 'Applied',
+  angefragt: 'We asked you', interessiert: 'You expressed interest',
+  abgesagt: 'You declined', vorgelegt: 'Your profile is with the client',
+  im_gespraech: 'In discussion', angeboten: 'Offer received',
+  abgelehnt: 'Not selected', besetzt: 'Filled',
+};
 
 export default function ExpertProjekte() {
   const { lang } = useLang();
