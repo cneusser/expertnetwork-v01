@@ -182,6 +182,51 @@ a:hover { text-decoration: underline; }
 .topnav a { color: rgba(255,255,255,0.75); font-size: 13.5px; padding: 7px 12px; border-radius: 6px; text-decoration: none; }
 .topnav a:hover { background: rgba(255,255,255,0.08); text-decoration: none; }
 .topnav a.active { background: rgba(255,255,255,0.14); color: var(--white); font-weight: 600; }
+
+/* ------------------------------------------------------------
+   v1.46.0 — Die Navigation in Bereichen.
+
+   Achtzehn Punkte nebeneinander sind keine Navigation, sondern eine
+   Aufzählung: Man findet darin nur, was man schon kennt. Jetzt sechs
+   Einträge, von denen vier aufklappen.
+   ------------------------------------------------------------ */
+.nav-bereich { position: relative; }
+.nav-bereich > button {
+  display: inline-flex; align-items: center; gap: 5px;
+  color: rgba(255,255,255,0.75); font-size: 13.5px; padding: 7px 12px;
+  border-radius: 6px; border: none; background: none; cursor: pointer;
+  font-family: inherit;
+}
+.nav-bereich > button:hover { background: rgba(255,255,255,0.08); }
+.nav-bereich > button.aktiv { background: rgba(255,255,255,0.14); color: var(--white); font-weight: 600; }
+.nav-bereich.offen > button { background: rgba(255,255,255,0.14); color: var(--white); }
+.nav-bereich.offen > button svg { transform: rotate(180deg); }
+.nav-bereich > button svg { transition: transform .15s ease; opacity: .7; }
+
+.nav-klappe {
+  position: absolute; top: calc(100% + 6px); left: 0; z-index: 60;
+  min-width: 248px; padding: 6px;
+  background: var(--pxl-navy, #142536);
+  border: 1px solid rgba(216, 221, 225, .18);
+  border-radius: 4px;
+  box-shadow: 0 14px 40px rgba(15, 28, 40, .45);
+}
+.nav-klappe a {
+  display: block; padding: 8px 10px; border-radius: 3px;
+  color: rgba(247, 245, 240, .88); text-decoration: none; font-size: 13.5px;
+}
+.nav-klappe a:hover { background: rgba(247, 245, 240, .08); }
+.nav-klappe a.active { background: rgba(247, 245, 240, .13); }
+.nav-klappe .nav-name { display: block; font-weight: 600; }
+/* Die Erklärung darunter, damit man auch findet, was man noch nicht kennt. */
+.nav-klappe .nav-erklaerung {
+  display: block; font-size: 11.5px; color: rgba(247, 245, 240, .5); margin-top: 1px;
+}
+
+@media (max-width: 1100px) {
+  .nav-klappe { min-width: 200px; }
+  .nav-klappe .nav-erklaerung { display: none; }
+}
 .topbar button {
   background: transparent;
   border: 1px solid rgba(255,255,255,0.35);
@@ -383,6 +428,9 @@ a:hover { text-decoration: underline; }
 }
 .pxl-buehne .card h3 { color: var(--pxl-papier); }
 .pxl-buehne .card p { color: rgba(247, 245, 240, .76); }
+/* v1.45.2: Listen und Tabellenzellen waren hier nie erfasst. */
+.pxl-buehne li, .pxl-buehne td, .pxl-buehne .card li { color: rgba(247, 245, 240, .84); }
+.pxl-buehne strong { color: var(--pxl-papier); }
 
 /* Formulare auf der Bühne */
 .pxl-buehne .field label { color: rgba(247, 245, 240, .8); }
@@ -594,13 +642,37 @@ a:hover { text-decoration: underline; }
   box-shadow: 0 18px 50px rgba(15, 28, 40, .35);
   padding: 34px 32px 30px;
 }
-.auth-wrap .auth-card h1 { color: var(--pxl-papier); font-size: clamp(23px, 3vw, 28px); }
-.auth-wrap .auth-card h2,
-.auth-wrap .auth-card h3 { color: var(--pxl-papier); }
-.auth-wrap .auth-card p,
-.auth-wrap .auth-card li { color: rgba(247, 245, 240, .82); }
+/**
+ * v1.45.2 — Die Textfarben gelten für die ganze Bühne, nicht nur für die
+ * Anmeldekarte.
+ *
+ * Aus einem echten Fall: Ein Interim Manager konnte auf der Antwortseite die
+ * Anforderungen nicht lesen und hat abgesagt. Die Seite benutzt `.card`, die
+ * Regeln galten aber nur für `.auth-card`. Also griff `.card p` aus dem
+ * hellen Standard: graue Schrift auf dunkelblauem Grund.
+ *
+ * Deshalb stehen die Farben jetzt am Container und nicht an einem einzelnen
+ * Baustein. Jeder Text auf dunklem Grund ist hell, egal in welchem Kasten er
+ * steht, und auch ein Baustein, den jemand in zwei Jahren ergänzt.
+ */
+.auth-wrap h1, .auth-wrap h2, .auth-wrap h3, .auth-wrap h4,
+.auth-wrap strong { color: var(--pxl-papier); }
+.auth-wrap p, .auth-wrap li, .auth-wrap td, .auth-wrap dd,
+.auth-wrap span:not(.status):not(.tag) { color: rgba(247, 245, 240, .84); }
+.auth-wrap .muted, .auth-wrap .sub { color: rgba(247, 245, 240, .58); }
+.auth-wrap ul, .auth-wrap ol { color: rgba(247, 245, 240, .84); }
+
+.auth-wrap .auth-card h1 { font-size: clamp(23px, 3vw, 28px); }
 .auth-wrap .auth-card .sub { color: rgba(247, 245, 240, .66); }
-.auth-wrap .auth-card .muted { color: rgba(247, 245, 240, .5); }
+
+/* Karten auf der Bühne: aufgehellt statt weiß, und die Schrift passend dazu. */
+.auth-wrap .card {
+  background: rgba(247, 245, 240, .05);
+  border: 1px solid rgba(216, 221, 225, .18);
+  border-radius: 3px;
+}
+.auth-wrap .card h3 { color: var(--pxl-papier); }
+.auth-wrap .card p, .auth-wrap .card li { color: rgba(247, 245, 240, .84); }
 .auth-wrap a { color: var(--pxl-gold); }
 .auth-wrap label { color: rgba(247, 245, 240, .8); }
 .auth-wrap input, .auth-wrap select, .auth-wrap textarea {

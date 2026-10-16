@@ -2,6 +2,27 @@
 
 Versionsschema: v\<Major>.\<Sprint>.\<Patch>. Sprintabschluss endet auf .0, Korrekturen zählen den Patch hoch.
 
+## v1.46.0 — Lesbar, und eine Navigation statt einer Aufzählung
+
+Zwei Dinge aus der Praxis, eines davon teuer.
+
+**Die Antwortseite war nicht lesbar.** Michael Philipp schrieb, auf seinem MacBook sei die Schrift so hell, dass er die Texte kaum entziffern konnte, auch das Antwortfeld. Es lag nicht an seinem Gerät: Die Seite benutzt `.card`, die Farbregeln galten aber nur für `.auth-card`. Also griff die helle Standardregel, und graue Schrift stand auf dunkelblauem Grund. Er hat abgesagt, und wir wissen nicht, ob er die Anforderungen überhaupt lesen konnte.
+
+- Die Textfarben hängen jetzt am Container und nicht an einzelnen Bausteinen. Jeder Text auf dunklem Grund ist hell, egal in welchem Kasten er steht, und auch einer, den jemand in zwei Jahren ergänzt.
+- Listen und Tabellenzellen waren auch auf der Bühne nie erfasst. Das war dieselbe Lücke, nur an anderer Stelle.
+
+Das ist der dritte Fehler dieser Art nach v1.38.1 und v1.41.1. Die Ursache war jedes Mal dieselbe: eine Farbe, die an einem Baustein klebt statt am Grund, auf dem er steht.
+
+**Achtzehn Navigationspunkte sind keine Navigation**, sondern eine Aufzählung. Man findet darin nur, was man schon kennt, und übersieht den Rest. Jetzt sechs Einträge:
+
+- Netzwerk (Experten, Ansprache, Suche, Skills)
+- Geschäft (Anfragen, Projekte, Funnel, Kunden)
+- Partner (Assoziierte Partner, Kapitalpartner)
+- Abrechnung, Bericht als eigene Punkte, weil man sie täglich braucht
+- Verwaltung (Kommunikation, Mailvorlagen, Adressen, Phalanx OS, Protokoll, Mandanten)
+
+Gegliedert nach der Reihenfolge, in der das Geschäft entsteht, nicht nach technischer Verwandtschaft. Unter jedem Punkt steht eine Zeile, was dort zu finden ist, damit man auch findet, was man noch nicht kennt. Aufgeklappt wird per Klick: Ein Menü, das sich beim Überfahren öffnet, klappt auch auf, wenn man woanders hin will.
+
 ## v1.45.1 — Der Funnel kennt die neuen Stufen
 
 Mit v1.44.0 kamen vier Stufen dazu (angefragt, hat zugesagt, abgesagt, beim Kunden). Der Server kannte sie, der Funnel nur ihre Namen nicht, und zeigte deshalb vier Spalten ohne Überschrift.
