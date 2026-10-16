@@ -146,11 +146,15 @@ async function frage(db, { tenantId, projekt, applicationIds, fristTage = 7, sen
     const token = z.anfrage_token || neuerToken();
     const erneut = Boolean(z.anfrage_token);
 
+    const neuerStatus = ['vorgeschlagen', 'beworben'].includes(z.status) ? 'angefragt' : z.status;
     await db('applications').where({ id: z.id }).update({
       anfrage_token: token,
       anfrage_am: new Date(),
       anfrage_frist: frist,
-      status: ['vorgeschlagen', 'beworben'].includes(z.status) ? 'angefragt' : z.status,
+      status: neuerStatus,
+      // Den Zeitpunkt des Stufenwechsels mitführen, sonst zeigt die Übersicht
+      // "seit X Tagen" das Alter der Zeile statt das des Zustands.
+      ...(neuerStatus !== z.status ? { updated_at: new Date(), stage_changed_at: new Date() } : {}),
     });
 
     if (senden) {
@@ -184,6 +188,8 @@ async function antworte(db, { token, interesse, verfuegbarAb = null, auslastung 
   await db('applications').where({ id: a.id }).update({
     antwort,
     antwort_am: new Date(),
+    updated_at: new Date(),
+    stage_changed_at: new Date(),
     verfuegbar_ab: verfuegbarAb ? String(verfuegbarAb).slice(0, 80) : null,
     auslastung: auslastung ? String(auslastung).slice(0, 40) : null,
     antwort_notiz: notiz ? String(notiz).slice(0, 2000) : null,

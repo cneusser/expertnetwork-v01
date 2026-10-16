@@ -170,6 +170,132 @@ router.get('/', requireRole('admin'), async (req, res) => {
 });
 
 /**
+ * v1.45.0 — Wo steht gerade wer?
+ *
+ * Die Pipeline zeigt ein Projekt mit seinen Kandidaten. Diese Ansicht dreht
+ * das um: ein Mensch, und in welchen Projekten er gerade hängt. Das ist die
+ * Frage, die man sich stellt, wenn jemand anruft, und bisher musste man dafür
+ * jedes Projekt einzeln aufmachen.
+ *
+ * Sortiert wird nicht alphabetisch, sondern nach Handlungsbedarf. Eine Liste
+ * nach Namen liest man einmal und nie wieder.
+ */
+const LAUFEND = ['vorgeschlagen', 'angefragt', 'interessiert', 'vorgelegt', 'im_gespraech', 'angeboten'];
+
+/** Was als Nächstes zu tun wäre, und wie dringend. */
+function naechsterSchritt(zeile, jetzt = new Date()) {
+  const tage = (d) => (d ? Math.floor((jetzt - new Date(d)) / 86400000) : null);
+
+  if (zeile.status === 'angefragt') {
+    const t = tage(zeile.anfrage_am);
+    const ueberfaellig = Boolean(zeile.anfrage_frist && new Date(zeile.anfrage_frist) < jetzt);
+    return {
+      text: ueberfaellig ? `wartet seit ${t} Tagen, Frist ist um` : `gefragt vor ${t} Tagen, wartet`,
+      dringend: ueberfaellig, rang: ueberfaellig ? 0 : 1, tage: t,
+    };
+  }
+  if (zeile.status === 'interessiert') {
+    const t = tage(zeile.antwort_am);
+    // Eine Zusage, die liegen bleibt, ist der teuerste Zustand: Der Mensch
+    // wartet, und irgendwann nimmt er etwas anderes.
+    return {
+      text: t >= 3 ? `hat vor ${t} Tagen zugesagt, noch nicht vorgelegt` : 'hat zugesagt, kann vorgelegt werden',
+      dringend: t >= 3, rang: t >= 3 ? 0 : 2, tage: t,
+    };
+  }
+  if (zeile.status === 'vorgelegt') {
+    const t = tage(zeile.stage_changed_at || zeile.updated_at);
+    return { text: `beim Kunden seit ${t} Tagen`, dringend: t >= 10, rang: t >= 10 ? 1 : 3, tage: t };
+  }
+  if (zeile.status === 'im_gespraech') return { text: 'im Gespräch', dringend: false, rang: 3, tage: tage(zeile.stage_changed_at || zeile.updated_at) };
+  if (zeile.status === 'angeboten') return { text: 'Angebot liegt vor', dringend: false, rang: 2, tage: tage(zeile.stage_changed_at || zeile.updated_at) };
+  if (zeile.status === 'vorgeschlagen') return { text: 'noch nicht gefragt', dringend: false, rang: 4, tage: tage(zeile.created_at) };
+  return { text: zeile.status, dringend: false, rang: 5, tage: null };
+}
+
+/**
+ * Je Experte alle laufenden Beteiligungen.
+ *
+ * Zwei Abfragen für alles, nicht zwei je Person: Diese Liste wächst mit dem
+ * Bestand, und genau dieser Fehler ist hier schon zweimal passiert.
+ */
+router.get('/wo-stehen-sie', requireRole('admin'), async (req, res) => {
+  const t = req.user.tenantId;
+  const jetzt = new Date();
+
+  const zeilen = await db('applications as a')
+    .join('experts as e', 'e.id', 'a.expert_id')
+    .join('projects as p', 'p.id', 'a.project_id')
+    .where('a.tenant_id', t)
+    .whereIn('a.status', LAUFEND)
+    .select('a.id', 'a.status', 'a.created_at', 'a.updated_at', 'a.stage_changed_at',
+      'a.anfrage_am', 'a.anfrage_frist',
+      'a.antwort', 'a.antwort_am', 'a.verfuegbar_ab', 'a.auslastung', 'a.matching_score',
+      'e.id as expert_id', 'e.vorname', 'e.nachname', 'e.berufsbezeichnung', 'e.firma',
+      'p.id as projekt_id', 'p.name as projekt_name', 'p.start as projekt_start');
+
+  // Laufende Mandate dazu: Wer im Einsatz ist, ist nicht frei, und das ist
+  // die wichtigste Information über einen Interim Manager überhaupt.
+  const mandate = await db('engagements as g')
+    .join('experts as e', 'e.id', 'g.expert_id')
+    .join('projects as p', 'p.id', 'g.project_id')
+    .where('g.tenant_id', t).andWhere('g.status', 'aktiv')
+    .select('g.id', 'g.start', 'g.ende', 'e.id as expert_id', 'e.vorname', 'e.nachname',
+      'e.berufsbezeichnung', 'e.firma', 'p.id as projekt_id', 'p.name as projekt_name');
+
+  const nach = new Map();
+  const eintrag = (id) => {
+    if (!nach.has(id)) nach.set(id, { expert: null, beteiligungen: [], mandate: [], dringend: false, rang: 9 });
+    return nach.get(id);
+  };
+  const person = (z) => ({
+    id: z.expert_id, vorname: z.vorname, nachname: z.nachname,
+    berufsbezeichnung: z.berufsbezeichnung, firma: z.firma,
+  });
+
+  for (const z of zeilen) {
+    const e = eintrag(z.expert_id);
+    e.expert = e.expert || person(z);
+    const schritt = naechsterSchritt(z, jetzt);
+    e.beteiligungen.push({
+      application_id: z.id, projekt_id: z.projekt_id, projekt_name: z.projekt_name,
+      projekt_start: z.projekt_start, status: z.status, matching_score: z.matching_score,
+      verfuegbar_ab: z.verfuegbar_ab, auslastung: z.auslastung, schritt,
+    });
+    if (schritt.dringend) e.dringend = true;
+    e.rang = Math.min(e.rang, schritt.rang);
+  }
+
+  for (const m of mandate) {
+    const e = eintrag(m.expert_id);
+    e.expert = e.expert || person(m);
+    e.mandate.push({
+      engagement_id: m.id, projekt_id: m.projekt_id, projekt_name: m.projekt_name,
+      start: m.start, ende: m.ende,
+    });
+  }
+
+  const liste = [...nach.values()]
+    .filter((e) => e.expert)
+    .sort((a, b) => a.rang - b.rang
+      || (b.dringend ? 1 : 0) - (a.dringend ? 1 : 0)
+      || String(a.expert.nachname).localeCompare(String(b.expert.nachname), 'de'));
+
+  res.json({
+    personen: liste,
+    zahlen: {
+      insgesamt: liste.length,
+      dringend: liste.filter((e) => e.dringend).length,
+      wartet_auf_antwort: zeilen.filter((z) => z.status === 'angefragt').length,
+      hat_zugesagt: zeilen.filter((z) => z.status === 'interessiert').length,
+      beim_kunden: zeilen.filter((z) => z.status === 'vorgelegt').length,
+      im_gespraech: zeilen.filter((z) => z.status === 'im_gespraech').length,
+      im_einsatz: new Set(mandate.map((m) => m.expert_id)).size,
+    },
+  });
+});
+
+/**
  * Dashboard-Kennzahlen (Admin).
  *
  * v1.28.0: Die Kennzahlen zählen nur noch Menschen mit eigenem Konto, also
@@ -1162,6 +1288,28 @@ router.get('/:id(\\d+)', async (req, res) => {
   return detail(req, res, expert);
 });
 
+/** Die laufenden Beteiligungen und Mandate einer Person, für die Akte. */
+async function laeuftGerade(expertId, tenantId) {
+  const beteiligungen = await db('applications as a')
+    .join('projects as p', 'p.id', 'a.project_id')
+    .where({ 'a.expert_id': expertId, 'a.tenant_id': tenantId })
+    .whereIn('a.status', LAUFEND)
+    .select('a.id', 'a.status', 'a.stage_changed_at', 'a.updated_at', 'a.created_at',
+      'a.anfrage_am', 'a.anfrage_frist', 'a.antwort_am', 'a.verfuegbar_ab', 'a.auslastung',
+      'p.id as projekt_id', 'p.name as projekt_name');
+
+  const mandate = await db('engagements as g')
+    .join('projects as p', 'p.id', 'g.project_id')
+    .where({ 'g.expert_id': expertId, 'g.tenant_id': tenantId, 'g.status': 'aktiv' })
+    .select('g.id', 'g.start', 'g.ende', 'p.id as projekt_id', 'p.name as projekt_name');
+
+  const jetzt = new Date();
+  return {
+    beteiligungen: beteiligungen.map((b) => ({ ...b, schritt: naechsterSchritt(b, jetzt) })),
+    mandate,
+  };
+}
+
 async function detail(req, res, expert) {
   const [educations, careerSteps] = await Promise.all([
     db('educations').where({ expert_id: expert.id }).orderBy('id'),
@@ -1212,6 +1360,10 @@ async function detail(req, res, expert) {
       ort: expert.adresse_ort, land: expert.adresse_land,
     }),
     konto,
+    // v1.45.0: Woran der Mensch gerade hängt. Steht in der Akte, weil die
+    // Frage dort aufkommt: Man schlägt jemanden auf und will wissen, ob er
+    // überhaupt zu haben ist.
+    laeuft: await laeuftGerade(expert.id, req.user.tenantId),
     educations,
     career_steps: careerSteps,
     watch: watch ? { notiz: watch.notiz } : null,

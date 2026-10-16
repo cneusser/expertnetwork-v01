@@ -2,6 +2,20 @@
 
 Versionsschema: v\<Major>.\<Sprint>.\<Patch>. Sprintabschluss endet auf .0, Korrekturen zählen den Patch hoch.
 
+## v1.45.0 — Wer steckt gerade wo
+
+Die Pipeline zeigt ein Projekt mit seinen Kandidaten. Diese Ansicht dreht es um: ein Mensch und seine laufenden Projekte. Das ist die Frage, die man sich stellt, wenn jemand anruft, und bisher musste man dafür jedes Projekt einzeln aufmachen.
+
+- Neu auf dem Dashboard: fünf Zahlen (warten auf Antwort, haben zugesagt, beim Kunden, im Gespräch, im Einsatz) und darunter die Namen mit ihren Projekten.
+- **Sortiert nach Handlungsbedarf, nicht nach Namen.** Oben steht, wo etwas liegen bleibt: eine überfällige Anfrage, eine Zusage, die seit Tagen auf das Vorlegen wartet. Eine alphabetische Liste liest man einmal und nie wieder.
+- Der nächste Schritt steht im Klartext daneben: „wartet seit 10 Tagen, Frist ist um", „hat vor 5 Tagen zugesagt, noch nicht vorgelegt".
+- **Eine liegengebliebene Zusage gilt als dringend.** Das ist der teuerste Zustand im ganzen Ablauf: Der Mensch wartet, und irgendwann nimmt er etwas anderes.
+- Wer in mehreren Projekten läuft, steht einmal da, mit allen Projekten. Wer im Einsatz ist, auch, denn das ist die wichtigste Information über einen Interim Manager überhaupt.
+- Dieselbe Übersicht steht in der Expertenakte, für den Einzelfall.
+- Zwei Sammelabfragen für alles, nicht zwei je Person. Diese Liste wächst mit dem Bestand, und genau dieser Fehler ist hier schon zweimal passiert.
+
+Nebenbei: Der Statuswechsel setzt jetzt auch bei der Kandidatenanfrage den Zeitstempel der Stufe. Ohne ihn hätte „seit X Tagen" das Alter der Zeile gezeigt statt das des Zustands.
+
 ## v1.44.0 — Eine Liste, und die Kandidaten werden zuerst gefragt
 
 Zwei Korrekturen, eine davon an meinem eigenen Bau von gestern.
