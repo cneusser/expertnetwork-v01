@@ -1,7 +1,7 @@
 /** Sprint 6 — Projekt-Detail: Matching-Vorschläge + Bewerbungs-Pipeline (Admin). */
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Send } from 'lucide-react';
 import Layout from '../components/Layout';
 import { api } from '../api/client';
 
@@ -108,6 +108,10 @@ export default function AdminProjectDetail() {
         </table>
       ) : <p className="sub">Noch keine Kandidaten in der Pipeline.</p>}
 
+      {/* v1.43.0: Der direkte Weg zum Kunden, ohne Umweg über eine Freigabe.
+          Ankreuzen, Vorlage bauen, Link verschicken. */}
+      <Vorlagenleiste projektId={id} matches={matches} applications={applications} />
+
       <h2 style={{ fontSize: 18, color: 'var(--navy)', margin: '26px 0 10px' }}>Matching-Vorschläge</h2>
       {matches.length ? (
         <table className="table">
@@ -144,5 +148,147 @@ export default function AdminProjectDetail() {
         </table>
       ) : <p className="sub">Keine weiteren Kandidaten.</p>}
     </Layout>
+  );
+}
+
+/**
+ * v1.43.0 — Profile zu einer Vorlage zusammenstellen.
+ *
+ * Die Auswahl steht hier und nicht in der Pipeline: Wer einem Kunden Profile
+ * vorlegt, trifft eine Auswahl für diesen einen Kunden, und die hat mit dem
+ * Stand der Pipeline nichts zu tun.
+ */
+function Vorlagenleiste({ projektId, matches, applications }) {
+  const [offen, setOffen] = useState(false);
+  const [gewaehlt, setGewaehlt] = useState([]);
+  const [empf, setEmpf] = useState({ firma: '', name: '', email: '' });
+  const [aufschlag, setAufschlag] = useState(20);
+  const [anschreiben, setAnschreiben] = useState('');
+  const [ergebnis, setErgebnis] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [fehler, setFehler] = useState('');
+
+  // Kandidaten aus Pipeline und Matching, ohne Doppelte.
+  const kandidaten = [];
+  const gesehen = new Set();
+  for (const a of applications || []) {
+    if (gesehen.has(a.expert_id)) continue;
+    gesehen.add(a.expert_id);
+    kandidaten.push({ id: a.expert_id, name: `${a.vorname} ${a.nachname}`, rolle: a.berufsbezeichnung, quelle: 'Pipeline' });
+  }
+  for (const m of matches || []) {
+    if (gesehen.has(m.expert.id)) continue;
+    gesehen.add(m.expert.id);
+    kandidaten.push({ id: m.expert.id, name: `${m.expert.vorname} ${m.expert.nachname}`,
+      rolle: m.expert.berufsbezeichnung, quelle: `${m.score} %` });
+  }
+
+  if (!offen) {
+    return (
+      <div style={{ margin: '22px 0' }}>
+        <button type="button" className="btn" style={{ width: 'auto', padding: '9px 18px' }}
+          onClick={() => setOffen(true)} disabled={!kandidaten.length}>
+          <Send size={15} style={{ verticalAlign: '-2px' }} /> Profile vorlegen
+        </button>
+        {!kandidaten.length && <span className="muted" style={{ marginLeft: 10 }}>Erst Kandidaten, dann Vorlage.</span>}
+      </div>
+    );
+  }
+
+  if (ergebnis) {
+    return (
+      <div className="card" style={{ margin: '22px 0', borderLeft: '3px solid var(--success)' }}>
+        <h3>Vorlage steht</h3>
+        <p>{ergebnis.message}</p>
+        {ergebnis.link ? (
+          <p>
+            Link für den Kunden:<br />
+            <a href={ergebnis.link} target="_blank" rel="noreferrer"><code>{ergebnis.link}</code></a>
+          </p>
+        ) : (
+          <p className="muted">Noch ein Entwurf. Erst nach dem Freigeben trägt der Link.</p>
+        )}
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 10 }}>
+          {!ergebnis.link && (
+            <button type="button" className="btn" style={{ width: 'auto', padding: '8px 16px', marginBottom: 0 }}
+              disabled={busy} onClick={async () => {
+                setBusy(true);
+                try {
+                  const d = await api.post(`/api/vorlagen/${ergebnis.id}/freigeben`, {});
+                  setErgebnis((e) => ({ ...e, link: d.link, message: d.message }));
+                } catch (e) { setFehler(e.message); } finally { setBusy(false); }
+              }}>Freigeben, Link gilt ab dann</button>
+          )}
+          <a className="tab" style={{ color: 'var(--navy)' }} href={`/api/vorlagen/${ergebnis.id}`} onClick={(e) => e.preventDefault()}>
+            {ergebnis.profile} Profile · Aufschlag {ergebnis.aufschlag} Prozent
+          </a>
+          <button type="button" className="tab" style={{ color: 'var(--grey-600)' }}
+            onClick={() => { setErgebnis(null); setOffen(false); setGewaehlt([]); }}>Fertig</button>
+        </div>
+        {fehler && <div className="msg msg-error" style={{ marginTop: 10 }}>{fehler}</div>}
+      </div>
+    );
+  }
+
+  return (
+    <div className="card" style={{ margin: '22px 0' }}>
+      <h3>Profile vorlegen</h3>
+      <p className="muted" style={{ fontSize: 13, marginTop: 4 }}>
+        Anonyme Kurzprofile mit Tagessatz und einer Einschätzung zur Anfrage. Der Kunde bekommt
+        einen Link, braucht aber kein Konto.
+      </p>
+      {fehler && <div className="msg msg-error">{fehler}</div>}
+
+      <div style={{ margin: '12px 0' }}>
+        {kandidaten.map((k) => (
+          <label key={k.id} style={{ display: 'block', padding: '5px 0', fontSize: 13.5 }}>
+            <input type="checkbox" style={{ marginRight: 8 }}
+              checked={gewaehlt.includes(k.id)}
+              onChange={(e) => setGewaehlt((g) => (e.target.checked ? [...g, k.id] : g.filter((x) => x !== k.id)))} />
+            <strong>{k.name}</strong> <span className="muted">{k.rolle} · {k.quelle}</span>
+          </label>
+        ))}
+      </div>
+
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+        <div className="field" style={{ flex: '1 1 200px' }}><label>Empfänger (Firma)</label>
+          <input value={empf.firma} onChange={(e) => setEmpf({ ...empf, firma: e.target.value })} placeholder="SOLCOM" /></div>
+        <div className="field" style={{ flex: '1 1 180px' }}><label>Name</label>
+          <input value={empf.name} onChange={(e) => setEmpf({ ...empf, name: e.target.value })} /></div>
+        <div className="field" style={{ flex: '1 1 200px' }}><label>E-Mail</label>
+          <input type="email" value={empf.email} onChange={(e) => setEmpf({ ...empf, email: e.target.value })} /></div>
+        <div className="field" style={{ flex: '0 0 130px' }}><label>Aufschlag %</label>
+          <input type="number" min={0} max={200} value={aufschlag}
+            onChange={(e) => setAufschlag(Number(e.target.value))} /></div>
+      </div>
+
+      <div className="field">
+        <label>Anschreiben <span className="muted">steht oben auf der Übersicht</span></label>
+        <textarea rows={3} value={anschreiben} onChange={(e) => setAnschreiben(e.target.value)}
+          placeholder="Guten Tag, anbei drei Profile zu Ihrer Anfrage …" />
+      </div>
+
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+        <button type="button" className="btn" style={{ width: 'auto', padding: '9px 18px', marginBottom: 0 }}
+          disabled={busy || !gewaehlt.length} onClick={async () => {
+            setBusy(true); setFehler('');
+            try {
+              const d = await api.post('/api/vorlagen', {
+                project_id: Number(projektId),
+                expert_ids: gewaehlt,
+                empfaenger: { firma: empf.firma || null, name: empf.name || null, email: empf.email || null },
+                aufschlag_prozent: aufschlag,
+                anschreiben: anschreiben || null,
+              });
+              setErgebnis({ id: d.vorlage.id, message: d.message, link: null,
+                profile: d.positionen.length, aufschlag: d.vorlage.aufschlag_prozent });
+            } catch (e) { setFehler(e.message); } finally { setBusy(false); }
+          }}>
+          {busy ? 'Baut…' : `${gewaehlt.length || 'Keine'} Profile zusammenstellen`}
+        </button>
+        <button type="button" className="tab" style={{ color: 'var(--grey-600)' }}
+          onClick={() => setOffen(false)}>Abbrechen</button>
+      </div>
+    </div>
   );
 }

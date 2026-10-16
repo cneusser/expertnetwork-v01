@@ -2,6 +2,22 @@
 
 Versionsschema: v\<Major>.\<Sprint>.\<Patch>. Sprintabschluss endet auf .0, Korrekturen zählen den Patch hoch.
 
+## v1.43.0 — Profile vorlegen, ohne Umweg über eine Freigabe
+
+Der Weg zum Kunden führte über eine Freigabe je Profil. Das war für Kunden mit Portalzugang gedacht und hieß missverständlich: Freigegeben wurde nie ein Klarname, sondern ausgewählt, wer vorgelegt wird. Für einen Vermittler, der nie ein Konto anlegt, war der Weg schlicht falsch.
+
+Eine **Vorlage** ist jetzt das, was es im Geschäft auch ist: eine Auswahl von Profilen zu einer Anfrage, mit Satz, Einschätzung und einem Link, den man weitergeben kann. Sie funktioniert mit und ohne Portal.
+
+- **Anonymes Kurzprofil** aus Lebenslauf und Skills, bei jedem Experten einmal erzeugt und danach pflegbar. Rolle, Stationen ohne Firmennamen, Schwerpunkte. Ein überarbeiteter Text wird nie automatisch überschrieben, sonst würde ihn niemand überarbeiten.
+- **Tagessatz mit Aufschlag**, Standard 20 Prozent, je Empfänger hinterlegbar und beim Erstellen überschreibbar. Der Einkaufssatz verlässt das Haus nicht.
+- **Einschätzung je Profil**, ein bis zwei Sätze auf die konkrete Anfrage bezogen, vor dem Versand änderbar.
+- **Die Lücken stehen mit da.** Was eine Anforderung nicht belegt, wird benannt. Ein Kunde, der die Lücke selbst findet, traut der Vorlage beim nächsten Mal nicht mehr.
+- **Weblink ohne Konto**, dazu ein One-Pager je Profil als DIN A4 und alle Profile in einem PDF, im Haus-Look.
+- **Alles wird beim Erstellen eingefroren.** Ändert ein Experte danach Profil oder Satz, ändert sich die verschickte Vorlage nicht. Eine Unterlage, die sich nachträglich wandelt, ist keine Unterlage, und bei einem Tagessatz wäre das ein echtes Problem.
+- Die Prüfung auf Klardaten läuft gegen die echten Daten der jeweiligen Person, nicht gegen eine erfundene Liste. Hält sich das Sprachmodell nicht an die Regel, wird sein Text verworfen und das Profil aus den Feldern gebaut, statt den Namen herauszuschneiden: Ein Text mit einer Lücke liest sich kaputt.
+
+Das ist die erste von vier Etappen. Es folgen: Vorabfrage bei den Kandidaten, Reaktionen des Kunden samt Absagenachricht, und die Terminfindung gegen den Kalender.
+
 ## v1.42.1 — Die Expertenliste lädt wieder
 
 Die Liste blieb bei „Laden…" stehen. Sie holte Tagessätze und Lebenslauf je Person einzeln, und zwar für alle gleichzeitig: bei 780 Profilen über 1.500 Abfragen auf einmal. Der Verbindungspool hat zehn Verbindungen, der Rest wartete, und ab einer bestimmten Bestandsgröße kam die Antwort nie.
