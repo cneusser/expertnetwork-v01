@@ -16,6 +16,8 @@ const { requireAuth, requireRole } = require('../middleware/auth');
 const vorlagen = require('../utils/vorlage');
 const { buildOnePager, buildVorlagePdf } = require('../utils/vorlagePdf');
 const { erzeuge: erzeugeKurzprofil } = require('../utils/kurzprofil');
+const { getTemplate, render } = require('../utils/mailTemplates');
+const { getMailProvider } = require('../providers/mail');
 
 const router = express.Router();
 
@@ -227,6 +229,119 @@ router.post('/:id(\\d+)/freigeben', async (req, res) => {
     ok: true, link: oeffentlicherLink(req, v.token),
     message: 'Der Link ist jetzt gültig. Du kannst ihn weitergeben.',
   });
+});
+
+/* ----------------- v1.47.0: Die drei Wege zum Kunden -------------------- */
+
+/**
+ * Das PDF, aus der Verwaltung heraus.
+ *
+ * Geht auch im Entwurf: Du willst sehen, was der Kunde bekäme, bevor du es
+ * freigibst. Die öffentliche Fassung bleibt wie sie ist und zeigt einen
+ * Entwurf nicht.
+ */
+router.get('/:id(\\d+)/alle.pdf', async (req, res) => {
+  const v = await db('vorlagen').where({ id: req.params.id, tenant_id: req.user.tenantId }).first();
+  if (!v) return res.status(404).json({ error: 'Vorlage nicht gefunden' });
+
+  const daten = await vorlagen.fuerEmpfaenger(db, v);
+  const doc = buildVorlagePdf({ vorlage: v, projekt: daten.projekt, profile: daten.profile });
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition',
+    `attachment; filename="${dateiname('Phalanx-Profile', daten.projekt.name)}.pdf"`);
+  doc.pipe(res); doc.end();
+});
+
+/** Ein einzelnes Profil als One-Pager, aus der Verwaltung. */
+router.get('/:id(\\d+)/profil/:posId(\\d+).pdf', async (req, res) => {
+  const v = await db('vorlagen').where({ id: req.params.id, tenant_id: req.user.tenantId }).first();
+  if (!v) return res.status(404).json({ error: 'Vorlage nicht gefunden' });
+
+  const daten = await vorlagen.fuerEmpfaenger(db, v);
+  const profil = daten.profile.find((p) => p.id === Number(req.params.posId));
+  if (!profil) return res.status(404).json({ error: 'Profil nicht gefunden' });
+
+  const doc = buildOnePager({ profil, projekt: daten.projekt });
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', `attachment; filename="${dateiname(daten.projekt.name, profil.kennung)}.pdf"`);
+  doc.pipe(res); doc.end();
+});
+
+/**
+ * Die Vorlage per Mail verschicken.
+ *
+ * Nur wenn eine Adresse da ist. Kam die Anfrage über LinkedIn oder im
+ * Gespräch, gibt es keine, und dann ist der Link der Weg. Eine Pflichtangabe
+ * für einen Fall, den es oft nicht gibt, wäre eine Hürde ohne Nutzen.
+ *
+ * Das PDF hängt mit dran. Manche öffnen keinen Link, aber jeder öffnet einen
+ * Anhang, und umgekehrt genauso. Beides zu schicken kostet nichts.
+ */
+router.post('/:id(\\d+)/versenden', async (req, res) => {
+  const v = await db('vorlagen').where({ id: req.params.id, tenant_id: req.user.tenantId }).first();
+  if (!v) return res.status(404).json({ error: 'Vorlage nicht gefunden' });
+
+  const an = String(req.body?.email || v.empfaenger_email || '').trim();
+  if (!an || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(an)) {
+    return res.status(400).json({
+      error: 'Für den Versand brauche ich eine Mailadresse. Ohne sie bleibt der Link, den du selbst weitergibst.',
+    });
+  }
+
+  // Ein Entwurf wird mit dem Versand freigegeben: Eine Mail zu schicken und
+  // den Link dann nicht gelten zu lassen, wäre der sicherste Weg zu einem
+  // verärgerten Kunden.
+  if (v.status === 'entwurf') {
+    await db('vorlagen').where({ id: v.id }).update({ status: 'versendet', versendet_am: new Date() });
+  }
+
+  const daten = await vorlagen.fuerEmpfaenger(db, v);
+  const link = oeffentlicherLink(req, v.token);
+  const tpl = await getTemplate(req.user.tenantId, 'profilvorschlag');
+
+  const werte = {
+    anrede: req.body?.anrede || (v.empfaenger_name ? `Guten Tag ${v.empfaenger_name}` : 'Guten Tag'),
+    projekt_titel: daten.projekt.name,
+    anzahl: String(daten.profile.length),
+    profil_wort: daten.profile.length === 1 ? 'ein Profil' : `${daten.profile.length} Profile`,
+    anschreiben: v.anschreiben || '',
+    link,
+    link_label: 'Profile ansehen',
+    gueltig_bis: v.gueltig_bis ? new Date(v.gueltig_bis).toLocaleDateString('de-DE') : '',
+  };
+  const fertig = render(tpl, werte);
+
+  // Das PDF als Anhang, im Speicher gebaut.
+  const doc = buildVorlagePdf({ vorlage: v, projekt: daten.projekt, profile: daten.profile });
+  const puffer = await new Promise((fertigMachen, schiefgegangen) => {
+    const teile = [];
+    doc.on('data', (t) => teile.push(t));
+    doc.on('end', () => fertigMachen(Buffer.concat(teile)));
+    doc.on('error', schiefgegangen);
+    doc.end();
+  });
+
+  const mail = getMailProvider();
+  await mail.send({
+    to: an,
+    subject: fertig.subject,
+    text: fertig.text,
+    html: fertig.html,
+    attachments: [{
+      filename: `${dateiname('Phalanx-Profile', daten.projekt.name)}.pdf`,
+      content: puffer,
+      contentType: 'application/pdf',
+    }],
+  }, { tenantId: req.user.tenantId, einzelkorrespondenz: true, art: 'profilvorschlag' });
+
+  await db('vorlagen').where({ id: v.id }).update({ empfaenger_email: an });
+  await req.audit({
+    action: 'vorlage.versendet', resource: 'vorlage', resourceId: v.id,
+    newValue: { an, profile: daten.profile.length },
+  });
+  res.locals.auditLogged = true;
+
+  res.json({ ok: true, link, message: `Verschickt an ${an}, mit dem PDF im Anhang.` });
 });
 
 /** Ein Kurzprofil neu erzeugen, ausdrücklich. */

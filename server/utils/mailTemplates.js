@@ -325,6 +325,36 @@ Dr. Christian Neusser · Phalanx GmbH
 neusser@phalanx.de · +49 9131 920 60 75`,
 };
 
+/**
+ * v1.47.0 — Der Profilvorschlag an einen Kunden.
+ *
+ * Kurz. Wer drei Profile bekommt, will sie sehen und nicht erst einen Brief
+ * lesen. Das Eigentliche steht in der Übersicht und im PDF, die Mail bringt
+ * nur hin.
+ */
+DEFAULTS.profilvorschlag = {
+  name: 'Profilvorschlag an einen Kunden',
+  subject: '{{profil_wort}} zu Ihrer Anfrage: {{projekt_titel}}',
+  body_text: `{{anrede}},
+
+anbei {{profil_wort}} zu Ihrer Anfrage "{{projekt_titel}}".
+
+{{anschreiben}}
+
+Die Übersicht mit allen Angaben:
+{{link}}
+
+Dieselben Profile finden Sie als PDF im Anhang, falls Sie sie weiterreichen möchten.
+
+Die Profile sind anonymisiert. Namen und Kontaktdaten gebe ich weiter, sobald Sie ein Gespräch führen möchten. Sagen Sie mir einfach, welche Profile das sind.
+
+Mit besten Grüßen
+Christian Neusser
+
+Dr. Christian Neusser · Phalanx GmbH
+neusser@phalanx.de · +49 9131 920 60 75`,
+};
+
 const EDITABLE_KEYS = Object.keys(DEFAULTS);
 
 /** Liefert die wirksame Vorlage (DB-Override oder Standard). */

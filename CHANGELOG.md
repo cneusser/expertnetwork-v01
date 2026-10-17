@@ -2,6 +2,20 @@
 
 Versionsschema: v\<Major>.\<Sprint>.\<Patch>. Sprintabschluss endet auf .0, Korrekturen zählen den Patch hoch.
 
+## v1.47.0 — Drei Wege zum Kunden, und keiner ist der Hauptweg
+
+Bisher gab es einen Weg: freigeben, Link kopieren. Das passt, wenn die Anfrage per Mail kam. Kam sie über LinkedIn, braucht man nur den Link und hat gar keine Mailadresse. Kam sie im Gespräch, will man ein PDF anhängen.
+
+Jetzt stehen alle drei nebeneinander:
+
+- **Link.** Entsteht ohne jede Empfängerangabe und wird gleich in die Zwischenablage gelegt. Zum Weitergeben über LinkedIn, im Chat, wie man will.
+- **PDF.** Alle Profile in einem Dokument, je eines auf einer Seite. Auch im Entwurf abrufbar, denn man will sehen, was der Kunde bekäme, bevor man es freigibt. Öffentlich bleibt ein Entwurf unsichtbar.
+- **Mail.** Direkt aus dem System, mit Link im Text und PDF im Anhang. Manche öffnen keinen Link, aber jeder öffnet einen Anhang, und umgekehrt genauso. Beides zu schicken kostet nichts.
+
+Dazu: **Die Empfängerfelder sind jetzt erkennbar freiwillig.** Eine Pflichtangabe für einen Fall, den es oft nicht gibt, wäre eine Hürde ohne Nutzen. Der Name dient der Anrede, die Mailadresse nur dem Direktversand.
+
+Ein Entwurf wird beim Versand automatisch freigegeben. Eine Mail zu schicken und den Link darin dann nicht gelten zu lassen, wäre der sicherste Weg zu einem verärgerten Kunden.
+
 ## v1.46.0 — Lesbar, und eine Navigation statt einer Aufzählung
 
 Zwei Dinge aus der Praxis, eines davon teuer.

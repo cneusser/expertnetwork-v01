@@ -1,7 +1,7 @@
 /** Sprint 6 — Projekt-Detail: Matching-Vorschläge + Bewerbungs-Pipeline (Admin). */
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { ArrowLeft, Send } from 'lucide-react';
+import { ArrowLeft, Send, Download} from 'lucide-react';
 import Layout from '../components/Layout';
 import { api } from '../api/client';
 
@@ -331,36 +331,7 @@ function Vorlegen({ projektId, zeilen, fertig, abbrechen }) {
   const ohneZusage = zeilen.filter((z) => z.antwort !== 'interessiert' && z.antwort !== 'abgesagt');
 
   if (ergebnis) {
-    return (
-      <div className="card" style={{ margin: '12px 0', borderLeft: '3px solid var(--success)' }}>
-        <h3>Vorlage steht</h3>
-        <p>{ergebnis.message}</p>
-        {ergebnis.link ? (
-          <p>Link für den Kunden:<br />
-            <a href={ergebnis.link} target="_blank" rel="noreferrer"><code>{ergebnis.link}</code></a></p>
-        ) : (
-          <p className="muted">Noch ein Entwurf. Erst nach dem Freigeben trägt der Link.</p>
-        )}
-        {fehler && <div className="msg msg-error">{fehler}</div>}
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 10 }}>
-          {!ergebnis.link && (
-            <button type="button" className="btn" style={{ width: 'auto', padding: '8px 16px', marginBottom: 0 }}
-              disabled={busy} onClick={async () => {
-                setBusy(true);
-                try {
-                  const d = await api.post(`/api/vorlagen/${ergebnis.id}/freigeben`, {});
-                  setErgebnis((e) => ({ ...e, link: d.link, message: d.message }));
-                } catch (e) { setFehler(e.message); } finally { setBusy(false); }
-              }}>Freigeben, Link gilt ab dann</button>
-          )}
-          <span className="muted" style={{ alignSelf: 'center', fontSize: 13 }}>
-            {ergebnis.profile} Profile · Aufschlag {ergebnis.aufschlag} Prozent
-          </span>
-          <button type="button" className="tab" style={{ color: 'var(--grey-600)' }}
-            onClick={fertig}>Fertig</button>
-        </div>
-      </div>
-    );
+    return <Wege ergebnis={ergebnis} setErgebnis={setErgebnis} empf={empf} fertig={fertig} />;
   }
 
   return (
@@ -400,13 +371,22 @@ function Vorlegen({ projektId, zeilen, fertig, abbrechen }) {
         </p>
       )}
 
-      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 10 }}>
-        <div className="field" style={{ flex: '1 1 200px' }}><label>Empfänger (Firma)</label>
+      {/* Alles außer dem Aufschlag ist freiwillig. Kam die Anfrage über
+          LinkedIn oder im Gespräch, gibt es keine Mailadresse, und dann ist
+          der Link der Weg. Eine Pflichtangabe für einen Fall, den es oft
+          nicht gibt, wäre eine Hürde ohne Nutzen. */}
+      <p className="muted" style={{ fontSize: 12.5, margin: '14px 0 4px' }}>
+        Empfänger, alles freiwillig. Den Namen für die Anrede, die Mailadresse nur, wenn du
+        direkt aus dem System verschicken willst.
+      </p>
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+        <div className="field" style={{ flex: '1 1 200px' }}><label>Firma</label>
           <input value={empf.firma} onChange={(e) => setEmpf({ ...empf, firma: e.target.value })} placeholder="SOLCOM" /></div>
         <div className="field" style={{ flex: '1 1 180px' }}><label>Name</label>
-          <input value={empf.name} onChange={(e) => setEmpf({ ...empf, name: e.target.value })} /></div>
+          <input value={empf.name} onChange={(e) => setEmpf({ ...empf, name: e.target.value })} placeholder="Herr Knobelspies" /></div>
         <div className="field" style={{ flex: '1 1 200px' }}><label>E-Mail</label>
-          <input type="email" value={empf.email} onChange={(e) => setEmpf({ ...empf, email: e.target.value })} /></div>
+          <input type="email" value={empf.email} onChange={(e) => setEmpf({ ...empf, email: e.target.value })}
+            placeholder="nur für den Direktversand" /></div>
         <div className="field" style={{ flex: '0 0 130px' }}><label>Aufschlag %</label>
           <input type="number" min={0} max={200} value={aufschlag}
             onChange={(e) => setAufschlag(Number(e.target.value))} /></div>
@@ -438,6 +418,124 @@ function Vorlegen({ projektId, zeilen, fertig, abbrechen }) {
         </button>
         <button type="button" className="tab" style={{ color: 'var(--grey-600)' }}
           onClick={abbrechen}>Abbrechen</button>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * v1.47.0 — Drei Wege zum Kunden.
+ *
+ * Vorher gab es einen: freigeben, Link kopieren. Das passt, wenn die Anfrage
+ * per Mail kam. Kam sie über LinkedIn, braucht man nur den Link. Kam sie im
+ * Gespräch, will man ein PDF anhängen.
+ *
+ * Also alle drei nebeneinander, und keiner davon ist der Hauptweg.
+ */
+function Wege({ ergebnis, setErgebnis, empf, fertig }) {
+  const [busy, setBusy] = useState(false);
+  const [fehler, setFehler] = useState('');
+  const [msg, setMsg] = useState('');
+  const [mailAn, setMailAn] = useState(empf.email || '');
+  const [mailOffen, setMailOffen] = useState(false);
+
+  const freigeben = async () => {
+    const d = await api.post(`/api/vorlagen/${ergebnis.id}/freigeben`, {});
+    setErgebnis((e) => ({ ...e, link: d.link }));
+    return d.link;
+  };
+
+  return (
+    <div className="card" style={{ margin: '12px 0', borderLeft: '3px solid var(--success)' }}>
+      <h3>{ergebnis.profile} Profile stehen bereit</h3>
+      <p className="muted" style={{ fontSize: 13, marginTop: 4 }}>
+        Aufschlag {ergebnis.aufschlag} Prozent. Such dir aus, wie der Kunde sie bekommt.
+      </p>
+      {fehler && <div className="msg msg-error">{fehler}</div>}
+      {msg && <div className="msg msg-success">{msg}</div>}
+
+      {/* Weg 1: der Link */}
+      <div style={{ borderTop: '1px solid var(--grey-200)', paddingTop: 12, marginTop: 12 }}>
+        <strong style={{ fontSize: 14 }}>Link</strong>
+        <p className="muted" style={{ fontSize: 12.5, margin: '2px 0 8px' }}>
+          Zum Weitergeben, auch über LinkedIn oder im Chat. Kein Konto nötig.
+        </p>
+        {ergebnis.link ? (
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+            <code style={{ fontSize: 12.5, wordBreak: 'break-all' }}>{ergebnis.link}</code>
+            <button type="button" className="tab" style={{ padding: 0, color: 'var(--navy)' }}
+              onClick={async () => {
+                try {
+                  await navigator.clipboard.writeText(ergebnis.link);
+                  setMsg('Link kopiert.');
+                } catch { setFehler('Kopieren ging nicht, bitte von Hand markieren.'); }
+              }}>Kopieren</button>
+            <a href={ergebnis.link} target="_blank" rel="noreferrer" style={{ fontSize: 13 }}>Ansehen</a>
+          </div>
+        ) : (
+          <button type="button" className="btn" style={{ width: 'auto', padding: '8px 16px', marginBottom: 0 }}
+            disabled={busy} onClick={async () => {
+              setBusy(true); setFehler('');
+              try {
+                const link = await freigeben();
+                await navigator.clipboard.writeText(link).catch(() => {});
+                setMsg('Link gilt ab jetzt und ist kopiert.');
+              } catch (e) { setFehler(e.message); } finally { setBusy(false); }
+            }}>Link erzeugen und kopieren</button>
+        )}
+      </div>
+
+      {/* Weg 2: das PDF */}
+      <div style={{ borderTop: '1px solid var(--grey-200)', paddingTop: 12, marginTop: 12 }}>
+        <strong style={{ fontSize: 14 }}>PDF</strong>
+        <p className="muted" style={{ fontSize: 12.5, margin: '2px 0 8px' }}>
+          Alle Profile in einem Dokument, je eines auf einer Seite. Zum Anhängen oder Ausdrucken.
+        </p>
+        <a className="btn" style={{ width: 'auto', padding: '8px 16px', textDecoration: 'none', display: 'inline-block' }}
+          href={`/api/vorlagen/${ergebnis.id}/alle.pdf`}>
+          <Download size={15} style={{ verticalAlign: '-2px' }} /> PDF herunterladen
+        </a>
+      </div>
+
+      {/* Weg 3: die Mail */}
+      <div style={{ borderTop: '1px solid var(--grey-200)', paddingTop: 12, marginTop: 12 }}>
+        <strong style={{ fontSize: 14 }}>Mail</strong>
+        <p className="muted" style={{ fontSize: 12.5, margin: '2px 0 8px' }}>
+          Direkt aus dem System, mit Link und PDF im Anhang.
+        </p>
+        {!mailOffen ? (
+          <button type="button" className="tab" style={{ padding: 0, color: 'var(--navy)' }}
+            onClick={() => setMailOffen(true)}>
+            <Send size={14} style={{ verticalAlign: '-2px' }} /> Per Mail verschicken
+          </button>
+        ) : (
+          <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+            <div className="field" style={{ flex: '1 1 260px', marginBottom: 0 }}>
+              <label>An</label>
+              <input type="email" value={mailAn} onChange={(e) => setMailAn(e.target.value)}
+                placeholder="vorname.name@firma.de" />
+            </div>
+            <button type="button" className="btn" style={{ width: 'auto', padding: '8px 16px', marginBottom: 0 }}
+              disabled={busy || !mailAn} onClick={async () => {
+                setBusy(true); setFehler('');
+                try {
+                  const d = await api.post(`/api/vorlagen/${ergebnis.id}/versenden`, {
+                    email: mailAn,
+                    anrede: empf.name ? `Guten Tag ${empf.name}` : null,
+                  });
+                  setErgebnis((e) => ({ ...e, link: d.link }));
+                  setMsg(d.message);
+                  setMailOffen(false);
+                } catch (e) { setFehler(e.message); } finally { setBusy(false); }
+              }}>{busy ? 'Schickt…' : 'Abschicken'}</button>
+            <button type="button" className="tab" style={{ color: 'var(--grey-600)' }}
+              onClick={() => setMailOffen(false)}>Abbrechen</button>
+          </div>
+        )}
+      </div>
+
+      <div style={{ borderTop: '1px solid var(--grey-200)', paddingTop: 12, marginTop: 12 }}>
+        <button type="button" className="tab" style={{ color: 'var(--grey-600)' }} onClick={fertig}>Fertig</button>
       </div>
     </div>
   );
