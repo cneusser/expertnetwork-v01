@@ -140,7 +140,11 @@ test('Der Aufschlag kommt vom Empfänger, sonst der Hausstandard', async () => {
 });
 
 test('Der Satz nimmt die Untergrenze der Spanne', async () => {
-  assert.strictEqual(await v.satzVon(db, expertA.id), 120000, 'satz_von_eur, nicht satz_bis_eur');
+  // v1.47.1: satzVon gibt jetzt { cent, quelle, warnungen } zurück, weil ein
+  // unplausibler Satz gemeldet werden muss statt verwendet zu werden.
+  const s = await v.satzVon(db, expertA.id);
+  assert.strictEqual(s.cent, 120000, 'satz_von_eur, nicht satz_bis_eur');
+  assert.strictEqual(s.warnungen.length, 0);
 });
 
 test('Die Deckung benennt, was fehlt', () => {

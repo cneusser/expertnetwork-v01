@@ -2,6 +2,21 @@
 
 Versionsschema: v\<Major>.\<Sprint>.\<Patch>. Sprintabschluss endet auf .0, Korrekturen zählen den Patch hoch.
 
+## v1.47.1 — 210 EUR am Tag für einen Geschäftsführer
+
+Auf der ersten echten Vorlage stand „210 EUR" als Tagessatz eines Interim-Geschäftsführers. Im Profil waren 175 hinterlegt, gemeint als Stundensatz. Mit 20 Prozent Aufschlag wurden daraus 210 EUR am Tag, und das ging so zum Kunden.
+
+Zwei Dinge gingen schief, und das zweite ist das schlimmere.
+
+- **Der Wunschsatz wurde nicht verwendet.** Der Kandidat hatte in seiner Rückmeldung 1.400 EUR genannt, erhoben seit v1.44.0, und beim Vorlegen schlicht ignoriert. Jetzt zählt er zuerst: Er ist die aktuellste Angabe und die einzige, die im Wissen um diese Aufgabe gemacht wurde.
+- **Eine unmögliche Zahl ging ungeprüft hinaus.** Ein Tagessatz unter 400 oder über 6.000 Euro ist für einen Interim Manager kein Angebot, sondern ein Tippfehler, den jeder Leser sofort erkennt, nur unser System eben nicht. Solche Werte werden jetzt gemeldet statt verwendet, und im Profil steht „auf Anfrage". Lieber keine Zahl als eine, die das Angebot entwertet.
+- Die Meldung kommt beim Zusammenstellen, also bevor die Vorlage hinausgeht, und benennt Person und Vermutung.
+- Der Satz lässt sich in der Vorlage **in Euro korrigieren**, nicht nur in Cent. So denkt man darüber, und die Umrechnung gehört nicht in den Kopf des Benutzers.
+
+**Dazu die Spesen.** Es stand nur „zzgl. USt" da. Der Kandidat hatte ausdrücklich „zzgl. Reisekosten" gesagt, und bei einem Einsatz vor Ort ist das leicht ein Fünftel der Rechnung. Der Hinweis wird jetzt aus der Rückmeldung gelesen, steht am Profil in Web und PDF und lässt sich ändern. Als Text, denn „zzgl. Reisekosten", „inkl. Reisekosten" und „Anfahrt pauschal 250 EUR" sind drei verschiedene Abmachungen, die sich nicht in ein Häkchen pressen lassen.
+
+Ein Kunde, der nach Vertragsschluss von Reisekosten erfährt, fühlt sich übervorteilt, auch wenn alles rechtens war.
+
 ## v1.47.0 — Drei Wege zum Kunden, und keiner ist der Hauptweg
 
 Bisher gab es einen Weg: freigeben, Link kopieren. Das passt, wenn die Anfrage per Mail kam. Kam sie über LinkedIn, braucht man nur den Link und hat gar keine Mailadresse. Kam sie im Gespräch, will man ein PDF anhängen.

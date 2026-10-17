@@ -40,23 +40,77 @@ function satzMitAufschlag(einkaufCent, prozent) {
 }
 
 /**
- * Der jüngste Tagessatz eines Experten, in Cent.
+ * Die Grenzen, innerhalb derer eine Zahl ein Tagessatz sein kann.
  *
- * `rates` führt Spannen (satz_von_eur bis satz_bis_eur) je Kategorie. Für
- * eine Vorlage nehmen wir die Untergrenze: Was oben noch geht, ist
- * Verhandlungssache, und eine Vorlage, die zu hoch einsteigt, wird gar nicht
- * erst beantwortet.
+ * Aus einem echten Fall: Im Profil stand 175, gemeint war ein Stundensatz.
+ * Mit Aufschlag wurden daraus 210 EUR Tagessatz, und das stand so beim
+ * Kunden. Ein Interim-Geschäftsführer für 210 EUR am Tag ist kein Angebot,
+ * sondern ein Tippfehler, den jeder Leser sofort erkennt, nur unser System
+ * eben nicht.
  *
- * Passt die Kategorie zum Arbeitsmodell des Projekts, gewinnt sie. Sonst der
- * jüngste Satz überhaupt.
+ * Deshalb wird eine Zahl außerhalb dieser Grenzen nicht verwendet, sondern
+ * gemeldet. Lieber "auf Anfrage" als eine Zahl, die das Angebot entwertet.
  */
-async function satzVon(db, expertId, { kategorie = null } = {}) {
+const SATZ_MIN_EUR = 400;
+const SATZ_MAX_EUR = 6000;
+
+function satzPlausibel(eur) {
+  const n = Number(eur);
+  return Number.isFinite(n) && n >= SATZ_MIN_EUR && n <= SATZ_MAX_EUR;
+}
+
+/**
+ * Der Tagessatz eines Experten für dieses Projekt, in Cent.
+ *
+ * Die Reihenfolge ist Absicht:
+ *
+ *   1. Was der Kandidat für DIESES Projekt genannt hat. Das ist die
+ *      aktuellste und einzige wirklich verbindliche Angabe, denn er hat sie
+ *      im Wissen um die Aufgabe gemacht.
+ *   2. Der hinterlegte Satz, passend zum Arbeitsmodell.
+ *   3. Der jüngste hinterlegte Satz überhaupt.
+ *
+ * Vorher stand Punkt 1 gar nicht in der Liste, obwohl die Angabe seit
+ * v1.44.0 erhoben wird. Ein Kandidat, der 1.400 nennt und mit 210 vorgelegt
+ * wird, ist ein verlorener Kandidat.
+ *
+ * `rates` führt Spannen; wir nehmen die Untergrenze. Was oben noch geht, ist
+ * Verhandlungssache, und eine Vorlage, die zu hoch einsteigt, wird nicht
+ * beantwortet.
+ */
+async function satzVon(db, expertId, { kategorie = null, projektId = null } = {}) {
+  const warnungen = [];
+
+  if (projektId) {
+    const a = await db('applications')
+      .where({ expert_id: expertId, project_id: projektId })
+      .whereNotNull('wunsch_satz_eur')
+      .orderBy('antwort_am', 'desc').first();
+    if (a?.wunsch_satz_eur) {
+      if (satzPlausibel(a.wunsch_satz_eur)) {
+        return { cent: Math.round(Number(a.wunsch_satz_eur) * 100), quelle: 'wunsch', warnungen };
+      }
+      warnungen.push(`Der genannte Wunschsatz von ${a.wunsch_satz_eur} EUR sieht nicht nach einem Tagessatz aus.`);
+    }
+  }
+
   const alle = await db('rates').where({ expert_id: expertId }).orderBy('created_at', 'desc');
-  if (!alle.length) return null;
+  if (!alle.length) return { cent: null, quelle: null, warnungen };
+
   const passend = kategorie ? alle.find((r) => r.kategorie === kategorie) : null;
   const r = passend || alle[0];
   const eur = r.satz_von_eur;
-  return eur ? Math.round(Number(eur) * 100) : null;
+
+  if (!satzPlausibel(eur)) {
+    // Nicht stillschweigend verwenden. 175 ist mit hoher Wahrscheinlichkeit
+    // ein Stundensatz, der im falschen Feld gelandet ist.
+    warnungen.push(`Der hinterlegte Satz von ${eur} EUR liegt außerhalb des Üblichen `
+      + `(${SATZ_MIN_EUR} bis ${SATZ_MAX_EUR} EUR am Tag). Vermutlich ein Stundensatz im Tagessatzfeld. `
+      + 'Im Profil steht deshalb "auf Anfrage".');
+    return { cent: null, quelle: 'unplausibel', warnungen };
+  }
+
+  return { cent: Math.round(Number(eur) * 100), quelle: passend ? 'kategorie' : 'juengster', warnungen };
 }
 
 /* ------------------------------- Fitting ---------------------------------- */
@@ -170,6 +224,7 @@ async function baue(db, {
   }).returning('*');
 
   const anforderungen = [...must(projekt), ...nice(projekt)];
+  const hinweise = [];
   let i = 0;
 
   for (const expertId of expertIds) {
@@ -185,8 +240,19 @@ async function baue(db, {
       ? await baueFitting({ projekt, profilText: kurzprofil, treffer, luecken, expert: e })
       : null;
 
-    // Beim Satz zählt, wie gearbeitet wird: remote ist oft günstiger als vor Ort.
-    const einkauf = await satzVon(db, e.id, { kategorie: projekt.arbeitsmodell || null });
+    // Beim Satz zählt zuerst, was der Kandidat für dieses Projekt genannt hat,
+    // dann erst der hinterlegte Satz passend zum Arbeitsmodell.
+    const satz = await satzVon(db, e.id, {
+      kategorie: projekt.arbeitsmodell || null, projektId: projekt.id,
+    });
+    const einkauf = satz.cent;
+    if (satz.warnungen.length) hinweise.push(`${e.vorname} ${e.nachname}: ${satz.warnungen.join(' ')}`);
+
+    // Was neben dem Satz gilt. Der Kandidat sagt es in seiner Rückmeldung,
+    // sonst steht es am Profil.
+    const antwort = await db('applications')
+      .where({ expert_id: e.id, project_id: projekt.id }).orderBy('antwort_am', 'desc').first();
+    const hinweis = spesenHinweis(antwort?.antwort_notiz, e.spesen_regel);
     const avail = await db('availabilities').where({ expert_id: e.id }).orderBy('created_at', 'desc').first();
 
     await db('vorlage_positionen').insert({
@@ -207,12 +273,32 @@ async function baue(db, {
       }),
       satz_experte_cent: einkauf,
       satz_kunde_cent: satzMitAufschlag(einkauf, prozent),
+      satz_hinweis: hinweis,
       sortierung: i,
     });
     i += 1;
   }
 
-  return db('vorlagen').where({ id: vorlage.id }).first();
+  const fertig = await db('vorlagen').where({ id: vorlage.id }).first();
+  // Die Hinweise gehören an den Aufrufer, nicht in die Datenbank: Sie sind
+  // eine Meldung an den Menschen, kein Zustand der Vorlage.
+  fertig.hinweise = hinweise;
+  return fertig;
+}
+
+/**
+ * Was neben dem Tagessatz gilt.
+ *
+ * Aus der Rückmeldung des Kandidaten gelesen, sonst aus dem Profil. Drei
+ * Abmachungen, die vorkommen und sich unterscheiden: zzgl. Reisekosten,
+ * inkl. Reisekosten, Anfahrt pauschal. In ein Häkchen passt das nicht.
+ */
+function spesenHinweis(notiz, regel) {
+  const t = String(notiz || '').toLowerCase();
+  if (/\binkl(usive)?\.?\s*(reise|spesen|fahrt)/.test(t)) return 'inkl. Reisekosten';
+  if (/\b(zzgl|zuz[üu]glich|plus)\.?\s*(reise|spesen|fahrt|anfahrt)/.test(t)) return 'zzgl. Reisekosten';
+  if (/\breisekosten\b|\bspesen\b|\banfahrt\b/.test(t)) return 'zzgl. Reisekosten';
+  return regel || null;
 }
 
 /** Eine Vorlage mit allem, was der Empfänger sehen darf. */
@@ -246,6 +332,7 @@ async function fuerEmpfaenger(db, vorlage) {
         verfuegbarkeit: j.verfuegbarkeit || null,
         // Nur der Verkaufssatz. Was der Experte nimmt, geht den Empfänger nichts an.
         tagessatz_cent: p.satz_kunde_cent,
+        satz_hinweis: p.satz_hinweis,
         reaktion: p.reaktion,
       };
     }),
@@ -253,6 +340,7 @@ async function fuerEmpfaenger(db, vorlage) {
 }
 
 module.exports = {
-  STANDARD_AUFSCHLAG, kennungFuer, aufschlagFuer, satzMitAufschlag, satzVon,
+  STANDARD_AUFSCHLAG, SATZ_MIN_EUR, SATZ_MAX_EUR, satzPlausibel, spesenHinweis,
+  kennungFuer, aufschlagFuer, satzMitAufschlag, satzVon,
   deckung, baueFitting, baue, fuerEmpfaenger, must, nice, FITTING_PROMPT,
 };

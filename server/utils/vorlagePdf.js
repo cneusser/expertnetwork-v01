@@ -84,7 +84,9 @@ function profilSeite(doc, { profil, projekt, seite = null }) {
     profil.verfuegbarkeit?.ab_datum ? `verfügbar ab ${datum(profil.verfuegbarkeit.ab_datum)}`
       : profil.verfuegbarkeit?.status === 'sofort' ? 'sofort verfügbar' : null,
     profil.verfuegbarkeit?.auslastung_prozent ? `${profil.verfuegbarkeit.auslastung_prozent} % Auslastung` : null,
-    profil.tagessatz_cent ? `Tagessatz ${geld(profil.tagessatz_cent)}` : 'Tagessatz auf Anfrage',
+    profil.tagessatz_cent
+      ? `Tagessatz ${geld(profil.tagessatz_cent)}${profil.satz_hinweis ? ` ${profil.satz_hinweis}` : ''}`
+      : 'Tagessatz auf Anfrage',
   ].filter(Boolean);
   doc.fillColor(GREY).fontSize(9).font('Helvetica').text(eck.join('  ·  '), RAND, y, { width: breite });
   y = doc.y + 12;
@@ -205,6 +207,9 @@ function buildVorlagePdf({ vorlage, projekt, profile }) {
     doc.fillColor(NAVY).fontSize(10).font('Helvetica')
       .text(p.tagessatz_cent ? geld(p.tagessatz_cent) : 'auf Anfrage',
         rechts - 90, y, { width: 90, align: 'right' });
+    if (p.satz_hinweis) {
+      doc.fillColor(GREY).fontSize(7.5).text(p.satz_hinweis, rechts - 110, doc.y, { width: 110, align: 'right' });
+    }
     y = doc.y + 2;
 
     if (p.fitting) {

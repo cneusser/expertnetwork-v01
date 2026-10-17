@@ -102,7 +102,12 @@ export default function Profilvorschlag() {
                 <div style={{ fontSize: 19, fontWeight: 700, color: 'var(--pxl-papier)' }}>
                   {geld(p.tagessatz_cent)}
                 </div>
-                <div className="muted" style={{ fontSize: 12 }}>Tagessatz zzgl. USt</div>
+                <div className="muted" style={{ fontSize: 12 }}>
+                  {/* v1.47.1: Was sonst noch gilt, steht hier. Ein Kunde, der
+                      nach Vertragsschluss von Reisekosten erfährt, fühlt sich
+                      übervorteilt, auch wenn alles rechtens war. */}
+                  Tagessatz zzgl. USt{p.satz_hinweis ? `, ${p.satz_hinweis}` : ''}
+                </div>
                 {p.verfuegbarkeit?.ab_datum && (
                   <div className="muted" style={{ fontSize: 12.5, marginTop: 8 }}>
                     <Calendar size={12} style={{ verticalAlign: '-1px' }} /> ab {datum(p.verfuegbarkeit.ab_datum)}

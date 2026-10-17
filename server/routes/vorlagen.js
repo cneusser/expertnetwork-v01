@@ -120,6 +120,9 @@ router.post('/', async (req, res) => {
 
   res.status(201).json({
     ok: true, vorlage: v, positionen,
+    // Was beim Bauen aufgefallen ist, etwa ein Satz, der nach Stundensatz
+    // aussieht. Gehört vor die Augen, bevor die Vorlage hinausgeht.
+    hinweise: v.hinweise || [],
     message: `${positionen.length} Profile zusammengestellt, Aufschlag ${v.aufschlag_prozent} Prozent. Bitte prüfen und dann freigeben.`,
   });
 });
@@ -186,6 +189,15 @@ router.put('/:id(\\d+)/positionen/:posId(\\d+)', async (req, res) => {
   }
   if (req.body.satz_kunde_cent !== undefined) {
     patch.satz_kunde_cent = req.body.satz_kunde_cent === null ? null : Number(req.body.satz_kunde_cent);
+  }
+  // v1.47.1: Der Satz lässt sich auch in Euro setzen, denn so denkt man
+  // darüber. Die Umrechnung in Cent gehört nicht in den Kopf des Benutzers.
+  if (req.body.satz_kunde_eur !== undefined) {
+    patch.satz_kunde_cent = req.body.satz_kunde_eur === null
+      ? null : Math.round(Number(req.body.satz_kunde_eur) * 100);
+  }
+  if (typeof req.body.satz_hinweis === 'string') {
+    patch.satz_hinweis = req.body.satz_hinweis.slice(0, 200) || null;
   }
   if (!Object.keys(patch).length) return res.status(400).json({ error: 'Nichts zu ändern' });
 

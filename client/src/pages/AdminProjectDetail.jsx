@@ -411,7 +411,8 @@ function Vorlegen({ projektId, zeilen, fertig, abbrechen }) {
                 anschreiben: anschreiben || null,
               });
               setErgebnis({ id: d.vorlage.id, message: d.message, link: null,
-                profile: d.positionen.length, aufschlag: d.vorlage.aufschlag_prozent });
+                profile: d.positionen.length, aufschlag: d.vorlage.aufschlag_prozent,
+                hinweise: d.hinweise || [] });
             } catch (e) { setFehler(e.message); } finally { setBusy(false); }
           }}>
           {busy ? 'Baut…' : `${zeilen.length} ${zeilen.length === 1 ? 'Profil' : 'Profile'} zusammenstellen`}
@@ -453,6 +454,18 @@ function Wege({ ergebnis, setErgebnis, empf, fertig }) {
       </p>
       {fehler && <div className="msg msg-error">{fehler}</div>}
       {msg && <div className="msg msg-success">{msg}</div>}
+
+      {/* v1.47.1: Was beim Bauen aufgefallen ist. Ein Satz von 175 EUR am Tag
+          ist ein Stundensatz im falschen Feld, und das soll man sehen, bevor
+          die Vorlage hinausgeht. */}
+      {ergebnis.hinweise?.length > 0 && (
+        <div className="notice" style={{ marginTop: 10 }}>
+          <strong>Bitte vorher ansehen:</strong>
+          <ul style={{ margin: '6px 0 0 18px' }}>
+            {ergebnis.hinweise.map((h) => <li key={h}>{h}</li>)}
+          </ul>
+        </div>
+      )}
 
       {/* Weg 1: der Link */}
       <div style={{ borderTop: '1px solid var(--grey-200)', paddingTop: 12, marginTop: 12 }}>
