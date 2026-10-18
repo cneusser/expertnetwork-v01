@@ -26,4 +26,65 @@ router.post('/bewerbungen/:id(\\d+)/status', async (req, res) => {
   res.json({ ok: true });
 });
 
+/**
+ * v1.48.0 — Aus einem Kontakt einen assoziierten Partner machen.
+ *
+ * Der Gegenstück zu "Zu Kapitalpartner machen" aus v1.31.0, für den Fall,
+ * der häufiger vorkommt: jemand mit eigenem Netzwerk, der Mandate mitbringt,
+ * aber selbst keine Interim-Rolle sucht.
+ *
+ * Wie dort wird der Kontakt aus der Interim-Ansprache genommen, aber nicht
+ * gelöscht. Wer einmal im Pool war, bleibt nachvollziehbar.
+ */
+router.post('/aus-experte/:expertId(\\d+)', async (req, res) => {
+  const e = await db('experts').where({ id: Number(req.params.expertId), tenant_id: req.user.tenantId }).first();
+  if (!e) return res.status(404).json({ error: 'Kontakt nicht gefunden' });
+
+  const schon = await db('partner_applications')
+    .where({ tenant_id: req.user.tenantId, expert_id: e.id }).first();
+  if (schon) {
+    return res.status(409).json({
+      error: `${schon.vorname} ${schon.nachname} ist bereits als Partner angelegt.`,
+    });
+  }
+
+  const [p] = await db('partner_applications').insert({
+    tenant_id: req.user.tenantId,
+    expert_id: e.id,
+    vorname: e.vorname,
+    nachname: e.nachname,
+    // Die Tabelle verlangt eine Mailadresse. Fehlt sie, tragen wir das
+    // ehrlich ein, statt etwas zu erfinden, das wie eine Adresse aussieht.
+    email: e.email || `unbekannt+expert${e.id}@phalanx.invalid`,
+    telefon: e.telefon || e.mobil || null,
+    firma: e.firma || null,
+    linkedin: e.linkedin || null,
+    fokus_json: JSON.stringify(req.body?.fokus || []),
+    nachricht: req.body?.notiz || null,
+    status: 'in_pruefung',
+    quelle: 'umgewandelt',
+  }).returning('*');
+
+  // Aus der Interim-Ansprache nehmen, ohne den Datensatz anzurühren.
+  if (!e.vorreg_ausgeschlossen_am) {
+    await db('experts').where({ id: e.id }).update({
+      vorreg_ausgeschlossen_am: new Date(),
+      vorreg_ausschluss_grund: 'Assoziierter Partner, keine Interim-Ansprache',
+      zielgruppe: 'partner',
+    });
+  }
+
+  await req.audit({
+    action: 'partner.aus_experte', resource: 'partner_application', resourceId: p.id,
+    newValue: { expert_id: e.id, name: `${p.vorname} ${p.nachname}` },
+  });
+  res.locals.auditLogged = true;
+
+  res.status(201).json({
+    ok: true, partner: p,
+    message: `${p.vorname} ${p.nachname} ist jetzt assoziierter Partner und aus der Interim-Ansprache raus.`
+      + (e.email ? '' : ' Bitte noch eine Mailadresse nachtragen.'),
+  });
+});
+
 module.exports = router;

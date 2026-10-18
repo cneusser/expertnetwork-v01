@@ -26,12 +26,6 @@ export default function AdminProjectDetail() {
   if (!data) return <Layout><p className="sub">Laden…</p></Layout>;
   const { project, skills, applications, matches, releases = [], vendor } = data;
 
-  const release = async (expertId) => {
-    const anonymized = window.confirm('Profil ANONYMISIERT freigeben? (OK = anonymisiert, Abbrechen = mit Klarnamen)');
-    await api.post(`/api/projects/${id}/releases`, { expert_id: expertId, anonymized });
-    load();
-  };
-
   return (
     <Layout>
       <p><Link to="/admin/projekte"><ArrowLeft size={14} style={{ verticalAlign: '-2px' }} /> Zurück zu Projekten</Link></p>
@@ -49,7 +43,10 @@ export default function AdminProjectDetail() {
         <div className="notice">
           Kundenprojekt von <strong>{vendor.email}</strong>
           {project.status === 'eingereicht' && ' — wartet auf Freigabe (Status auf „Offen" setzen).'}
-          {releases.length > 0 && ` · ${releases.length} Profil(e) für den Kunden freigegeben.`}
+          {/* v1.48.0: Der alte Freigabe-Weg ist raus, seit "Profile vorlegen"
+              läuft. Bestehende Freigaben zeigen wir weiter an, denn sie
+              gelten; neue entstehen hier nicht mehr. */}
+          {releases.length > 0 && ` · ${releases.length} Profil(e) aus der alten Freigabe (vor v1.48.0).`}
         </div>
       )}
       {project.beschreibung && <div className="card" style={{ marginBottom: 14 }}><p>{project.beschreibung}</p></div>}

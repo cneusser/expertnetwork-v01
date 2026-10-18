@@ -2,6 +2,17 @@
 
 Versionsschema: v\<Major>.\<Sprint>.\<Patch>. Sprintabschluss endet auf .0, Korrekturen zählen den Patch hoch.
 
+## v1.48.0 — Ein Weg weniger, ein Weg mehr
+
+**Der alte Freigabe-Weg ist raus.** Neben „Profile vorlegen" stand in der Pipeline noch „Für Kunden freigeben" aus v1.8.0. Zwei Wege zum selben Ziel sind einer zu viel, und der neue hat sich bei einem echten Kunden bewährt. Bestehende Freigaben gelten weiter und werden weiter angezeigt, neue entstehen hier nicht mehr.
+
+**„Zu assoziiertem Partner machen" ist dazugekommen,** in der Expertenakte neben der Umwandlung zum Kapitalpartner. Der Anlass war ein Corporate-Finance-Berater mit großem Netzwerk: kein Interim Manager, also kein Expertenprofil, und auch kein Kapitalpartner, denn dieses Verzeichnis führt Finanzierer, und er gibt kein Kapital, sondern vermittelt es.
+
+- Der Kontakt kommt ins Partnerverzeichnis und aus der Interim-Ansprache, mit Grund im Vermerk. Der Datensatz bleibt, wie bei der Kapitalpartner-Umwandlung.
+- Firma und LinkedIn-Profil wandern mit, denn bei einem Partner ist das Netzwerk der Gegenstand.
+- Fehlt die Mailadresse, wird das gesagt statt stillschweigend etwas einzutragen, das wie eine Adresse aussieht und irgendwann angeschrieben wird.
+- Die Herkunft bleibt am Partner vermerkt, aber ohne Fremdschlüsselzwang: Ein Partner soll nicht verschwinden, weil jemand seinen alten Expertendatensatz aufgeräumt hat.
+
 ## v1.47.2 — Eine gesetzte Variable galt als fehlend
 
 In Railway lag bereits `PHALANX_OS_SYNC_KEY`. Mein Code suchte aber nur `PHALANX_OS_API_KEY` und meldete den Projektabgleich als nicht eingerichtet. Eine gesetzte Variable stand neben einer scheinbar fehlenden, und beides war dieselbe Sache.

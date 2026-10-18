@@ -161,6 +161,22 @@ export default function AdminExpertDetail() {
           } catch (e) { window.alert(e.message); }
         }}>Zu Kapitalpartner machen</a>
         {' · '}
+        {/* v1.48.0: Der häufigere Fall. Kapitalpartner sind Finanzierer;
+            wer ein Netzwerk mitbringt, aber selbst kein Kapital gibt und
+            keine Interim-Rolle sucht, ist assoziierter Partner. */}
+        <a href="#partner" onClick={async (e) => {
+          e.preventDefault();
+          if (!window.confirm(
+            `${expert.vorname} ${expert.nachname} zu einem assoziierten Partner machen?\n\n`
+            + 'Er kommt ins Partnerverzeichnis und aus der Interim-Ansprache raus. '
+            + 'Der Datensatz bleibt erhalten.')) return;
+          try {
+            const d = await api.post(`/api/partner/aus-experte/${id}`, {});
+            window.alert(d.message);
+            window.location.href = '/admin/partner';
+          } catch (err) { window.alert(err.message); }
+        }}>Zu assoziiertem Partner machen</a>
+        {' · '}
         <a href="#blockieren" style={{ color: blocked ? 'var(--danger)' : undefined }} onClick={async (e) => {
           e.preventDefault();
           await api.post(`/api/experts/${id}/block`, {});
