@@ -187,3 +187,41 @@ test('Der Hinweis steht beim Kunden neben dem Satz', async () => {
   assert.strictEqual(d.profile[0].tagessatz_cent, 168000);
   assert.strictEqual(d.profile[0].satz_hinweis, 'zzgl. Reisekosten');
 });
+
+/* ------------------- v1.47.2: zwei Namen, ein Schlüssel ------------------- */
+
+test('Der Schlüssel darf unter beiden Namen stehen', () => {
+  const px = require('../utils/phalanxProjekte');
+  const pz = require('../utils/phalanxZeiten');
+  const sichern = {
+    basis: process.env.PHALANX_OS_BASE_URL,
+    api: process.env.PHALANX_OS_API_KEY,
+    sync: process.env.PHALANX_OS_SYNC_KEY,
+  };
+
+  try {
+    process.env.PHALANX_OS_BASE_URL = 'https://os.example.invalid';
+    delete process.env.PHALANX_OS_API_KEY;
+    delete process.env.PHALANX_OS_SYNC_KEY;
+    assert.strictEqual(px.eingerichtet(), false);
+    assert.match(px.fehlendeVariablen().join(' '), /API_KEY oder .*SYNC_KEY/);
+
+    // Nur der alte Name, wie er in Railway schon lag.
+    process.env.PHALANX_OS_SYNC_KEY = 'aus-dem-sync-feld';
+    assert.strictEqual(px.eingerichtet(), true, 'eine gesetzte Variable darf nicht als fehlend gelten');
+    assert.strictEqual(px.schluesselName(), 'PHALANX_OS_SYNC_KEY');
+    assert.strictEqual(pz.eingerichtet(), true, 'die Stundenübergabe nutzt denselben');
+
+    // Stehen beide, gewinnt der ausdrückliche.
+    process.env.PHALANX_OS_API_KEY = 'aus-dem-api-feld';
+    assert.strictEqual(px.schluesselName(), 'PHALANX_OS_API_KEY');
+  } finally {
+    for (const [k, v] of Object.entries({
+      PHALANX_OS_BASE_URL: sichern.basis,
+      PHALANX_OS_API_KEY: sichern.api,
+      PHALANX_OS_SYNC_KEY: sichern.sync,
+    })) {
+      if (v === undefined) delete process.env[k]; else process.env[k] = v;
+    }
+  }
+});

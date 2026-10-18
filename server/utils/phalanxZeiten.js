@@ -30,7 +30,13 @@
 const { kuerzelFuer } = require('./phalanxKuerzel');
 
 const BASIS = () => (process.env.PHALANX_OS_BASE_URL || '').replace(/\/+$/, '');
-const SCHLUESSEL = () => process.env.PHALANX_OS_API_KEY || '';
+// v1.47.2: Derselbe Schlüssel wie beim Projektabruf, und dieselben zwei
+// erlaubten Namen. Eine zweite Liste wäre eine zweite Stelle zum Vergessen.
+const { SCHLUESSEL_NAMEN } = require('./phalanxProjekte');
+const SCHLUESSEL = () => {
+  for (const n of SCHLUESSEL_NAMEN) if (process.env[n]) return process.env[n];
+  return '';
+};
 const eingerichtet = () => Boolean(BASIS() && SCHLUESSEL());
 
 /**

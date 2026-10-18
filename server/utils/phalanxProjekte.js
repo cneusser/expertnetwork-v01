@@ -16,11 +16,32 @@
  */
 
 const BASIS = () => (process.env.PHALANX_OS_BASE_URL || '').replace(/\/+$/, '');
-const SCHLUESSEL = () => process.env.PHALANX_OS_API_KEY || '';
+
+/**
+ * Der Schlüssel für die externe Schnittstelle.
+ *
+ * v1.47.2: Zwei Namen für dasselbe Geheimnis. In Railway lag bereits
+ * PHALANX_OS_SYNC_KEY, mein Code suchte aber nur PHALANX_OS_API_KEY, und so
+ * stand eine gesetzte Variable neben einer scheinbar fehlenden.
+ *
+ * Statt dich denselben Wert zweimal eintragen zu lassen, nehme ich beide.
+ * Zwei Kopien eines Geheimnisses sind eine Fehlerquelle: Beim Wechseln
+ * erwischt man eine und wundert sich über die andere.
+ */
+const SCHLUESSEL_NAMEN = ['PHALANX_OS_API_KEY', 'PHALANX_OS_SYNC_KEY'];
+const SCHLUESSEL = () => {
+  for (const n of SCHLUESSEL_NAMEN) if (process.env[n]) return process.env[n];
+  return '';
+};
+/** Unter welchem Namen er gefunden wurde. Für die Verwaltungsseite. */
+const schluesselName = () => SCHLUESSEL_NAMEN.find((n) => process.env[n]) || null;
 
 const eingerichtet = () => Boolean(BASIS() && SCHLUESSEL());
 function fehlendeVariablen() {
-  return ['PHALANX_OS_BASE_URL', 'PHALANX_OS_API_KEY'].filter((k) => !process.env[k]);
+  const fehlend = [];
+  if (!BASIS()) fehlend.push('PHALANX_OS_BASE_URL');
+  if (!SCHLUESSEL()) fehlend.push(`${SCHLUESSEL_NAMEN.join(' oder ')}`);
+  return fehlend;
 }
 
 /**
@@ -149,7 +170,10 @@ async function ping() {
   if (!eingerichtet()) return { ok: false, grund: 'nicht eingerichtet', fehlend: fehlendeVariablen() };
   try {
     const liste = await projekte({ frisch: true });
-    return { ok: true, gelesen: liste.length, offen: liste.filter((p) => p.offen).length };
+    return {
+      ok: true, gelesen: liste.length, offen: liste.filter((p) => p.offen).length,
+      schluessel_aus: schluesselName(),
+    };
   } catch (e) {
     return { ok: false, grund: e.message, code: e.code || 'fehler' };
   }
@@ -158,6 +182,6 @@ async function ping() {
 function cacheLeeren() { cache = null; }
 
 module.exports = {
-  KATEGORIEN, eingerichtet, fehlendeVariablen,
+  KATEGORIEN, SCHLUESSEL_NAMEN, eingerichtet, fehlendeVariablen, schluesselName,
   nummerGueltig, kategorieVon, projekte, finde, ping, cacheLeeren,
 };

@@ -37,6 +37,13 @@ router.get('/', async (req, res) => {
     fehlende_variablen: phalanxOs.fehlendeVariablen(),
     basis_url: process.env.PHALANX_OS_BASE_URL || null,
     basis_problem: phalanxOs.basisProblem(),
+    // v1.47.2: Der Projektabgleich hat seinen eigenen Schlüssel. Wenn er
+    // fehlt, soll das hier stehen und nicht erst beim Klick auffallen.
+    projektabgleich: {
+      eingerichtet: phalanxProjekte.eingerichtet(),
+      schluessel_aus: phalanxProjekte.schluesselName(),
+      fehlend: phalanxProjekte.fehlendeVariablen(),
+    },
     redirect_uri: phalanxOs.redirectUri(),
     tags: pool.TAGS(),
     intervall_minuten: Number(process.env.PHALANX_SYNC_INTERVALL_MIN || 30),

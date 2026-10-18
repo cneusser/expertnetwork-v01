@@ -78,8 +78,21 @@ export default function AdminPhalanxOs() {
               {daten.basis_problem}
             </div>
           )}
+          {/* v1.47.2: Der Projektabgleich hat einen eigenen Schlüssel und
+              funktioniert unabhängig von der Anmeldung. Wenn er fehlt, soll
+              das hier stehen und nicht erst beim Klick auffallen. */}
+          {daten.projektabgleich && !daten.projektabgleich.eingerichtet && (
+            <div className="notice" style={{ marginBottom: 10 }}>
+              <strong>Der Projektabgleich fehlt noch.</strong><br />
+              Offen: {daten.projektabgleich.fehlend.join(', ')}. Anmeldung und Datenpool laufen
+              darüber nicht, nur Projektnummern und die Übergabe der Stunden.
+            </div>
+          )}
           <p className="muted" style={{ fontSize: 13, marginTop: 6 }}>
             Basis: {daten.basis_url || 'nicht gesetzt'}<br />
+            {daten.projektabgleich?.schluessel_aus && (
+              <>Projektabgleich: Schlüssel aus <code>{daten.projektabgleich.schluessel_aus}</code><br /></>
+            )}
             Rücksprungadresse: <code>{daten.redirect_uri}</code><br />
             Segmente: {daten.tags.map((t) => <span className="tag" key={t}>{t}</span>)}
           </p>

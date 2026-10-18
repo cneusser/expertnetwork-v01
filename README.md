@@ -129,6 +129,7 @@ PHALANX_OS_BASE_URL=https://phalanx-os-production.up.railway.app
 PHALANX_OS_CLIENT_ID=<aus Phalanx OS, Verwaltung, SSO-Clients>
 PHALANX_OS_CLIENT_SECRET=<ebenda, nie ins Repo>
 PHALANX_OS_API_KEY=<ebenda, nie ins Repo>
+#   Alternativ PHALANX_OS_SYNC_KEY, beide Namen werden gelesen.
 PHALANX_SYNC_TAGS=LI:Interim,LI:Berater,LI:CFO/Finance    (optional)
 PHALANX_SYNC_INTERVALL_MIN=30                              (0 schaltet den Abgleich ab)
 ```

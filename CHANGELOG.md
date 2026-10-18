@@ -2,6 +2,13 @@
 
 Versionsschema: v\<Major>.\<Sprint>.\<Patch>. Sprintabschluss endet auf .0, Korrekturen zählen den Patch hoch.
 
+## v1.47.2 — Eine gesetzte Variable galt als fehlend
+
+In Railway lag bereits `PHALANX_OS_SYNC_KEY`. Mein Code suchte aber nur `PHALANX_OS_API_KEY` und meldete den Projektabgleich als nicht eingerichtet. Eine gesetzte Variable stand neben einer scheinbar fehlenden, und beides war dieselbe Sache.
+
+- Beide Namen werden gelesen, `PHALANX_OS_API_KEY` zuerst. Dich denselben Wert zweimal eintragen zu lassen wäre eine Fehlerquelle: Beim Wechseln erwischt man eine Kopie und wundert sich über die andere.
+- Die Verwaltungsseite zeigt jetzt, unter welchem Namen der Schlüssel gefunden wurde, und meldet den Projektabgleich getrennt von der Anmeldung. Er hat einen eigenen Schlüssel und läuft unabhängig.
+
 ## v1.47.1 — 210 EUR am Tag für einen Geschäftsführer
 
 Auf der ersten echten Vorlage stand „210 EUR" als Tagessatz eines Interim-Geschäftsführers. Im Profil waren 175 hinterlegt, gemeint als Stundensatz. Mit 20 Prozent Aufschlag wurden daraus 210 EUR am Tag, und das ging so zum Kunden.
