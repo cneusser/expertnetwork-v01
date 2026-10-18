@@ -93,6 +93,7 @@ app.use('/api/ansprache', require('./routes/ansprache'));
 app.use('/api/kapitalpartner', require('./routes/kapitalpartner').router);
 app.use('/api/phalanx-os', require('./routes/phalanxos'));
 app.use('/api/adressen', require('./routes/adressen'));
+app.use('/api/konfig', require('./routes/konfig').router);
 app.use('/api/anfragen', require('./routes/anfragen'));
 app.use('/api/vorlagen', require('./routes/vorlagen'));
 app.use('/api/kandidatenanfrage', require('./routes/kandidatenanfrage'));

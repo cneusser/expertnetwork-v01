@@ -2,6 +2,17 @@
 
 Versionsschema: v\<Major>.\<Sprint>.\<Patch>. Sprintabschluss endet auf .0, Korrekturen zählen den Patch hoch.
 
+## v1.50.0 — Der Terminknopf zeigt auf die eigene Termin-App
+
+Calendly ist durch die Termin-App in Phalanx OS abgelöst. Der Knopf „Termin vereinbaren", der auf jeder Außenseite und im Kopf der Anwendung steht, zeigte aber weiter dorthin.
+
+- Die Adresse kommt jetzt vom Server statt aus dem gebauten Bündel und lässt sich über `TERMIN_URL` ändern, ohne neu zu bauen. Der Link enthält einen Token, der irgendwann ein anderer ist, und ein Wert, den man nur durch einen neuen Build ändern kann, ändert irgendwann niemand mehr.
+- Ohne Angabe zeigt er auf die Termin-App in Phalanx OS.
+- Nur `http` und `https` kommen durch. Ein falsch gesetzter Wert soll den Knopf nicht in etwas verwandeln, das beim Klick etwas anderes tut als zu öffnen.
+- Ist der Server kurz nicht erreichbar, greift der bekannte Wert. Ein fehlender Terminknopf wäre schlimmer als ein leicht veralteter.
+
+Die neue Route `/api/konfig` ist ohne Anmeldung erreichbar, denn der Terminknopf steht auch auf der Anmeldeseite. Dort steht nur, was ohnehin jeder sieht, der auf den Knopf klickt.
+
 ## v1.49.0 — Der Kunde antwortet, und der Kandidat erfährt es
 
 Etappe C der Vermarktungsstrecke. Der Kunde kann jetzt im Weblink reagieren, ohne Konto, unter demselben Link wie die Übersicht.

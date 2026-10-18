@@ -122,6 +122,8 @@ Zwei Strecken zum Phalanx OS, beide abgeschaltet, solange die Umgebungsvariablen
 ### Umgebungsvariablen (Railway)
 
 ```
+# Terminvereinbarung. Ohne Angabe die Termin-App in Phalanx OS.
+TERMIN_URL=https://phalanx-os-production.up.railway.app/api/termine/<token>?typ=8&fest=1
 PHALANX_OS_BASE_URL=https://phalanx-os-production.up.railway.app
 #   Nur Schema und Host, kein Pfad. Nicht die Rücksprungadresse dieser
 #   Anwendung eintragen: Dann fragt ExpertNetwork die Discovery bei sich
