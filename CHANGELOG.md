@@ -2,6 +2,22 @@
 
 Versionsschema: v\<Major>.\<Sprint>.\<Patch>. Sprintabschluss endet auf .0, Korrekturen zählen den Patch hoch.
 
+## v1.49.0 — Der Kunde antwortet, und der Kandidat erfährt es
+
+Etappe C der Vermarktungsstrecke. Der Kunde kann jetzt im Weblink reagieren, ohne Konto, unter demselben Link wie die Übersicht.
+
+**Drei Antworten:** kennenlernen, merken, passt nicht.
+
+„Merken" gibt es, weil die Wirklichkeit so aussieht: Jemand liest drei Profile, findet zwei brauchbar und will vergleichen. Ohne diese Stufe klickt er gar nichts, und dann weißt du nichts. Eine Einladung bringt den Kandidaten in der Pipeline auf „im Gespräch", merken ändert nichts, denn er liegt ja weiter beim Kunden.
+
+**Eine Absage geht nicht automatisch hinaus.** Zwischen der Entscheidung des Kunden und der Nachricht an den Kandidaten liegt oft ein Gespräch, das du noch führst, und eine Absage, die du nicht kommen sahst, lässt sich schwer zurückholen. Sie wartet deshalb auf dem Dashboard auf deinen Klick, mit der Zahl der Tage daneben: Eine Absage, die zwei Wochen liegt, ist schlimmer als eine schnelle.
+
+- **Der Grund des Kunden bleibt im Haus.** „Zu teuer" hilft dem Kandidaten nicht und schadet der Beziehung zum Kunden, wenn es die Runde macht. Du siehst ihn, der Kandidat nicht.
+- Die Absage selbst ist kurz und ohne Scheingrund. „Wir haben uns für ein Profil mit näherer Branchenerfahrung entschieden" ist eine Erfindung, wenn man es nicht weiß, und jeder Interim Manager hat genug davon gelesen.
+- Fehlt die Mailadresse, steht das da, statt eine Mail ins Leere zu schicken. Mit „habe ich selbst erledigt" kommt der Fall aus der Liste.
+- Du bekommst eine Nachricht, sobald der Kunde etwas tut, aber nur bei einer echten Änderung. Ein zweiter Klick auf dasselbe ist keine Nachricht wert. Schlägt der Versand fehl, bleibt die Reaktion trotzdem gespeichert.
+- Nach einer verschickten Absage kann der Kunde nicht mehr allein umentscheiden: Dem Kandidaten wurde abgesagt, und das wieder einzusammeln geht nur im Gespräch.
+
 ## v1.48.0 — Ein Weg weniger, ein Weg mehr
 
 **Der alte Freigabe-Weg ist raus.** Neben „Profile vorlegen" stand in der Pipeline noch „Für Kunden freigeben" aus v1.8.0. Zwei Wege zum selben Ziel sind einer zu viel, und der neue hat sich bei einem echten Kunden bewährt. Bestehende Freigaben gelten weiter und werden weiter angezeigt, neue entstehen hier nicht mehr.

@@ -10,7 +10,7 @@
  */
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { Download, FileText, Calendar } from 'lucide-react';
+import { Download, FileText, Calendar, Star, MessageSquare, X } from 'lucide-react';
 import Logo from '../components/Logo';
 import LegalFooter from '../components/LegalFooter';
 import { api } from '../api/client';
@@ -22,10 +22,11 @@ export default function Profilvorschlag() {
   const { token } = useParams();
   const [daten, setDaten] = useState(null);
   const [fehler, setFehler] = useState('');
+  const [msg, setMsg] = useState('');
 
-  useEffect(() => {
-    api.get(`/api/vorlagen/oeffentlich/${token}`).then(setDaten).catch((e) => setFehler(e.message));
-  }, [token]);
+  const laden = () => api.get(`/api/vorlagen/oeffentlich/${token}`)
+    .then(setDaten).catch((e) => setFehler(e.message));
+  useEffect(() => { laden(); }, [token]);
 
   if (fehler) {
     return (
@@ -56,6 +57,8 @@ export default function Profilvorschlag() {
             <Download size={15} style={{ verticalAlign: '-2px' }} /> Alle Profile als PDF
           </a>
         </div>
+
+        {msg && <div className="msg msg-success" style={{ marginTop: 18 }}>{msg}</div>}
 
         <span className="pxl-kicker" style={{ display: 'block', marginTop: 26 }}>Profilvorschlag</span>
         <h1 style={{ marginTop: 6 }}>{projekt.name}</h1>
@@ -121,14 +124,21 @@ export default function Profilvorschlag() {
                 </a>
               </div>
             </div>
+
+            {/* v1.49.0: Drei Antworten. "Gemerkt" gibt es, weil die
+                Wirklichkeit so aussieht: Man liest drei Profile, findet zwei
+                brauchbar und will vergleichen. Ohne diese Stufe klickt
+                niemand, und dann wissen wir nichts. */}
+            <Reaktion token={token} profil={p} melden={(t) => { setMsg(t); laden(); }} />
           </div>
         ))}
 
         <div className="card" style={{ marginTop: 24 }}>
           <h3>Wie es weitergeht</h3>
           <p style={{ marginTop: 8 }}>
-            Sagen Sie uns, welche Profile Sie kennenlernen möchten. Wir stellen den Kontakt her und
-            stimmen die Termine ab.
+            {profile.some((p) => p.reaktion === 'einladen')
+              ? 'Wir melden uns und stimmen die Termine ab.'
+              : 'Sagen Sie uns, welche Profile Sie kennenlernen möchten. Wir stellen den Kontakt her und stimmen die Termine ab.'}
           </p>
           <p style={{ marginTop: 10 }}>
             Dr. Christian Neusser · Phalanx GmbH<br />
@@ -143,6 +153,86 @@ export default function Profilvorschlag() {
         )}
         <LegalFooter />
       </div>
+    </div>
+  );
+}
+
+/**
+ * v1.49.0 — Die Reaktion auf ein Profil.
+ *
+ * Drei Knöpfe, keine Pflicht. Wer nichts klickt, hat auch geantwortet,
+ * nämlich noch nicht.
+ *
+ * Bei einer Absage wird nach dem Grund gefragt, aber freiwillig. Der Grund
+ * bleibt bei uns und geht nicht an den Kandidaten: "zu teuer" hilft ihm
+ * nicht und schadet der Beziehung zum Kunden, wenn es die Runde macht.
+ */
+function Reaktion({ token, profil, melden }) {
+  const [busy, setBusy] = useState(false);
+  const [fehler, setFehler] = useState('');
+  const [grundOffen, setGrundOffen] = useState(false);
+  const [grund, setGrund] = useState('');
+
+  const senden = async (reaktion, notiz = null) => {
+    setBusy(true); setFehler('');
+    try {
+      const d = await api.post(`/api/vorlagen/oeffentlich/${token}/profil/${profil.id}/reaktion`,
+        { reaktion, notiz });
+      melden(d.message);
+      setGrundOffen(false);
+    } catch (e) { setFehler(e.message); } finally { setBusy(false); }
+  };
+
+  const aktiv = (r) => profil.reaktion === r;
+  const stil = (r) => ({
+    width: 'auto', padding: '7px 14px', marginBottom: 0, fontSize: 13,
+    ...(aktiv(r) ? {} : { background: 'transparent', border: '1px solid rgba(216,221,225,.3)', color: 'rgba(247,245,240,.85)' }),
+  });
+
+  return (
+    <div style={{ borderTop: '1px solid rgba(216,221,225,.15)', marginTop: 14, paddingTop: 12 }}>
+      {fehler && <div className="msg msg-error" style={{ fontSize: 13 }}>{fehler}</div>}
+
+      {!grundOffen ? (
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+          <button type="button" className="btn" style={stil('einladen')} disabled={busy}
+            onClick={() => senden('einladen')}>
+            <MessageSquare size={14} style={{ verticalAlign: '-2px' }} /> Kennenlernen
+          </button>
+          <button type="button" className="btn" style={stil('gemerkt')} disabled={busy}
+            onClick={() => senden('gemerkt')}>
+            <Star size={14} style={{ verticalAlign: '-2px' }} /> Merken
+          </button>
+          <button type="button" className="btn" style={stil('abgelehnt')} disabled={busy}
+            onClick={() => setGrundOffen(true)}>
+            <X size={14} style={{ verticalAlign: '-2px' }} /> Passt nicht
+          </button>
+
+          {profil.reaktion && (
+            <span className="muted" style={{ fontSize: 12.5, marginLeft: 4 }}>
+              {profil.reaktion === 'einladen' && 'Sie möchten dieses Profil kennenlernen.'}
+              {profil.reaktion === 'gemerkt' && 'Gemerkt.'}
+              {profil.reaktion === 'abgelehnt' && 'Abgelehnt.'}
+            </span>
+          )}
+        </div>
+      ) : (
+        <div>
+          <div className="field" style={{ marginBottom: 8 }}>
+            <label style={{ fontSize: 13 }}>
+              Woran liegt es? <span className="muted">freiwillig, bleibt bei uns</span>
+            </label>
+            <input value={grund} onChange={(e) => setGrund(e.target.value)}
+              placeholder="zu teuer, zu wenig Branchenerfahrung, Zeitpunkt passt nicht …" />
+          </div>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <button type="button" className="btn" style={{ width: 'auto', padding: '7px 14px', marginBottom: 0 }}
+              disabled={busy} onClick={() => senden('abgelehnt', grund || null)}>Absage abschicken</button>
+            <button type="button" className="tab" style={{ color: 'rgba(247,245,240,.6)' }}
+              onClick={() => setGrundOffen(false)}>Abbrechen</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -355,6 +355,52 @@ Dr. Christian Neusser · Phalanx GmbH
 neusser@phalanx.de · +49 9131 920 60 75`,
 };
 
+/**
+ * v1.49.0 — Die Absage an einen Kandidaten.
+ *
+ * Kurz, ehrlich, ohne Scheingrund. "Leider haben wir uns für ein Profil mit
+ * näherer Branchenerfahrung entschieden" ist eine Erfindung, wenn man es
+ * nicht weiß, und jeder Interim Manager hat genug davon gelesen.
+ *
+ * Was drinsteht: Es wurde jemand anderes. Danke für die Zeit. Und eine
+ * Zusage, die nichts kostet und trotzdem etwas wert ist, nämlich dass man
+ * sich wieder meldet.
+ */
+DEFAULTS.kandidat_absage = {
+  name: 'Absage an einen Kandidaten',
+  subject: 'Rückmeldung zu {{projekt_titel}}',
+  body_text: `Hallo {{vorname}},
+
+kurze Rückmeldung zu {{projekt_titel}}: Der Kunde hat sich für jemand anderen entschieden.
+
+{{zusatz}}Danke, dass du dir die Zeit genommen hast. Dein Profil bleibt bei uns, und ich melde mich, sobald etwas kommt, das besser passt.
+
+Viele Grüße
+Christian
+
+Dr. Christian Neusser · Phalanx GmbH
+neusser@phalanx.de · +49 9131 920 60 75`,
+};
+
+/**
+ * v1.49.0 — Der Kunde hat reagiert.
+ *
+ * Geht an dich, nicht an den Kunden. Ein Kunde, der etwas tut und niemanden
+ * erreicht, wartet, und du merkst es nicht.
+ */
+DEFAULTS.vorlage_reaktion = {
+  name: 'Der Kunde hat auf eine Vorlage reagiert',
+  subject: '{{empfaenger}}: {{was}} bei {{projekt_titel}}',
+  body_text: `{{empfaenger}} hat gerade reagiert.
+
+{{projekt_titel}}
+{{kennung}}: {{was}}
+
+{{notiz}}Stand insgesamt: {{stand}}
+
+{{hinweis}}Zur Vorlage: {{link}}`,
+};
+
 const EDITABLE_KEYS = Object.keys(DEFAULTS);
 
 /** Liefert die wirksame Vorlage (DB-Override oder Standard). */

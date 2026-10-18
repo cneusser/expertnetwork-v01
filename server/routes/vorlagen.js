@@ -18,6 +18,7 @@ const { buildOnePager, buildVorlagePdf } = require('../utils/vorlagePdf');
 const { erzeuge: erzeugeKurzprofil } = require('../utils/kurzprofil');
 const { getTemplate, render } = require('../utils/mailTemplates');
 const { getMailProvider } = require('../providers/mail');
+const kr = require('../utils/kundenreaktion');
 
 const router = express.Router();
 
@@ -72,6 +73,77 @@ router.get('/oeffentlich/:token/alle.pdf', async (req, res) => {
 function dateiname(...teile) {
   return teile.join('-').replace(/[^\w\s-]/g, '').replace(/\s+/g, '-').slice(0, 80);
 }
+
+/**
+ * v1.49.0 — Der Kunde reagiert auf ein Profil.
+ *
+ * Ohne Konto, unter demselben Token wie die Übersicht. Die Alternative wäre
+ * gewesen, ihm ein Portal zu geben; dann hätte er sich anmelden müssen, um
+ * "passt nicht" zu sagen, und hätte es nicht getan.
+ */
+router.post('/oeffentlich/:token/profil/:posId(\\d+)/reaktion', async (req, res) => {
+  const r = await kr.reagiere(db, {
+    token: req.params.token,
+    positionId: Number(req.params.posId),
+    reaktion: String(req.body?.reaktion || ''),
+    notiz: req.body?.notiz || null,
+  });
+
+  if (!r.ok) {
+    const texte = {
+      unbekannt: 'Unbekannte Angabe.',
+      nicht_gefunden: 'Diese Übersicht gibt es nicht.',
+      entwurf: 'Diese Übersicht ist noch nicht freigegeben.',
+      abgelaufen: 'Dieser Link ist abgelaufen. Bitte melden Sie sich bei uns.',
+      position_nicht_gefunden: 'Profil nicht gefunden.',
+      absage_schon_draussen: 'Zu diesem Profil haben wir bereits abgesagt. Bitte melden Sie sich kurz bei uns, dann klären wir das persönlich.',
+    };
+    const status = r.grund === 'abgelaufen' ? 410
+      : r.grund === 'absage_schon_draussen' ? 409 : 404;
+    return res.status(status).json({ error: texte[r.grund] || 'Das hat nicht geklappt.' });
+  }
+
+  // Dich benachrichtigen, aber nur bei einer echten Änderung. Ein zweiter
+  // Klick auf dasselbe ist keine Nachricht wert.
+  if (r.geaendert && r.vorlage.benachrichtigen) {
+    try {
+      const stand = await kr.stand(db, r.vorlage.id);
+      const projekt = await db('projects').where({ id: r.vorlage.project_id }).first();
+      const tpl = await getTemplate(r.vorlage.tenant_id, 'vorlage_reaktion');
+      const wasText = {
+        gemerkt: 'gemerkt', einladen: 'möchte sprechen', abgelehnt: 'abgelehnt',
+      }[r.reaktion];
+
+      const fertig = render(tpl, {
+        empfaenger: r.vorlage.empfaenger_firma || r.vorlage.empfaenger_name || 'Der Kunde',
+        projekt_titel: projekt?.name || '',
+        kennung: r.position.kennung,
+        was: wasText,
+        notiz: r.position.reaktion_notiz ? `Dazu: "${r.position.reaktion_notiz}"\n\n` : '',
+        stand: `${stand.einladen} einladen, ${stand.gemerkt} gemerkt, ${stand.abgelehnt} abgelehnt, ${stand.offen} offen`,
+        hinweis: stand.absagen_offen
+          ? `${stand.absagen_offen} Absage(n) warten auf deine Freigabe, bevor sie hinausgehen.\n\n`
+          : '',
+        link: `${oeffentlicherLink(req, r.vorlage.token)}`,
+      });
+
+      const mail = getMailProvider();
+      const an = process.env.ADMIN_EMAIL || 'neusser@phalanx.de';
+      await mail.send({ to: an, subject: fertig.subject, text: fertig.text, html: fertig.html },
+        { tenantId: r.vorlage.tenant_id, einzelkorrespondenz: true, art: 'vorlage_reaktion' });
+    } catch {
+      // Eine fehlgeschlagene Benachrichtigung darf die Reaktion des Kunden
+      // nicht zunichtemachen. Sie steht in der Datenbank, das zählt.
+    }
+  }
+
+  const antworten = {
+    gemerkt: 'Gemerkt. Sie können jederzeit umentscheiden.',
+    einladen: 'Danke, wir melden uns und stimmen einen Termin ab.',
+    abgelehnt: 'Danke für die Rückmeldung, das hilft uns bei der nächsten Auswahl.',
+  };
+  res.json({ ok: true, reaktion: r.reaktion, message: antworten[r.reaktion] });
+});
 
 /* ============================== Verwaltung ================================ */
 
@@ -354,6 +426,98 @@ router.post('/:id(\\d+)/versenden', async (req, res) => {
   res.locals.auditLogged = true;
 
   res.json({ ok: true, link, message: `Verschickt an ${an}, mit dem PDF im Anhang.` });
+});
+
+/* -------------------- v1.49.0: Absagen an Kandidaten --------------------- */
+
+/**
+ * Welche Absagen warten.
+ *
+ * Über alle Vorlagen hinweg, denn die Frage "wem muss ich noch absagen" hat
+ * mit der einzelnen Vorlage nichts zu tun.
+ */
+router.get('/absagen/offen', async (req, res) => {
+  const offen = await kr.offeneAbsagen(db, req.user.tenantId);
+  res.json({
+    absagen: offen.map((a) => ({
+      ...a,
+      // Wie lange der Mensch schon wartet. Das ist die eigentliche Zahl:
+      // Eine Absage, die zwei Wochen liegt, ist schlimmer als eine schnelle.
+      wartet_tage: a.reaktion_am
+        ? Math.floor((Date.now() - new Date(a.reaktion_am)) / 86400000) : null,
+      hat_mail: Boolean(a.email),
+    })),
+  });
+});
+
+/**
+ * Eine Absage freigeben und verschicken.
+ *
+ * Zwei Schritte in einem Aufruf, aber bewusst nicht automatisch beim Klick
+ * des Kunden: Zwischen seiner Entscheidung und der Nachricht liegt oft ein
+ * Gespräch, das du noch führst.
+ *
+ * Der Grund des Kunden geht NICHT mit hinaus. "Zu teuer" oder "zu wenig
+ * Branchenerfahrung" hilft dem Kandidaten nicht und schadet der Beziehung
+ * zum Kunden, wenn es die Runde macht.
+ */
+router.post('/absagen/:posId(\\d+)/verschicken', async (req, res) => {
+  const p = await db('vorlage_positionen as p')
+    .join('vorlagen as v', 'v.id', 'p.vorlage_id')
+    .join('experts as e', 'e.id', 'p.expert_id')
+    .join('projects as pr', 'pr.id', 'v.project_id')
+    .where('p.id', req.params.posId).andWhere('v.tenant_id', req.user.tenantId)
+    .select('p.*', 'e.vorname', 'e.nachname', 'e.email', 'e.id as expert_id',
+      'pr.name as projekt_name', 'v.id as v_id')
+    .first();
+
+  if (!p) return res.status(404).json({ error: 'Nicht gefunden' });
+  if (p.reaktion !== 'abgelehnt') return res.status(400).json({ error: 'Hier liegt keine Absage vor.' });
+  if (p.absage_verschickt_am) return res.status(409).json({ error: 'Diese Absage ist schon raus.' });
+  if (!p.email) {
+    return res.status(400).json({
+      error: `${p.vorname} ${p.nachname} hat keine Mailadresse hinterlegt. Bitte persönlich absagen.`,
+    });
+  }
+
+  const tpl = await getTemplate(req.user.tenantId, 'kandidat_absage');
+  const fertig = render(tpl, {
+    vorname: p.vorname,
+    projekt_titel: p.projekt_name,
+    // Ein eigener Zusatz, falls du etwas sagen willst. Ohne ihn bleibt es
+    // bei der kurzen Fassung, und das ist meistens richtig.
+    zusatz: req.body?.zusatz ? `${String(req.body.zusatz).slice(0, 1000)}\n\n` : '',
+  });
+
+  const mail = getMailProvider();
+  await mail.send({ to: p.email, subject: fertig.subject, text: fertig.text, html: fertig.html },
+    { tenantId: req.user.tenantId, einzelkorrespondenz: true, art: 'kandidat_absage' });
+
+  const jetzt = new Date();
+  await db('vorlage_positionen').where({ id: p.id })
+    .update({ absage_freigegeben_am: p.absage_freigegeben_am || jetzt, absage_verschickt_am: jetzt });
+
+  await req.audit({
+    action: 'kandidat.abgesagt', resource: 'expert', resourceId: p.expert_id,
+    newValue: { projekt: p.projekt_name, kennung: p.kennung },
+  });
+  res.locals.auditLogged = true;
+
+  res.json({ ok: true, message: `Absage an ${p.vorname} ${p.nachname} verschickt.` });
+});
+
+/** Eine Absage zurückhalten: Du sagst selbst ab, telefonisch oder im Termin. */
+router.post('/absagen/:posId(\\d+)/selbst-erledigt', async (req, res) => {
+  const p = await db('vorlage_positionen as p')
+    .join('vorlagen as v', 'v.id', 'p.vorlage_id')
+    .where('p.id', req.params.posId).andWhere('v.tenant_id', req.user.tenantId)
+    .select('p.*').first();
+  if (!p) return res.status(404).json({ error: 'Nicht gefunden' });
+
+  const jetzt = new Date();
+  await db('vorlage_positionen').where({ id: p.id })
+    .update({ absage_freigegeben_am: jetzt, absage_verschickt_am: jetzt });
+  res.json({ ok: true, message: 'Als erledigt vermerkt. Es geht keine Mail hinaus.' });
 });
 
 /** Ein Kurzprofil neu erzeugen, ausdrücklich. */

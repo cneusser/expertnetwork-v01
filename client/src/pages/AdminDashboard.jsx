@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import {
-  Users, CalendarClock, Euro, Search, FolderKanban, Mail, UserPlus, PencilLine, Activity,
+  Users, CalendarClock, Euro, Search, FolderKanban, Mail, UserPlus, PencilLine, Activity, MailX,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import Layout from '../components/Layout';
@@ -44,12 +44,14 @@ export default function AdminDashboard() {
   const [stats, setStats] = useState(null);
   const [akt, setAkt] = useState(null);
   const [wo, setWo] = useState(null);
+  const [absagen, setAbsagen] = useState(null);
   const [kunden, setKunden] = useState(null);
 
   useEffect(() => {
     api.get('/api/experts/stats').then(setStats).catch(() => {});
     api.get('/api/experts/aktivitaet').then(setAkt).catch(() => {});
     api.get('/api/experts/wo-stehen-sie').then(setWo).catch(() => {});
+    api.get('/api/vorlagen/absagen/offen').then((d) => setAbsagen(d.absagen)).catch(() => {});
     api.get('/api/kunden?status=wartet').then(setKunden).catch(() => {});
   }, []);
 
@@ -143,6 +145,12 @@ export default function AdminDashboard() {
           </div>
         </div>
       )}
+
+      {/* v1.49.0: Wem noch abzusagen ist. Steht oben, weil es mit jedem Tag
+          unangenehmer wird und sonst niemand daran denkt. */}
+      <OffeneAbsagen liste={absagen} neuLaden={() => {
+        api.get('/api/vorlagen/absagen/offen').then((d) => setAbsagen(d.absagen)).catch(() => {});
+      }} />
 
       {/* v1.45.0: Wer steckt gerade wo. Die Pipeline zeigt ein Projekt mit
           seinen Kandidaten, hier ist es umgekehrt: ein Mensch und seine
@@ -314,5 +322,82 @@ function PersonZeilen({ eintrag }) {
         </tr>
       ))}
     </>
+  );
+}
+
+/**
+ * v1.49.0 — Absagen, die noch hinausgehen müssen.
+ *
+ * Der Kunde hat abgelehnt, der Kandidat weiß es noch nicht. Diese Lage soll
+ * nicht liegen bleiben: Jemand, der zugesagt und gewartet hat, verdient eine
+ * Antwort, und mit jedem Tag wird sie unangenehmer.
+ *
+ * Verschickt wird erst auf deinen Klick. Zwischen der Entscheidung des
+ * Kunden und der Nachricht liegt oft ein Gespräch, das du noch führst.
+ */
+function OffeneAbsagen({ liste, neuLaden }) {
+  const [busy, setBusy] = useState(null);
+  const [msg, setMsg] = useState(null);
+  if (!liste?.length) return null;
+
+  const tun = async (id, pfad) => {
+    setBusy(id);
+    try {
+      const d = await api.post(`/api/vorlagen/absagen/${id}/${pfad}`, {});
+      setMsg({ ok: true, text: d.message });
+      neuLaden();
+    } catch (e) { setMsg({ ok: false, text: e.message }); }
+    finally { setBusy(null); }
+  };
+
+  return (
+    <div className="notice" style={{ marginBottom: 26 }}>
+      <strong>
+        <MailX size={16} style={{ verticalAlign: '-3px' }} />{' '}
+        {liste.length === 1 ? 'Eine Absage wartet' : `${liste.length} Absagen warten`} auf dich.
+      </strong>
+      <p style={{ fontSize: 13, margin: '4px 0 8px' }}>
+        Der Kunde hat abgelehnt, die Kandidaten wissen es noch nicht.
+      </p>
+      {msg && <div className={`msg ${msg.ok ? 'msg-success' : 'msg-error'}`}>{msg.text}</div>}
+
+      <table className="table" style={{ marginTop: 6 }}>
+        <tbody>
+          {liste.map((a) => (
+            <tr key={a.id}>
+              <td>
+                <Link to={`/admin/experten/${a.expert_id}`}>
+                  <strong>{a.vorname} {a.nachname}</strong>
+                </Link><br />
+                <span className="muted" style={{ fontSize: 12.5 }}>
+                  {a.projekt_name}
+                  {a.wartet_tage > 0 && ` · wartet seit ${a.wartet_tage} ${a.wartet_tage === 1 ? 'Tag' : 'Tagen'}`}
+                </span>
+                {a.absage_grund_kunde && (
+                  <><br /><span className="muted" style={{ fontSize: 12 }}>
+                    Kunde sagt: {a.absage_grund_kunde} (geht nicht mit hinaus)
+                  </span></>
+                )}
+              </td>
+              <td style={{ whiteSpace: 'nowrap', textAlign: 'right' }}>
+                {a.hat_mail ? (
+                  <button type="button" className="tab" style={{ padding: 0, color: 'var(--navy)' }}
+                    disabled={busy === a.id} onClick={() => tun(a.id, 'verschicken')}>
+                    Absage schicken
+                  </button>
+                ) : (
+                  <span className="muted" style={{ fontSize: 12.5 }}>keine Mailadresse</span>
+                )}
+                <br />
+                <button type="button" className="tab" style={{ padding: 0, color: 'var(--grey-600)', fontSize: 12.5 }}
+                  disabled={busy === a.id} onClick={() => tun(a.id, 'selbst-erledigt')}>
+                  habe ich selbst erledigt
+                </button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
