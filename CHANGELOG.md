@@ -2,6 +2,29 @@
 
 Versionsschema: v\<Major>.\<Sprint>.\<Patch>. Sprintabschluss endet auf .0, Korrekturen zählen den Patch hoch.
 
+## v1.51.0 — Wurde der Link überhaupt geöffnet?
+
+"Verschickt vor drei Tagen, nie aufgerufen" ist etwas anderes als "zweimal
+gelesen, keine Reaktion". Im ersten Fall liegt die Mail im Spam oder im
+falschen Postfach, im zweiten überlegt jemand noch. Zwei Lagen, zwei
+Reaktionen — und bisher sahen beide gleich aus.
+
+- Jeder Profilvorschlag zählt seine Aufrufe und merkt sich, wann er zuerst
+  und wann zuletzt geöffnet wurde. In der Projektakte steht das beim Weg,
+  über den er verschickt wurde, mitsamt "seit X Tagen nicht geöffnet".
+- Der Terminknopf führt über `/api/konfig/termin` und leitet von dort auf die
+  Termin-App in Phalanx OS weiter. Dabei wird gezählt, von welcher Seite aus
+  geklickt wurde (Kopfzeile, Anmeldung, Partnerseite, Kapitalpartner).
+- Im Bericht ein Abschnitt "Terminknopf": Klicks gesamt, je Monat, angemeldet
+  gegen anonym, Herkunft.
+- Migration 0044: Spalten an `vorlagen`, neue Tabelle `klicks`.
+
+Bewusst mager gezählt: keine IP-Adresse, kein Browserkennzeichen, keine
+Sitzung. Das wäre eine Beobachtung des Kunden, und dafür gibt es weder Anlass
+noch Erlaubnis. Für die Frage "hat er reingeschaut" reicht ein Zähler. Und
+wenn das Zählen scheitert, wird trotzdem weitergeleitet — ein kaputter Zähler
+darf niemanden am Terminieren hindern.
+
 ## v1.50.0 — Der Terminknopf zeigt auf die eigene Termin-App
 
 Calendly ist durch die Termin-App in Phalanx OS abgelöst. Der Knopf „Termin vereinbaren", der auf jeder Außenseite und im Kopf der Anwendung steht, zeigte aber weiter dorthin.

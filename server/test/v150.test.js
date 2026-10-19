@@ -55,7 +55,11 @@ test('Die Konfiguration ist ohne Anmeldung erreichbar', async () => {
   const res = await get('/api/konfig');
   assert.strictEqual(res.status, 200);
   const d = await res.json();
-  assert.ok(d.termin_url.startsWith('https://'));
+  // v1.51.0: Der Knopf zeigt auf den eigenen Zählpfad, der von dort weiter
+  // auf die Termin-App leitet. Das Ziel steht weiter dabei, falls jemand
+  // den Umweg nicht gehen will.
+  assert.strictEqual(d.termin_url, '/api/konfig/termin');
+  assert.ok(d.termin_ziel.startsWith('https://'));
 });
 
 test('Es stehen keine Geheimnisse in der Konfiguration', async () => {

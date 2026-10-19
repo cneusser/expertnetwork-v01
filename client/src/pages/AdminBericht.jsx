@@ -36,6 +36,7 @@ const monatOptionen = () => {
 
 export default function AdminBericht() {
   const [daten, setDaten] = useState(null);
+  const [klicks, setKlicks] = useState(null);
   const [fehler, setFehler] = useState('');
   const heute = new Date();
   // Monat in Ortszeit bilden. Über toISOString rutscht der Monatserste in
@@ -50,6 +51,13 @@ export default function AdminBericht() {
     api.get(`/api/bericht?von=${zeitraum.von}&bis=${zeitraum.bis}`)
       .then(setDaten).catch((e) => setFehler(e.message));
   }, [zeitraum.von, zeitraum.bis]);
+
+  // v1.51.0: Wie oft der Terminknopf benutzt wird. Steht im Bericht, weil
+  // die Zahl allein nichts sagt: Sie bekommt Bedeutung neben Zugängen und
+  // Ansprachen.
+  useEffect(() => {
+    api.get('/api/konfig/klicks?was=termin').then(setKlicks).catch(() => {});
+  }, []);
 
   const optionen = monatOptionen();
   // Für die Balken den größten Wert je Reihe finden, sonst ist alles gleich hoch.
@@ -173,6 +181,27 @@ export default function AdminBericht() {
                   );
                 })}
               </div>
+            </>
+          )}
+
+          {klicks && klicks.gesamt > 0 && (
+            <>
+              <h2 className="abschnitt" style={{ marginTop: 26 }}>Terminknopf</h2>
+              <p className="muted" style={{ fontSize: 12.5, marginBottom: 10 }}>
+                Wie oft jemand auf „Termin vereinbaren" geklickt hat, letzte 90 Tage. Ob daraus ein
+                Termin wurde, steht in der Termin-App, nicht hier: Diese Zahl sagt, wie viele
+                losgegangen sind, nicht wie viele angekommen.
+              </p>
+              <div className="kpi-row">
+                <div className="kpi"><div className="num">{klicks.gesamt}</div><div className="lbl">Klicks gesamt</div></div>
+                <div className="kpi"><div className="num">{klicks.angemeldet}</div><div className="lbl">aus dem Konto</div></div>
+                <div className="kpi"><div className="num">{klicks.anonym}</div><div className="lbl">von außen</div></div>
+              </div>
+              {klicks.woher?.length > 0 && (
+                <p className="muted" style={{ fontSize: 12.5, marginTop: 8 }}>
+                  Von wo: {klicks.woher.map((w) => `${w.seite} ${w.anzahl}`).join(' · ')}
+                </p>
+              )}
             </>
           )}
 

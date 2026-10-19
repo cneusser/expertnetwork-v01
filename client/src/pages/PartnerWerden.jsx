@@ -150,7 +150,7 @@ export default function PartnerWerden() {
           'You are a provider (brokering, consulting, staffing) and want to see matching profiles regularly? Use the form above and mention "provider", we will set up your access.')}
       </p>
       <div style={{ marginTop: 34, paddingTop: 24, borderTop: '1px solid rgba(216,221,225,.18)', display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
-        <TerminKnopf klasse="pxl-knopf pxl-knopf-leise" text={tr(lang, 'Termin vereinbaren', 'Book a call')} />
+        <TerminKnopf klasse="pxl-knopf pxl-knopf-leise" text={tr(lang, 'Termin vereinbaren', 'Book a call')} woher="partnerseite" />
         <Link to="/login">← {t.zurueck}</Link>
       </div>
       <LegalFooter />

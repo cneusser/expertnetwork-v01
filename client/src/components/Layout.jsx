@@ -47,7 +47,7 @@ export default function Layout({ children }) {
               ))}
             </span>
           )}
-          <TerminKnopf klasse="pxl-termin-topbar" text={tr(lang, 'Termin', 'Book a call')} />
+          <TerminKnopf klasse="pxl-termin-topbar" text={tr(lang, 'Termin', 'Book a call')} woher="kopfzeile" />
           <span>{user?.email} · {user?.role === 'vendor' ? 'Kunde' : isAdmin ? 'Administrator' : tr(lang, 'Experte', 'Expert')}</span>
           <button onClick={logout}>{user?.role === 'expert' ? tr(lang, 'Abmelden', 'Log out') : 'Abmelden'}</button>
         </div>

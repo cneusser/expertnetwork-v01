@@ -39,6 +39,17 @@ router.get('/oeffentlich/:token', async (req, res) => {
   if (v.gueltig_bis && new Date(v.gueltig_bis) < new Date()) {
     return res.status(410).json({ error: 'Dieser Link ist abgelaufen. Bitte melden Sie sich bei uns.' });
   }
+
+  // v1.51.0: Mitzählen, dass jemand hineingesehen hat. Mager, ohne
+  // IP-Adresse und ohne Kennzeichen: Für die Frage "hat er reingeschaut"
+  // reicht ein Zähler, alles weitere wäre eine Beobachtung des Kunden.
+  const jetzt = new Date();
+  await db('vorlagen').where({ id: v.id }).update({
+    aufrufe: (v.aufrufe || 0) + 1,
+    erst_geoeffnet_am: v.erst_geoeffnet_am || jetzt,
+    zuletzt_geoeffnet_am: jetzt,
+  });
+
   res.json(await vorlagen.fuerEmpfaenger(db, v));
 });
 
@@ -211,8 +222,24 @@ router.get('/:id(\\d+)', async (req, res) => {
     .select('p.*', 'e.vorname', 'e.nachname', 'e.firma');
   const projekt = await db('projects').where({ id: v.project_id }).first();
 
+  const tage = (d) => (d ? Math.floor((Date.now() - new Date(d)) / 86400000) : null);
+
   res.json({
-    vorlage: v, projekt,
+    vorlage: {
+      ...v,
+      // v1.51.0: Die Frage, die man sich bei jeder verschickten Vorlage
+      // stellt, und auf die es bisher keine Antwort gab.
+      gelesen: {
+        aufrufe: v.aufrufe || 0,
+        erst_am: v.erst_geoeffnet_am,
+        zuletzt_am: v.zuletzt_geoeffnet_am,
+        tage_seit_versand: tage(v.versendet_am),
+        // Verschickt und seit Tagen nicht geöffnet heißt meistens: Die Mail
+        // ist nicht angekommen, nicht dass der Kunde kein Interesse hat.
+        nie_geoeffnet: v.status === 'versendet' && !v.erst_geoeffnet_am,
+      },
+    },
+    projekt,
     positionen: positionen.map((p) => ({
       ...p,
       profil: typeof p.profil_json === 'string' ? JSON.parse(p.profil_json || '{}') : (p.profil_json || {}),
@@ -240,6 +267,8 @@ router.get('/', async (req, res) => {
       return {
         ...v,
         profile: meine.length,
+        aufrufe: v.aufrufe || 0,
+        nie_geoeffnet: v.status === 'versendet' && !v.erst_geoeffnet_am,
         reaktionen: {
           gemerkt: meine.filter((m) => m.reaktion === 'gemerkt').length,
           einladen: meine.filter((m) => m.reaktion === 'einladen').length,

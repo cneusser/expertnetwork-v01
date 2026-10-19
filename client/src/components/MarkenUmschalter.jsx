@@ -70,11 +70,18 @@ export function useTerminUrl() {
   return url;
 }
 
-export function TerminKnopf({ klasse = 'pxl-termin-kopf', text = 'Termin vereinbaren' }) {
+export function TerminKnopf({ klasse = 'pxl-termin-kopf', text = 'Termin vereinbaren', woher = null }) {
   const url = useTerminUrl();
   if (!url) return null;
+
+  // v1.51.0: "woher" sagt später, von welcher Seite aus geklickt wurde. Ein
+  // Klick von der Anmeldeseite bedeutet etwas anderes als einer aus dem Konto.
+  const ziel = woher && url.startsWith('/api/konfig/termin')
+    ? `${url}?woher=${encodeURIComponent(woher)}`
+    : url;
+
   return (
-    <a className={klasse} href={url} target="_blank" rel="noreferrer">
+    <a className={klasse} href={ziel} target="_blank" rel="noreferrer">
       {text}
       <span aria-hidden="true">→</span>
     </a>

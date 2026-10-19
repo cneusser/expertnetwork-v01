@@ -60,7 +60,7 @@ export default function Login() {
       {/* Das Logo steht gestapelt auf der Karte, wie im Original. Oben
           deshalb nur der Termin, sonst stuende die Marke zweimal da. */}
       <header className="pxl-buehne-kopf" style={{ justifyContent: 'flex-end' }}>
-        <TerminKnopf text={tr(lang, 'Termin vereinbaren', 'Book a call')} />
+        <TerminKnopf text={tr(lang, 'Termin vereinbaren', 'Book a call')} woher="anmeldung" />
       </header>
 
       <div className="pxl-buehne-inhalt pxl-anmelde-flaeche">

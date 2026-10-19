@@ -436,6 +436,18 @@ function Wege({ ergebnis, setErgebnis, empf, fertig }) {
   const [msg, setMsg] = useState('');
   const [mailAn, setMailAn] = useState(empf.email || '');
   const [mailOffen, setMailOffen] = useState(false);
+  const [gelesen, setGelesen] = useState(null);
+
+  // v1.51.0: Hat der Kunde reingeschaut? "Verschickt und nie geöffnet" heißt
+  // meistens, dass die Mail nicht ankam, nicht dass kein Interesse besteht.
+  useEffect(() => {
+    if (!ergebnis.link) return undefined;
+    const holen = () => api.get(`/api/vorlagen/${ergebnis.id}`)
+      .then((d) => setGelesen(d.vorlage.gelesen)).catch(() => {});
+    holen();
+    const takt = setInterval(holen, 30000);
+    return () => clearInterval(takt);
+  }, [ergebnis.id, ergebnis.link]);
 
   const freigeben = async () => {
     const d = await api.post(`/api/vorlagen/${ergebnis.id}/freigeben`, {});
@@ -471,17 +483,39 @@ function Wege({ ergebnis, setErgebnis, empf, fertig }) {
           Zum Weitergeben, auch über LinkedIn oder im Chat. Kein Konto nötig.
         </p>
         {ergebnis.link ? (
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-            <code style={{ fontSize: 12.5, wordBreak: 'break-all' }}>{ergebnis.link}</code>
-            <button type="button" className="tab" style={{ padding: 0, color: 'var(--navy)' }}
-              onClick={async () => {
-                try {
-                  await navigator.clipboard.writeText(ergebnis.link);
-                  setMsg('Link kopiert.');
-                } catch { setFehler('Kopieren ging nicht, bitte von Hand markieren.'); }
-              }}>Kopieren</button>
-            <a href={ergebnis.link} target="_blank" rel="noreferrer" style={{ fontSize: 13 }}>Ansehen</a>
-          </div>
+          <>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+              <code style={{ fontSize: 12.5, wordBreak: 'break-all' }}>{ergebnis.link}</code>
+              <button type="button" className="tab" style={{ padding: 0, color: 'var(--navy)' }}
+                onClick={async () => {
+                  try {
+                    await navigator.clipboard.writeText(ergebnis.link);
+                    setMsg('Link kopiert.');
+                  } catch { setFehler('Kopieren ging nicht, bitte von Hand markieren.'); }
+                }}>Kopieren</button>
+              <a href={ergebnis.link} target="_blank" rel="noreferrer" style={{ fontSize: 13 }}>Ansehen</a>
+            </div>
+
+            {/* v1.51.0: Hat der Kunde reingeschaut? "Verschickt und nie
+                geöffnet" heißt meistens, dass die Mail nicht ankam, und
+                nicht, dass kein Interesse besteht. Zwei Lagen, zwei
+                Reaktionen, und bisher sahen beide gleich aus. */}
+            {gelesen && (
+              gelesen.nie_geoeffnet ? (
+                <p style={{ fontSize: 12.5, marginTop: 8, color: 'var(--danger)' }}>
+                  Noch nicht geöffnet
+                  {gelesen.tage_seit_versand > 0
+                    && `, seit ${gelesen.tage_seit_versand} ${gelesen.tage_seit_versand === 1 ? 'Tag' : 'Tagen'}`}.
+                  {gelesen.tage_seit_versand >= 2 && ' Vielleicht liegt die Mail im Spam.'}
+                </p>
+              ) : (
+                <p className="muted" style={{ fontSize: 12.5, marginTop: 8 }}>
+                  {gelesen.aufrufe}× geöffnet, zuletzt{' '}
+                  {new Date(gelesen.zuletzt_am).toLocaleString('de-DE', { dateStyle: 'short', timeStyle: 'short' })}
+                </p>
+              )
+            )}
+          </>
         ) : (
           <button type="button" className="btn" style={{ width: 'auto', padding: '8px 16px', marginBottom: 0 }}
             disabled={busy} onClick={async () => {

@@ -29,6 +29,28 @@ async function requireAuth(req, res, next) {
   }
 }
 
+/**
+ * v1.51.0 — Wie requireAuth, aber ohne Zwang.
+ *
+ * Für Seiten, die jeder sehen darf, bei denen es aber hilft zu wissen, ob
+ * jemand angemeldet ist. Ein Klick auf den Terminknopf aus dem eigenen Konto
+ * heraus bedeutet etwas anderes als einer von der Anmeldeseite.
+ *
+ * Schlägt irgendetwas fehl, geht es ohne Benutzer weiter. Diese Middleware
+ * darf niemanden aussperren, das ist ihr ganzer Sinn.
+ */
+async function optionalAuth(req, _res, next) {
+  const token = req.cookies?.session;
+  if (!token) return next();
+  try {
+    const payload = verifyToken(token);
+    req.user = {
+      id: payload.sub, role: payload.role, tenantId: payload.tenantId,
+    };
+  } catch { /* nicht angemeldet, auch gut */ }
+  return next();
+}
+
 function requireRole(...roles) {
   return (req, res, next) => {
     if (!req.user) return res.status(401).json({ error: 'Nicht angemeldet' });
@@ -43,4 +65,4 @@ function requireRole(...roles) {
   };
 }
 
-module.exports = { requireAuth, requireRole };
+module.exports = { requireAuth, optionalAuth, requireRole };

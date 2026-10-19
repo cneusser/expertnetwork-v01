@@ -101,7 +101,7 @@ export default function KapitalpartnerWerden() {
       <header className="pxl-buehne-kopf">
         <Logo variante="dunkel" zusatz="Expert Network" />
         <span style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
-          <TerminKnopf />
+          <TerminKnopf woher="kapitalpartner-kopf" />
           <Link to="/login" style={{ fontSize: 14 }}>Zur Anmeldung</Link>
         </span>
       </header>
@@ -229,7 +229,7 @@ export default function KapitalpartnerWerden() {
 
       <div style={{ marginTop: 40, paddingTop: 26, borderTop: '1px solid rgba(216,221,225,.18)' }}>
         <p style={{ marginBottom: 14 }}>Lieber erst sprechen? Fünfzehn Minuten reichen für die Einschätzung, ob es passt.</p>
-        <TerminKnopf klasse="pxl-knopf pxl-knopf-leise" text="Termin vereinbaren" />
+        <TerminKnopf klasse="pxl-knopf pxl-knopf-leise" text="Termin vereinbaren" woher="kapitalpartner" />
       </div>
       <LegalFooter />
       </div>
